@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Sosimple Energy</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/msal/2.38.3/msal-browser.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Segoe UI',sans-serif;background:#f4f7fb;color:#1a2332;min-height:100vh;}
+.topbar{background:#fff;border-bottom:3px solid #2B7FD4;padding:0 20px;display:flex;align-items:center;justify-content:space-between;height:64px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(43,127,212,0.1);}
+.logo{display:flex;align-items:center;gap:10px;}
+.logo-main{font-size:20px;font-weight:800;color:#2B7FD4;}
+.logo-tagline{font-size:10px;color:#7DC242;font-weight:600;letter-spacing:1px;text-transform:uppercase;}
+.topbar-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.top-stat{background:#f0f6ff;border:1px solid #c0d8f8;border-radius:20px;padding:4px 12px;font-size:11px;color:#2B7FD4;font-weight:500;}
+.top-stat.yellow{background:#fffbe0;border-color:#f0d840;color:#8a6a00;}
+.last-upd{font-size:10px;color:#9ab8d8;}
+.user-btn{background:#2B7FD4;border:none;border-radius:50%;width:32px;height:32px;color:#fff;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;}
+.upload-btn{background:#7DC242;border:none;border-radius:8px;padding:6px 14px;color:#fff;font-size:12px;font-weight:600;cursor:pointer;}
+.layout{display:flex;height:calc(100vh - 64px);}
+.sidebar{width:220px;background:#fff;border-right:1px solid #dce8f8;padding:14px 0;flex-shrink:0;overflow-y:auto;display:flex;flex-direction:column;}
+.sidebar-label{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#9ab8d8;padding:8px 18px 4px;font-weight:600;}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 18px;cursor:pointer;font-size:13px;color:#5a7aaa;border-left:3px solid transparent;}
+.nav-item:hover{background:#f0f6ff;color:#2B7FD4;}
+.nav-item.active{background:#f0f6ff;color:#2B7FD4;border-left-color:#2B7FD4;font-weight:600;}
+.nav-item i{font-size:16px;}
+.sidebar-bottom{margin-top:auto;padding:14px 18px;border-top:1px solid #dce8f8;font-size:10px;color:#9ab8d8;line-height:1.6;}
+.main{flex:1;overflow-y:auto;padding:20px;}
+.page{display:none;}.page.active{display:block;}
+.hero{background:linear-gradient(135deg,#2B7FD4,#1a5fa0);border-radius:14px;padding:20px 24px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;}
+.hero h2{font-size:18px;font-weight:700;color:#fff;margin-bottom:3px;}
+.hero p{font-size:12px;color:#c0d8f8;}
+.hero-stats{display:flex;gap:18px;flex-wrap:wrap;}
+.hstat-val{font-size:22px;font-weight:700;color:#F5D000;}
+.hstat-label{font-size:10px;color:#c0d8f8;}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:18px;}
+.kpi{background:#fff;border:1px solid #dce8f8;border-radius:10px;padding:12px 14px;border-top:3px solid #2B7FD4;}
+.kpi.y{border-top-color:#F5D000;}.kpi.g{border-top-color:#7DC242;}
+.kpi-label{font-size:10px;color:#7a9aba;margin-bottom:5px;font-weight:500;}
+.kpi-val{font-size:24px;font-weight:700;color:#1a2a4a;}
+.kpi-unit{font-size:11px;color:#7a9aba;font-weight:400;}
+.card{background:#fff;border:1px solid #dce8f8;border-radius:10px;padding:16px;margin-bottom:14px;}
+.card-title{font-size:13px;font-weight:600;color:#1a2a4a;margin-bottom:12px;display:flex;align-items:center;gap:7px;}
+.chart-wrap{position:relative;width:100%;height:220px;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.tbl{width:100%;border-collapse:collapse;font-size:12px;}
+.tbl th{text-align:left;padding:7px 9px;font-size:10px;color:#9ab8d8;font-weight:600;border-bottom:2px solid #dce8f8;text-transform:uppercase;background:#f8fbff;}
+.tbl td{padding:7px 9px;border-bottom:1px solid #f0f6ff;color:#2a3a5a;}
+.tbl tr:hover td{background:#f8fbff;}
+.badge{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:500;}
+.b-blue{background:#e8f0fb;color:#1a4a9a;border:1px solid #b8ccee;}
+.b-yellow{background:#fffbe0;color:#8a6a00;border:1px solid #f0d840;}
+.b-green{background:#edfae0;color:#3a7a00;border:1px solid #b8e890;}
+.b-orange{background:#fff3e0;color:#c65a00;border:1px solid #ffcc80;}
+.b-red{background:#fce8e8;color:#9a1a1a;border:1px solid #f5b8b8;}
+.b-gray{background:#f0f0f0;color:#4a4a4a;border:1px solid #d0d0d0;}
+.b-purple{background:#f3e8fb;color:#5a1a8a;border:1px solid #d4b8ee;}
+.search-bar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+.search-bar input,.search-bar select{padding:6px 11px;border:1px solid #c0d8f8;border-radius:8px;font-size:12px;color:#1a2a4a;background:#fff;outline:none;}
+.search-bar input{flex:1;min-width:160px;}
+.legend{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:8px;font-size:11px;color:#7a9aba;}
+.legend span{display:flex;align-items:center;gap:4px;}
+.leg-dot{width:9px;height:9px;border-radius:2px;flex-shrink:0;}
+.tab-bar{display:flex;gap:5px;margin-bottom:14px;flex-wrap:wrap;}
+.tab{padding:5px 13px;border-radius:20px;font-size:11px;border:1px solid #c0d8f8;color:#5a7aaa;cursor:pointer;background:#fff;}
+.tab.active{background:#2B7FD4;color:#fff;border-color:#2B7FD4;font-weight:600;}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+.form-group{display:flex;flex-direction:column;gap:4px;}
+.form-group label{font-size:11px;color:#7a9aba;font-weight:500;}
+.form-group input,.form-group select{padding:7px 10px;border:1px solid #c0d8f8;border-radius:7px;font-size:12px;color:#1a2a4a;outline:none;}
+.btn-primary{background:#2B7FD4;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:12px;cursor:pointer;font-weight:500;}
+.notif{position:fixed;top:72px;right:20px;background:#2B7FD4;color:#fff;padding:10px 18px;border-radius:8px;font-size:12px;z-index:999;display:none;}
+.notif.show{display:block;}
+@media(max-width:700px){.grid2{grid-template-columns:1fr;}.sidebar{width:50px;}.nav-item span,.sidebar-label,.sidebar-bottom{display:none;}}
+</style>
+</head>
+<body>
+<div class="notif" id="notif"></div>
+<input type="file" id="csvUpload" accept=".csv,.json" style="display:none" onchange="loadFile(this)"/>
+
+<div class="topbar">
+  <div class="logo">
+    <svg width="40" height="46" viewBox="0 0 46 52" fill="none">
+      <ellipse cx="23" cy="16" rx="18" ry="16" fill="#F5D000"/>
+      <ellipse cx="23" cy="36" rx="18" ry="16" fill="#2B7FD4"/>
+      <rect x="14" y="20" width="14" height="12" rx="2" fill="#7DC242" transform="rotate(-8 14 20)"/>
+    </svg>
+    <div>
+      <div class="logo-main">Sosimple</div>
+      <div class="logo-tagline">Cheap energy. Clean business.</div>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="top-stat" id="statSites">-- Sites</div>
+    <div class="top-stat yellow" id="statCap">-- MWp</div>
+    <div class="top-stat yellow" id="statBess">-- MWh</div>
+    <span class="last-upd" id="lastUpd">Loading...</span>
+    <button class="upload-btn" id="signInBtn" onclick="signIn()" style="background:#2B7FD4;"><i class="ti ti-brand-windows"></i>&nbsp;Sign in</button>
+    <button class="upload-btn" id="refreshBtn" onclick="refreshFromSharePoint()" style="display:none;"><i class="ti ti-refresh"></i>&nbsp;Refresh</button>
+    <button class="upload-btn" onclick="document.getElementById('csvUpload').click()">Upload CSV</button>
+    <button class="user-btn"><i class="ti ti-user"></i></button>
+  </div>
+</div>
+
+<div class="layout">
+  <nav class="sidebar">
+    <div class="sidebar-label">Portfolio</div>
+    <div class="nav-item active" onclick="showPage('overview',this)"><i class="ti ti-dashboard"></i><span>Installation Overview</span></div>
+    <div class="nav-item" onclick="showPage('sites',this)"><i class="ti ti-map-pin"></i><span>All Sites</span></div>
+    <div class="nav-item" onclick="showPage('provinces',this)"><i class="ti ti-map"></i><span>By Province</span></div>
+    <div class="nav-item" onclick="showPage('performance',this)"><i class="ti ti-activity"></i><span>Performance Overview</span></div>
+    <div class="nav-item" onclick="showPage('investor',this)"><i class="ti ti-chart-bar"></i><span>Investor View</span></div>
+    <div class="nav-item" onclick="showPage('om',this)"><i class="ti ti-tool"></i><span>O&amp;M Panel</span></div>
+    <div class="sidebar-label">Reports</div>
+    <div class="nav-item" onclick="showPage('reports',this)"><i class="ti ti-download"></i><span>Download Report</span></div>
+    <div class="sidebar-bottom">2026 Sosimple Energy<br>Cheap energy. Clean business.</div>
+  </nav>
+
+  <main class="main">
+
+    <!-- OVERVIEW -->
+    <div class="page active" id="page-overview">
+      <div class="hero">
+        <div><h2>Portfolio Dashboard</h2><p id="hero-sub">Loading...</p></div>
+        <div class="hero-stats">
+          <div><div class="hstat-val" id="h-sites">--</div><div class="hstat-label">Total Sites</div></div>
+          <div><div class="hstat-val" id="h-cap">--</div><div class="hstat-label">MWp Installed</div></div>
+          <div><div class="hstat-val" id="h-bess-mwh">--</div><div class="hstat-label">BESS Installed (MWh)</div></div>
+        </div>
+      </div>
+      <div class="kpi-grid" id="overviewKpis"></div>
+      <div class="grid2">
+        <div class="card"><div class="card-title"><i class="ti ti-chart-donut" style="color:#2B7FD4"></i>By business type</div><div class="legend" id="bizLeg"></div><div class="chart-wrap" style="height:190px"><canvas id="bizChart"></canvas></div></div>
+        <div class="card"><div class="card-title"><i class="ti ti-map" style="color:#2B7FD4"></i>Sites by province</div><div class="chart-wrap" style="height:210px"><canvas id="provChart"></canvas></div></div>
+      </div>
+      <div class="grid2">
+        <div class="card"><div class="card-title"><i class="ti ti-file-invoice" style="color:#F5D000"></i>Contract split</div><div class="legend" id="conLeg"></div><div class="chart-wrap" style="height:170px"><canvas id="contractChart"></canvas></div></div>
+        <div class="card"><div class="card-title"><i class="ti ti-users" style="color:#7DC242"></i>By investor</div><div class="legend" id="invLeg"></div><div class="chart-wrap" style="height:170px"><canvas id="investorChart"></canvas></div></div>
+      </div>
+    </div>
+
+    <!-- ALL SITES -->
+    <div class="page" id="page-sites">
+      <div style="font-size:19px;font-weight:700;color:#1a2a4a;margin-bottom:2px;">All Sites</div>
+      <div style="font-size:12px;color:#7a9aba;margin-bottom:18px;" id="sitesSubTitle">Complete portfolio</div>
+      <div class="search-bar">
+        <input type="text" id="siteSearch" placeholder="Search site name or location..." oninput="filterSites()"/>
+        <select id="filterProvince" onchange="filterSites()"><option value="">All Provinces</option></select>
+        <select id="filterType" onchange="filterSites()"><option value="">All Types</option><option>Retail</option><option>Manufacture</option><option>Residential</option><option>Commercial</option><option>Agricultural</option></select>
+        <select id="filterContract" onchange="filterSites()"><option value="">All Contracts</option><option>PPA</option><option>RTO</option></select>
+      </div>
+      <div style="font-size:11px;color:#7a9aba;margin-bottom:8px;" id="siteCount"></div>
+      <table class="tbl"><thead><tr><th>Site Name</th><th>Province</th><th>Capacity</th><th>Type</th><th>Contract</th><th>Investor</th><th>Battery</th><th>Status</th></tr></thead><tbody id="sitesBody"></tbody></table>
+    </div>
+
+    <!-- BY PROVINCE -->
+    <div class="page" id="page-provinces">
+      <div style="font-size:19px;font-weight:700;color:#1a2a4a;margin-bottom:2px;">Sites by Province</div>
+      <div style="font-size:12px;color:#7a9aba;margin-bottom:18px;">Geographic breakdown</div>
+      <div id="provinceCards"></div>
+    </div>
+
+    <!-- PERFORMANCE -->
+    <div class="page" id="page-performance">
+      <div style="font-size:19px;font-weight:700;color:#1a2a4a;margin-bottom:2px;">Performance Overview</div>
+      <div style="font-size:12px;color:#7a9aba;margin-bottom:18px;">Site performance by investment party, date and performance band</div>
+      <div class="card" style="margin-bottom:14px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;">
+          <div class="form-group">
+            <label>Investment Party</label>
+            <select id="pf-investor" onchange="filterPerformance()">
+              <option value="">All</option>
+              <option value="12B Fund">12B Fund</option>
+              <option value="Anuva">Anuva</option>
+              <option value="SSI">SSI</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Date (Year-Month)</label>
+            <select id="pf-date" onchange="filterPerformance()"><option value="">All</option></select>
+          </div>
+          <div class="form-group">
+            <label>PF Band</label>
+            <select id="pf-band" onchange="filterPerformance()">
+              <option value="">All</option>
+              <option value="Expected">Expected</option>
+              <option value="Moderate">Moderate</option>
+              <option value="Poor">Poor</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:#7a9aba;margin-bottom:12px;" id="pf-status">Loading...</div>
+      <div class="grid2">
+        <div class="card">
+          <div class="card-title"><i class="ti ti-chart-donut" style="color:#2B7FD4"></i>Expected, Moderate and Poor</div>
+          <div class="legend" id="pf-legend"></div>
+          <div class="chart-wrap" style="height:220px"><canvas id="pfChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-title"><i class="ti ti-chart-bar" style="color:#2B7FD4"></i>Performance summary</div>
+          <div class="kpi-grid" id="pf-kpis" style="grid-template-columns:1fr 1fr;"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title"><i class="ti ti-list" style="color:#2B7FD4"></i>Site performance details</div>
+        <table class="tbl">
+          <thead><tr><th>Site Name</th><th>Investment Party</th><th>Date</th><th style="text-align:right">Measured (kWh)</th><th style="text-align:right">Expected (kWh)</th><th style="text-align:right">Performance (%)</th><th>PF Band</th></tr></thead>
+          <tbody id="pf-body"></tbody>
+          <tfoot><tr style="font-weight:700;background:#f8fbff;"><td colspan="5" style="padding:8px 9px;color:#1a2a4a;">Total</td><td style="padding:8px 9px;color:#2B7FD4;text-align:right" id="pf-total"></td><td></td></tr></tfoot>
+        </table>
+      </div>
+    </div>
+
+    <!-- INVESTOR -->
+    <div class="page" id="page-investor">
+      <div style="font-size:19px;font-weight:700;color:#1a2a4a;margin-bottom:2px;">Investor View</div>
+      <div style="font-size:12px;color:#7a9aba;margin-bottom:18px;">Portfolio by investment party</div>
+      <div class="tab-bar">
+        <div class="tab active" onclick="switchInvTab('all',this)">All</div>
+        <div class="tab" onclick="switchInvTab('SSI',this)">SSI</div>
+        <div class="tab" onclick="switchInvTab('Anuva',this)">Anuva</div>
+        <div class="tab" onclick="switchInvTab('12B Fund',this)">12B Fund</div>
+      </div>
+      <div class="kpi-grid" id="invKpis"></div>
+      <div class="card"><div class="card-title"><i class="ti ti-chart-bar" style="color:#2B7FD4"></i>Capacity by investor (MWp)</div><div class="chart-wrap" style="height:200px"><canvas id="invCapChart"></canvas></div></div>
+      <div class="card"><div class="card-title">Sites</div><table class="tbl"><thead><tr><th>Site</th><th>Province</th><th>Capacity</th><th>Contract</th><th>Type</th><th>Status</th></tr></thead><tbody id="invSitesBody"></tbody></table></div>
+    </div>
+
+    <!-- O&M -->
+    <div class="page" id="page-om">
+      <div style="font-size:19px;font-weight:700;color:#1a2a4a;margin-bottom:2px;">O&amp;M Panel</div>
+      <div style="font-size:12px;color:#7a9aba;margin-bottom:18px;">Platform coverage and battery sites</div>
+      <div class="kpi-grid" id="omKpis"></div>
+      <div class="grid2">
+        <div class="card"><div class="card-title"><i class="ti ti-device-desktop" style="color:#2B7FD4"></i>Monitoring platforms</div><div class="legend" id="platLeg"></div><div class="chart-wrap" style="height:190px"><canvas id="platformChart"></canvas></div></div>
+        <div class="card"><div class="card-title"><i class="ti ti-battery" style="color:#F5D000"></i>Battery sites</div><table class="tbl"><thead><tr><th>Site</th><th>kWh</th><th>Province</th></tr></thead><tbody id="bessBody"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- REPORTS -->
+    <div class="page" id="page-reports">
+      <div style="font-size:19px;font-weight:700;color:#1a2a4a;margin-bottom:2px;">Download Report</div>
+      <div style="font-size:12px;color:#7a9aba;margin-bottom:18px;">Generate and download PDF reports for stakeholders</div>
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-title"><i class="ti ti-building" style="color:#2B7FD4"></i>Installation Overview Report</div>
+        <div style="font-size:12px;color:#7a9aba;margin-bottom:14px;">Full portfolio summary — all sites, capacity, province, contract and investor</div>
+        <div class="form-grid" style="grid-template-columns:1fr 1fr;">
+          <div class="form-group">
+            <label>Investment Party</label>
+            <select id="rpt-inv-install">
+              <option value="">All</option>
+              <option value="12B Fund">12B Fund</option>
+              <option value="Anuva">Anuva</option>
+              <option value="SSI">SSI</option>
+            </select>
+          </div>
+          <div class="form-group"><label>&nbsp;</label><div style="font-size:11px;color:#9ab8d8;padding-top:8px;">All sites for selected investor will be included</div></div>
+        </div>
+        <button class="btn-primary" onclick="downloadInstallReport()" style="display:flex;align-items:center;gap:6px;"><i class="ti ti-file-type-pdf"></i>&nbsp;Download Installation PDF</button>
+      </div>
+      <div class="card">
+        <div class="card-title"><i class="ti ti-activity" style="color:#7DC242"></i>Performance Overview Report</div>
+        <div style="font-size:12px;color:#7a9aba;margin-bottom:14px;">Site performance — Expected, Moderate and Poor breakdown</div>
+        <div class="form-grid" style="grid-template-columns:1fr 1fr;">
+          <div class="form-group">
+            <label>Investment Party</label>
+            <select id="rpt-inv-perf">
+              <option value="">All</option>
+              <option value="12B Fund">12B Fund</option>
+              <option value="Anuva">Anuva</option>
+              <option value="SSI">SSI</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Date (Year-Month)</label>
+            <select id="rpt-date-perf"><option value="">All</option></select>
+          </div>
+        </div>
+        <button class="btn-primary" onclick="downloadPerfReport()" style="display:flex;align-items:center;gap:6px;background:#7DC242;"><i class="ti ti-file-type-pdf"></i>&nbsp;Download Performance PDF</button>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// Sites loaded from SharePoint sites_info.csv
+var SITES = [];
+
+// Parse the live CSV from SharePoint
+var SHAREPOINT_CSV = `Site Name ;PV Capacity (kW);PV Inverter Size (kW);Battery Size (kWh);Battery Name ;Battery Inverter/Hybrid Size;Generator  Size;Genset/Grid set point kit;Country ;Province;Location ;Meter;Contract Type;Business Type;Operational Satus;Sales Type ;Investment Party;Project Number;Commisioned Date;Installer Name ;Platform;Column1
+Vaal Maseru Klerksdorp;40000;;0;Solar MD;Sunsynk;null;null;South Africa;Free state;Cnr of Mikro and Von Wielligh Streets, Klerksdorp;null;PPA;Commercial;Decommissioned;;SSI;P00044;null;null;null;
+21 Melrose;14000;36;35808;Sunsynk;3x12kW;None;None;South Africa;Gauteng;21 Melrose St Melrose;N/A;RTO;Residential;Reduced Demand;;Anuva;P00062;2023/09/02;SA Energy ;Sunsynk;
+African Global Plastics;178000;2x80kW ;0;N/A;N/A;None;None;South Africa;Gauteng;1st St & 11th road, Kew, Sandton, 2090;Alester Meter;PPA;Manufacture;;;SSI;P00008;null;SA Energy ;mypower24;
+Alpine Heath Residential ;36000;1x33kW;0;N/A;N/A;None;None;South Africa;KZN;Busingatha, South Africa;Eastron Meter;PPA;Residential;Reduced Demand;;12B Fund;null;;SA Energy ;isolarCloud;
+Bendstore Plaza Shops;110000;1x110kW;0;N/A;N/A;N/A;N/A;South Africa;Limpopo;Stand 87, Bendstore Plaza, Giyani Main Rd, Giyani-BA, Giyani, 0832;null;PPA;Retail;;;Anuva;P00072;null;null;null;
+Bendstore Spar;400000;null;0;N/A;N/A;null;null;South Africa;Limpopo;null;null;PPA;Retail;;;Anuva;null;null;null;null;
+Beyerskloof;78000;null;0;N/A;N/A;null;null;South Africa;Western Cape;Koelenhof Street, R304, Koelenhof, Stellenbosch, 7600;null;PPA;Manufacture;;;SSI;null;null;null;null;
+BP Parys ;544000;50;0;N/A;N/A;N/A;N/A;South Africa;Free state;63 Bree St, Parys, 9585;Eastron Meter;RTO;Retail;;;SSI;null;;null;null;
+Buffalo Rock;15000;N/A;30600;null;2x12kW;N/A;N/A;South Africa;Mpumalanga;Hazyview Ehlanzeni District Municipality MP;null;RTO;Residential;;;SSI;P00054;2024/06/05;SA Energy ;Sunsynk;
+Checkers De Aar;154000;125;0;N/A;N/A;N/A;NuVo;South Africa;Northern Cape;21 Alexander St, De Aar, 7000, South Africa;;PPA;Retail;;;12B Fund;P00038;null;SA Energy ;iSolarCloud & NuVo;
+Checkers Silverlakes Gen;152000;125;0;N/A;N/A;500;Nuvo;South Africa;Gauteng;Chamberlain Shopping Cntr, Pretoria;Eastron Meter;PPA;Retail;;;12B Fund;null;2025/07/03;SA Energy ;isolarCloud;
+Checkers Silverlakes No Gen;142000;125;0;N/A;N/A;N/A;N/A;South Africa;Gauteng;Chamberlain Shopping Cntr, Pretoria;Eastron Meter;PPA;Retail;;;12B Fund;null;2026/07/03;SA Energy ;isolarCloud;
+Checkrite Inanda;70000;2x33kW;0;N/A;N/A;N/A;N/A;South Africa;Gauteng;6th Ave, Springs New, Springs, 1560;null;PPA;Retail;;;12B Fund;P00056;null;SA Energy ;iSolarCloud;
+Club Houghton;60000;N/A;84;N/A;6x12kW Sunsynk Inverters;N/A;null;South Africa;Gauteng;Osborn Rd, Houghton Estate, Johannesburg;N/A;PPA;Residential;;;Anuva;P00067;null;SA Energy ;Sunsynk;
+Coldstar International;41000;36;0;N/A;N/A;N/A;N/A;South Africa;KZN;3 Rana Rd, Isipingo Rail, Isipingo;N/A;PPA;Commercial;;;Anuva;P00051;;SA Energy ;iSolarCloud;
+Cultura Fresh;65000;null;null;N/A;N/A;N/A;null;South Africa;Western Cape;null;null;PPA;Agricultural;;;12B Fund;null;null;null;null;
+Demco;235000;2x110kW;0;N/A;N/A;N/A;N/A;South Africa;Gauteng;Industries East, 12-14 Moller Street, Germiston;Alester Meter;PPA;Manufacture;Reduced Demand;;12B Fund;P00035;null;SA Energy ;iSolarCloud;
+Giba Gorge Main;180000;160;0;N/A;N/A;N/A;N/A;South Africa;KZN;5QCJ+XM2 Clifton Canyon, Pinetown Rural;Alester Meter;PPA;Manufacture;;;SSI;P00069;null;SA Energy ;soliscloud;
+Giba Gorge Storage;106000;null;0;N/A;N/A;N/A;null;South Africa;KZN;5QCJ+XM2 Clifton Canyon, Pinetown Rural;Alester Meter;PPA;Commercial;;;SSI;null;null;null;SolisCloud;
+Golden Spot Resort;30000;33;0;N/A;N/A;N/A;N/A;South Africa;Mpumalanga;HR2M+GQ7 Alkmaar;null;PPA;Residential;;;SSI;P00071;2023/05/26;SA Energy ;iSolarCloud;
+Golden Spot Shops;30000;33;0;N/A;N/A;N/A;N/A;South Africa;Mpumalanga;HR2M+GQ7 Alkmaar;null;PPA;Retail;;;SSI;P00060;2023/05/26;SA Energy ;iSolarCloud;
+HB Dunn;24000;N/A;127400;N/A;1x50 kW;N/A;N/A;South Africa;Mpumalanga;Kriel Nkangala District Municipality MP;null;RTO;Residential;;;SSI;P00045;;SA Energy ;Sunsynk;
+Helderberg Collage ;223000;null;0;N/A;N/A;N/A;null;South Africa;Western Cape;null;null;PPA;Residential;;;SSI;null;null;null;null;
+Hilston Rotoflo;240000;240 kWp;0;N/A;N/A;N/A;N/A;South Africa;Gauteng;28 Hilston Rd, Kya Sand, Randburg;null;PPA;Residential;;;Anuva;P00055;2023/09/06;SA Energy ;isolarCloud;
+Huis Herfsblaar;215000;2 x 110kW;0;N/A;N/A;N/A;N/A;South Africa;Gauteng;1244 Webb Rd, Queenswood, Pretoria;Eastron Meter;PPA;Commercial;;;12B Fund;P00034;2024/06/20;SA Energy ;iSolarCloud;
+Kool Village ;79000;null;null;N/A;N/A;N/A;null;South Africa;Northern Cape;89 Virginia Way, Virginia, 9430;null;null;Commercial;;;Anuva;null;null;null;null;
+Mambha Cash & Carry;184000;null;null;N/A;N/A;N/A;null;South Africa;KZN;null;null;PPA;Retail;;;Anuva;P00015;null;SA Energy ;mypower24;
+Mathe Group Company;518000;4x110kW;0;N/A;N/A;N/A;N/A;South Africa;KZN;4/160 Buckman Blvd, Cato Ridge;null;PPA;Manufacture;;;Anuva;P00059;2022/04/11;SA Energy ;iSolarCloud;
+Mdluli;114000;null;null;N/A;N/A;N/A;null;South Africa;Mpumalanga;Makoko, South Africa;null;PPA;Residential;;;12B Fund;P00083;null;SA Energy ;mypower24;
+Meredale Heights ;33000;1x33 kW;0;N/A;N/A;N/A;N/A;South Africa;Gauteng;40 Thomas Street;null;PPA;Residential;;;Anuva;P00052;;SA Energy ;iSolarCloud;
+Monument Park Checkers;281000;2x125kW;0;N/A;N/A;N/A;NuVo;South Africa;Gauteng;242 Voortrekker Rd, Monument, Krugersdorp;null;PPA;Retail;;;Anuva;P00037;null;SA Energy ;isolarCloud;
+Nkambeni Industrial;158400;125;458000;Solar MD;Atess PCS500;N/A;null;South Africa;Mpumalanga;139 Numbi Rd, Hazyview, 1350;null;RTO;Residential;;;SSI;P00040;null;SA Energy ;null;
+Opal Students ;35000;1x33 kW;0;N/A;N/A;N/A;N/A;South Africa;Gauteng;Opal Students;null;RTO;Retail;;;Anuva;P00057;2023/09/05;SA Energy ;iSolarCloud;
+Orthochem Bethlehem;220000;null;0;N/A;N/A;N/A;null;South Africa;Free state;6 Sauer Street, Bethlehem;null;PPA;Manufacture;;;SSI;P00063;null;SA Energy ;isolarCloud;
+Plastiplate ;66000;2x33kW;0;N/A;N/A;N/A;N/A;South Africa;Gauteng;6 Adderley, Roodepoort, 1724;null;PPA;Manufacture;;;Anuva;P00061;2022/05/07;SA Energy ;iSolarCloud;
+PNB Unlimited;95000;null;0;N/A;N/A;N/A;null;South Africa;North West;8X4H+VXW Amaoti;null;PPA;Commercial;;;SSI;null;null;SA Energy ;null;
+Q-lity Meat;35000;30;0;N/A;N/A;N/A;NuVo;South Africa;Gauteng;null;null;PPA;Retail;;;SSI;P00007;null;SA Energy ;isolarCloud;
+Quintondale;40000;33;0;N/A;N/A;N/A;N/A;South Africa;Gauteng;43 Orchards Street, Johannesburg;null;PPA;Residential;;;SSI;P00065;null;SA Energy ;null;
+Riverside Lodge ;110000;2x50kWp;0;N/A;N/A;N/A;N/A;South Africa;North West;Hartbeespoort, South Africa;null;PPA;Residential;;;Anuva;P00053;2023/12/05;SA Energy ;iSolarCloud;
+Sakhumnotho;38000;30;0;N/A;N/A;N/A;N/A;South Africa;Gauteng;R3W5+96X Johannesburg;null;PPA;Commercial;;;SSI;P00043;null;SA Energy ;null;
+SaveMore Alldays - Store;180000;100;0;N/A;N/A;N/A;N/A;South Africa;Limpopo;R572, Alldays, 0909;null;PPA;Retail;;;SSI;P00050;null;SA Energy ;soliscloud;
+Savemore Liquor Alldays ;27300;30;0;N/A;N/A;N/A;N/A;South Africa;Limpopo;84C3+PG2 Alldays;null;PPA;Retail;;;SSI;null;null;null;soliscloud;
+Saverite Durban;95000;null;null;N/A;N/A;N/A;null;South Africa;KZN;null;null;PPA;Retail;;;Anuva;null;null;null;null;
+Saverite PMB;96000;null;0;N/A;N/A;N/A;null;South Africa;KZN;457 Langalibalele St, Pietermaritzburg;null;PPA;Retail;;;SSI;null;null;SA Energy ;null;
+Secunda Plaza Choppies;121000;110;0;N/A;N/A;N/A;N/A;South Africa;Mpumalanga;8337 Pichlerplien, Secunda;null;PPA;Retail;;;SSI;P00076;;SA Energy ;iSolarCloud;
+Secunda Plaza Shops;35000;33;0;N/A;N/A;N/A;N/A;South Africa;Mpumalanga;8309 Louwrens Muller St, Secunda;null;PPA;Retail;;;SSI;P00075;;SA Energy ;iSolarCloud;
+Shoprite Dube ;153000;125;0;N/A;N/A;N/A;N/A;South Africa;Gauteng;Shoprite Maponya Center, Dube, Soweto;Eastron Meter;PPA;Retail;;;12B Fund;null;;SA Energy ;isolarCloud;
+Shoprite Hillbrow;126000;null;0;N/A;N/A;500kVa ;NuVo;South Africa;Gauteng;null;Eastron Meter;PPA;Retail;;;12B Fund;null;null;null;null;
+Shoprite Ladybrand ;250000;110;0;N/A;N/A;N/A;N/A;South Africa;Free state;248 Voortrekkers Ave, Ladybrand;Eastron Meter;PPA;Retail;;;12B Fund;null;;null;null;
+Shoprite Mini Ganyesa;240000;110;0;N/A;N/A;N/A;NuVo;South Africa;North West;Hartbeespoort, South Africa;Eastron Meter;PPA;Retail;;;12B Fund;P00078;;SA Energy ;isolarCloud;
+Shoprite Naledi;125000;125;0;N/A;N/A;500;NuVo;South Africa;Gauteng;PRVC+MPW Soweto;Eastron Meter;PPA;Retail;;;12B Fund;null;null;SA Energy ;Sunsynk;
+Spring Glade;116000;110;0;N/A;N/A;N/A;N/A;South Africa;Gauteng;VR7R+269 Roodepoort;Alester Meter;PPA;Residential;;;SSI;null;null;SA Energy ;SolisCloud;
+Thakadu Industrial;61600;null;289000;N/A;N/A;N/A;null;South Africa;North West;D53 Thakadu Gate, Madikwe Game Reserve;null;PPA;Residential;;;SSI;null;null;null;null;
+The Alec;55000;50 kWp;0;N/A;N/A;N/A;NuVo;South Africa;Gauteng;48 Goldreich St, Hillbrow, Johannesburg;null;PPA;Residential;;;Anuva;null;;SA Energy ;isolarCloud;
+Three Peaks;40000;1x33kW;0;N/A;N/A;N/A;N/A;South Africa;KZN;22A Underwood Rd, Pinetown;null;PPA;Residential;;;Anuva;P00064;;SA Energy ;iSolarCloud;
+TPF Foods ;34000;30;0;N/A;N/A;N/A;null;South Africa;Limpopo;Q2R4+98G;Alester Meter;PPA;Retail;;;SSI;null;null;null;null;
+Trouw Nutrition;103000;null;0;N/A;N/A;N/A;null;South Africa;Gauteng;null;Alester Meter;PPA;Manufacture;;;SSI;null;null;null;null;
+Watt Place Rotoflo;230000;2x110kW;0;N/A;N/A;N/A;NuVo;South Africa;Gauteng;10 Watt Pl, Kya Sand, Randburg;null;PPA;Manufacture;;;Anuva;P00048;2023/09/06;SA Energy ;isolarCloud;
+Zwartop Golf Course;27000;1x33kW;null;N/A;N/A;N/A;null;South Africa;Gauteng;ZwartKop Golf Club, Centurion;null;RTO;Residential;;;Anuva;null;null;null;null;
+Shoprite Thokoza;115000;125;0;N/A;N/A;N/A;N/A;South Africa;Gauteng;9102 Khumalo St, Thokoza;Eastron Meter;PPA;Retail;;;12B Fund;null;2025/04/05;SA Energy ;IsolarCloud;
+U Save Botrivier ;33000;30;0;N/A;N/A;N/A;N/A;South Africa;Western Cape;3 8th Ave, Bot River, 7185;Eastron Meter;PPA;Retail;;;SSI;null;;SA Energy ;IsolarCloud;
+SR Morula TF 1;57000;50;0;N/A;N/A;N/A;N/A;South Africa;Gauteng;8408 Mangope Rd, Mabopane;Eastron Meter;PPA;Retail;;;SSI;P00091;null;SA Energy ;IsolarCloud;
+SR Morula TF 1 - Shoprite;177000;125;0;N/A;N/A;N/A;N/A;South Africa;Gauteng;8409 Mangope Rd, Mabopane;Eastron Meter;PPA;Retail;;;12B Fund;P00091;;SA Energy ;IsolarCloud;
+SR Morula TF 2;57000;50;0;N/A;N/A;N/A;N/A;South Africa;Gauteng;8410 Mangope Rd, Mabopane;Eastron Meter;PPA;Retail;;;12B Fund;P00091;;SA Energy ;IsolarCloud;
+Olievenhoutbosch 1;70000;null;0;N/A;N/A;N/A;N/A;South Africa;Gauteng;33WW+C5W Centurion;Eastron Meter;PPA;Retail;;;SSI;null;null;null;null;
+Olievenhoutbosch 2;300000;null;0;N/A;N/A;N/A;N/A;South Africa;Gauteng;33WW+C5W Centurion;Eastron Meter;PPA;Retail;;;SSI;null;null;null;null;
+IPID - Floor 6;47600;null;0;N/A;N/A;N/A;N/A;South Africa;Gauteng;7633+M46 Pretoria;Eastron Meter;PPA;Commercial;;;SSI;null;null;null;null;
+IPID - Floor 4;547400;null;0;N/A;N/A;N/A;N/A;South Africa;Gauteng;7633+M46 Pretoria;Eastron Meter;PPA;Commercial;;;SSI;null;null;null;null;
+Shoprite Newlands;200000;null;0;N/A;N/A;N/A;N/A;South Africa;KZN;2 Marble Ray Drive, Durban;Eastron Meter;PPA;Residential;;;SSI;null;null;null;null;
+Grootpan;170000;4x50kW;491520;Deye;Daye;N/A;N/A;South Africa;North West;2G4H+RXQ Ga-Motlatla;N/A;RTO;Agricultural;;;SSI;null;null;OTG 4 U;Deye Cloud;
+Medipost;330000;null;0;N/A;N/A;N/A;N/A;South Africa;Western Cape;593 Nico Smith St, Gezina, Pretoria;Eastron Meter;PPA;Commercial;;;12B Fund;null;null;null;null;
+Makalali;;;0;N/A;N/A;N/A;N/A;South Africa;Limpopo;Makalali Game Reserve, Gravelotte;;;Agricultural;;;;;;;;
+Engen Lotus Gardens;;;0;N/A;N/A;N/A;N/A;South Africa;Gauteng;63WC+CQ4 Pretoria;Eastron Meter;PPA;Retail;;;;;;;;
+Shoprite Ekhaya;175680;150;0;N/A;N/A;N/A;N/A;South Africa;Mpumalanga;Ekhaya Mall, R546, Evander;Eastron Meter;PPA;Retail;Producing;;;;2026/02/15;SA Energy ;IsolarCloud;
+Roan Foods;127440;100;246;Deye;Deye;N/A;N/A;Zambia;Lusaka;J8VC+WPJ, Lusaka, Zambia;N/A;RTO;Retail;Producing;;;;2026/04/02;Dorman Energy;Deye Cloud;
+Engen Kaalfontein ;114000;125;0;N/A;N/A;N/A;N/A;South Africa;Gauteng;3117 Angelfish St, Kaalfontein, Midrand;Eastron Meter;PPA;Retail;;;;;;;;
+Alpine Heath Resort;217000;220;0;N/A;N/A;N/A;N/A;South Africa;;;;;;;;;;;;;
+Checkers Lichtenburg;161000;150;0;N/A;N/A;N/A;N/A;South Africa;North West;33 Nelson Mandela Dr, Lichtenburg;;;;;;;;;;;`;
+
+function parseCSV(csvText) {
+  var lines = csvText.split('\n').filter(function(l){return l.trim();});
+  var delim = ';';
+  var headers = lines[0].split(delim).map(function(h){return h.replace(/^\uFEFF/,'').trim();});
+  var result = [];
+  for(var i=1;i<lines.length;i++){
+    var cols = lines[i].split(delim);
+    function g(key){
+      var idx=-1;
+      for(var k=0;k<headers.length;k++){if(headers[k].toLowerCase().trim()===key.toLowerCase().trim()){idx=k;break;}}
+      return idx===-1?'':(cols[idx]||'').trim();
+    }
+    var name = g('Site Name');
+    if(!name) continue;
+    var capRaw = parseFloat(g('PV Capacity (kW)').replace(',','.')) || 0;
+    // CSV stores values in W (>1000 means W, convert to kW), except small values already in kW
+    var cap = capRaw > 1000 ? capRaw/1000 : capRaw;
+    var battRaw = parseFloat(g('Battery Size (kWh)').replace(',','.')) || 0;
+    var batt = battRaw > 1000 ? battRaw/1000 : battRaw;
+    var status = g('Operational Satus')||'Active';
+    if(!status||status==='null') status='Active';
+    result.push({
+      name: name,
+      cap: cap,
+      province: g('Province'),
+      country: g('Country'),
+      type: g('Business Type'),
+      contract: g('Contract Type'),
+      investor: g('Investment Party'),
+      platform: g('Platform'),
+      battery: batt,
+      status: status,
+      location: g('Location'),
+      meter: g('Meter'),
+      installer: g('Installer Name'),
+      projectNo: g('Project Number'),
+      commDate: g('Commisioned Date')
+    });
+  }
+  return result;
+}
+
+// Load from the embedded live CSV (read from SharePoint)
+SITES = parseCSV(SHAREPOINT_CSV);
+
+var PERF_DATA = [];
+var currentInv = 'all';
+var charts = {};
+var C = {blue:'#2B7FD4',yellow:'#F5D000',green:'#7DC242',orange:'#f0a500',gray:'#9ab8d8',purple:'#8b5cf6',red:'#ef4444'};
+var contractColor = {PPA:'b-blue',RTO:'b-green'};
+var typeColor = {Retail:'b-yellow',Manufacture:'b-purple',Residential:'b-green',Commercial:'b-blue',Agricultural:'b-gray'};
+var statusColor = {Active:'b-green',Producing:'b-green',Upcoming:'b-yellow',Decommissioned:'b-red','Reduced Demand':'b-orange'};
+
+Chart.defaults.color = '#7a9aba';
+Chart.defaults.borderColor = '#dce8f8';
+Chart.defaults.font.size = 11;
+
+function el(id) { return document.getElementById(id); }
+function setText(id,v) { var e=el(id); if(e) e.textContent=v; }
+function setHTML(id,v) { var e=el(id); if(e) e.innerHTML=v; }
+
+function mkChart(id,type,data,options) {
+  if(charts[id]) { charts[id].destroy(); }
+  var e = el(id);
+  if(!e) return;
+  var opts = options||{};
+  opts.responsive=true; opts.maintainAspectRatio=false;
+  if(!opts.plugins) opts.plugins={};
+  if(!opts.plugins.legend) opts.plugins.legend={display:false};
+  charts[id] = new Chart(e,{type:type,data:data,options:opts});
+}
+
+function showPage(id,nav) {
+  var pages = document.querySelectorAll('.page');
+  for(var i=0;i<pages.length;i++) pages[i].classList.remove('active');
+  var navs = document.querySelectorAll('.nav-item');
+  for(var i=0;i<navs.length;i++) navs[i].classList.remove('active');
+  var pg = el('page-'+id);
+  if(pg) pg.classList.add('active');
+  if(nav) nav.classList.add('active');
+  if(id==='performance') {
+    var inv=el('pf-investor');
+    if(inv) inv.innerHTML='<option value="">All</option><option value="12B Fund">12B Fund</option><option value="Anuva">Anuva</option><option value="SSI">SSI</option>';
+    if(PERF_DATA.length===0) loadPerformanceData();
+    else filterPerformance();
+  }
+  if(id==='reports') populateReportDates();
+}
+
+function showNotif(msg,bg) {
+  var n=el('notif'); if(!n) return;
+  n.textContent=msg; n.style.background=bg||'#2B7FD4';
+  n.classList.add('show');
+  setTimeout(function(){n.classList.remove('show');},3000);
+}
+
+function getProvMap() {
+  var m={};
+  for(var i=0;i<SITES.length;i++) {
+    var p=SITES[i].province||'Unknown';
+    if(!m[p]) m[p]=[];
+    m[p].push(SITES[i]);
+  }
+  return m;
+}
+
+function updateStats() {
+  SITES = SITES.filter(function(s){return s.name&&s.name.trim();});
+  var total=SITES.length, capVal=0, ppa=0, rto=0, bess=0, retail=0, decom=0, monitored=0, battTotal=0;
+  for(var i=0;i<SITES.length;i++) {
+    var s=SITES[i];
+    if(s.status!=='Decommissioned') capVal+=s.cap;
+    if(s.contract==='PPA') ppa++;
+    if(s.contract==='RTO') rto++;
+    if(s.battery>0){bess++;battTotal+=s.battery;}
+    if(s.type==='Retail') retail++;
+    if(s.status==='Decommissioned') decom++;
+    if(s.platform) monitored++;
+  }
+  var cap=(capVal/1000).toFixed(2);
+  var bessMWh=(battTotal/1000).toFixed(1);
+  setText('statSites',total+' Sites');
+  setText('statCap',cap+' MWp');
+  setText('statBess',bessMWh+' MWh');
+  setText('h-sites',total);
+  setText('h-cap',cap);
+  setText('h-bess-mwh',bessMWh);
+  setText('hero-sub',total+' solar installations across South Africa & Zambia');
+  setHTML('overviewKpis',
+    '<div class="kpi y"><div class="kpi-label">Total Sites</div><div class="kpi-val">'+total+'</div><div style="font-size:10px;color:#9ab8d8">'+(total-decom)+' active</div></div>'+
+    '<div class="kpi"><div class="kpi-label">Capacity</div><div class="kpi-val">'+cap+'<span class="kpi-unit"> MWp</span></div></div>'+
+    '<div class="kpi g"><div class="kpi-label">PPA Sites</div><div class="kpi-val">'+ppa+'</div></div>'+
+    '<div class="kpi"><div class="kpi-label">RTO Sites</div><div class="kpi-val">'+rto+'</div></div>'+
+    '<div class="kpi y"><div class="kpi-label">BESS Sites</div><div class="kpi-val">'+bess+'</div></div>'+
+    '<div class="kpi g"><div class="kpi-label">Retail Sites</div><div class="kpi-val">'+retail+'</div></div>');
+  setHTML('omKpis',
+    '<div class="kpi"><div class="kpi-label">Monitored</div><div class="kpi-val">'+monitored+'</div></div>'+
+    '<div class="kpi y"><div class="kpi-label">BESS Sites</div><div class="kpi-val">'+bess+'</div></div>'+
+    '<div class="kpi g"><div class="kpi-label">Total Battery</div><div class="kpi-val">'+bessMWh+'<span class="kpi-unit"> MWh</span></div></div>'+
+    '<div class="kpi"><div class="kpi-label">Decommissioned</div><div class="kpi-val">'+decom+'</div></div>');
+  buildCharts();
+  buildProvCards();
+  buildBess();
+  filterSites();
+  buildInvView();
+}
+
+function buildCharts() {
+  var types=['Retail','Residential','Manufacture','Commercial','Agricultural','Other'];
+  var tColors=[C.blue,C.green,C.yellow,C.orange,C.gray,C.purple];
+  var tCounts=[];
+  for(var i=0;i<types.length;i++){var c=0;for(var j=0;j<SITES.length;j++){if(SITES[j].type===types[i])c++;}tCounts.push(c);}
+  var bizLeg='';
+  for(var i=0;i<types.length;i++) bizLeg+='<span><span class="leg-dot" style="background:'+tColors[i]+'"></span>'+types[i]+' ('+tCounts[i]+')</span>';
+  setHTML('bizLeg',bizLeg);
+  mkChart('bizChart','doughnut',{labels:types,datasets:[{data:tCounts,backgroundColor:tColors,borderWidth:2,borderColor:'#fff'}]},{cutout:'60%'});
+
+  var pm=getProvMap();
+  var pKeys=Object.keys(pm).sort(function(a,b){return pm[b].length-pm[a].length;});
+  var pColors=[];
+  for(var i=0;i<pKeys.length;i++) pColors.push(i===0?C.blue:i===1?C.yellow:i===2?C.green:'#b8d4f0');
+  mkChart('provChart','bar',{labels:pKeys,datasets:[{data:pKeys.map(function(p){return pm[p].length;}),backgroundColor:pColors,borderRadius:4}]},{scales:{x:{ticks:{maxRotation:40,font:{size:9}}},y:{grid:{color:'#dce8f8'}}}});
+
+  var ppa=0,rto2=0,other2=0;
+  for(var i=0;i<SITES.length;i++){if(SITES[i].contract==='PPA')ppa++;else if(SITES[i].contract==='RTO')rto2++;else other2++;}
+  setHTML('conLeg','<span><span class="leg-dot" style="background:'+C.blue+'"></span>PPA ('+ppa+')</span><span><span class="leg-dot" style="background:'+C.green+'"></span>RTO ('+rto2+')</span><span><span class="leg-dot" style="background:'+C.gray+'"></span>Other ('+other2+')</span>');
+  mkChart('contractChart','doughnut',{labels:['PPA','RTO','Other'],datasets:[{data:[ppa,rto2,other2],backgroundColor:[C.blue,C.green,C.gray],borderWidth:2,borderColor:'#fff'}]},{cutout:'60%'});
+
+  var invs=['SSI','Anuva','12B Fund'];
+  var invCounts=[];
+  for(var i=0;i<invs.length;i++){var c=0;for(var j=0;j<SITES.length;j++){if(SITES[j].investor===invs[i])c++;}invCounts.push(c);}
+  var invColors=[C.blue,C.yellow,C.green];
+  var invLeg='';
+  for(var i=0;i<invs.length;i++) invLeg+='<span><span class="leg-dot" style="background:'+invColors[i]+'"></span>'+invs[i]+' ('+invCounts[i]+')</span>';
+  setHTML('invLeg',invLeg);
+  mkChart('investorChart','doughnut',{labels:invs,datasets:[{data:invCounts,backgroundColor:invColors,borderWidth:2,borderColor:'#fff'}]},{cutout:'60%'});
+
+  var plats=['iSolarCloud','Sunsynk','SolisCloud','mypower24','Deye Cloud','Other'];
+  var platColors=[C.blue,C.yellow,C.green,C.orange,C.red,C.gray];
+  var platC=[];
+  for(var i=0;i<plats.length;i++){var c=0;for(var j=0;j<SITES.length;j++){if(plats[i]==='Other'){if(!SITES[j].platform)c++;}else{if(SITES[j].platform&&SITES[j].platform.toLowerCase().indexOf(plats[i].toLowerCase())!==-1)c++;}}platC.push(c);}
+  var platLeg='';
+  for(var i=0;i<plats.length;i++) platLeg+='<span><span class="leg-dot" style="background:'+platColors[i]+'"></span>'+plats[i]+' ('+platC[i]+')</span>';
+  setHTML('platLeg',platLeg);
+  mkChart('platformChart','doughnut',{labels:plats,datasets:[{data:platC,backgroundColor:platColors,borderWidth:2,borderColor:'#fff'}]},{cutout:'60%'});
+
+  var invCaps=[];
+  for(var i=0;i<invs.length;i++){var t=0;for(var j=0;j<SITES.length;j++){if(SITES[j].investor===invs[i])t+=SITES[j].cap;}invCaps.push((t/1000).toFixed(2));}
+  mkChart('invCapChart','bar',{labels:invs,datasets:[{data:invCaps,backgroundColor:[C.blue,C.yellow,C.green],borderRadius:8}]},{scales:{y:{grid:{color:'#dce8f8'},ticks:{callback:function(v){return v+' MWp';}}}}});
+}
+
+function buildSitesTable(data) {
+  var html='';
+  for(var i=0;i<data.length;i++){
+    var s=data[i];
+    html+='<tr><td style="font-weight:500">'+s.name+'</td><td>'+s.province+'</td><td>'+s.cap.toFixed(1)+' kWp</td>'+
+      '<td><span class="badge '+(typeColor[s.type]||'b-gray')+'">'+(s.type||'--')+'</span></td>'+
+      '<td><span class="badge '+(contractColor[s.contract]||'b-gray')+'">'+(s.contract||'--')+'</span></td>'+
+      '<td>'+(s.investor||'--')+'</td>'+
+      '<td>'+(s.battery>0?'<span class="badge b-yellow">'+s.battery+' kWh</span>':'--')+'</td>'+
+      '<td><span class="badge '+(statusColor[s.status]||'b-gray')+'">'+(s.status||'--')+'</span></td></tr>';
+  }
+  setHTML('sitesBody',html);
+  setText('siteCount','Showing '+data.length+' of '+SITES.length+' sites');
+  setText('sitesSubTitle','Complete portfolio - '+SITES.length+' solar installations');
+}
+
+function filterSites() {
+  var q=el('siteSearch')?el('siteSearch').value.toLowerCase():'';
+  var prov=el('filterProvince')?el('filterProvince').value:'';
+  var type=el('filterType')?el('filterType').value:'';
+  var con=el('filterContract')?el('filterContract').value:'';
+  var filtered=[];
+  for(var i=0;i<SITES.length;i++){
+    var s=SITES[i];
+    if((!q||s.name.toLowerCase().indexOf(q)!==-1||s.province.toLowerCase().indexOf(q)!==-1)&&
+       (!prov||s.province===prov)&&(!type||s.type===type)&&(!con||s.contract===con)) filtered.push(s);
+  }
+  buildSitesTable(filtered);
+}
+
+function populateProvinceFilter() {
+  var provs=[];
+  for(var i=0;i<SITES.length;i++){if(SITES[i].province&&provs.indexOf(SITES[i].province)===-1)provs.push(SITES[i].province);}
+  provs.sort();
+  var html='<option value="">All Provinces</option>';
+  for(var i=0;i<provs.length;i++) html+='<option>'+provs[i]+'</option>';
+  setHTML('filterProvince',html);
+}
+
+function buildProvCards() {
+  var pm=getProvMap();
+  var keys=Object.keys(pm).sort(function(a,b){return pm[b].length-pm[a].length;});
+  var html='';
+  for(var i=0;i<keys.length;i++){
+    var prov=keys[i],sites=pm[prov],capT=0;
+    for(var j=0;j<sites.length;j++) capT+=sites[j].cap;
+    var spans='';
+    for(var j=0;j<sites.length;j++) spans+='<span style="background:#f0f6ff;border:1px solid #c0d8f8;border-radius:6px;padding:2px 9px;font-size:11px;color:#1a2a4a">'+sites[j].name+'</span>';
+    html+='<div class="card" style="margin-bottom:10px"><div class="card-title"><i class="ti ti-map-pin" style="color:#2B7FD4"></i>'+prov+'<span style="font-size:11px;color:#7a9aba;font-weight:400;margin-left:auto">'+sites.length+' sites - '+(capT/1000).toFixed(2)+' MWp</span></div><div style="display:flex;flex-wrap:wrap;gap:5px">'+spans+'</div></div>';
+  }
+  setHTML('provinceCards',html);
+}
+
+function buildBess() {
+  var bs=[];
+  for(var i=0;i<SITES.length;i++){if(SITES[i].battery>0)bs.push(SITES[i]);}
+  bs.sort(function(a,b){return b.battery-a.battery;});
+  var html='';
+  for(var i=0;i<bs.length;i++) html+='<tr><td>'+bs[i].name+'</td><td>'+bs[i].battery+'</td><td>'+bs[i].province+'</td></tr>';
+  setHTML('bessBody',html);
+}
+
+function switchInvTab(inv,nav) {
+  currentInv=inv;
+  var tabs=document.querySelectorAll('.tab');
+  for(var i=0;i<tabs.length;i++) tabs[i].classList.remove('active');
+  if(nav) nav.classList.add('active');
+  buildInvView();
+}
+
+function buildInvView() {
+  var data=[];
+  for(var i=0;i<SITES.length;i++){if(currentInv==='all'||SITES[i].investor===currentInv)data.push(SITES[i]);}
+  var cap=0,ppa=0,rto=0;
+  for(var i=0;i<data.length;i++){cap+=data[i].cap;if(data[i].contract==='PPA')ppa++;if(data[i].contract==='RTO')rto++;}
+  setHTML('invKpis',
+    '<div class="kpi"><div class="kpi-label">Sites</div><div class="kpi-val">'+data.length+'</div></div>'+
+    '<div class="kpi y"><div class="kpi-label">Capacity</div><div class="kpi-val">'+(cap/1000).toFixed(2)+'<span class="kpi-unit"> MWp</span></div></div>'+
+    '<div class="kpi g"><div class="kpi-label">PPA</div><div class="kpi-val">'+ppa+'</div></div>'+
+    '<div class="kpi"><div class="kpi-label">RTO</div><div class="kpi-val">'+rto+'</div></div>');
+  var html='';
+  for(var i=0;i<data.length;i++){
+    var s=data[i];
+    html+='<tr><td style="font-weight:500">'+s.name+'</td><td>'+s.province+'</td><td>'+s.cap.toFixed(1)+' kWp</td>'+
+      '<td><span class="badge '+(contractColor[s.contract]||'b-gray')+'">'+(s.contract||'--')+'</span></td>'+
+      '<td><span class="badge '+(typeColor[s.type]||'b-gray')+'">'+(s.type||'--')+'</span></td>'+
+      '<td><span class="badge '+(statusColor[s.status]||'b-gray')+'">'+(s.status||'--')+'</span></td></tr>';
+  }
+  setHTML('invSitesBody',html);
+}
+
+function loadFile(input) {
+  var file=input.files[0]; if(!file) return;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try {
+      var lines=e.target.result.split('\n').filter(function(l){return l.trim();});
+      var delim=lines[0].indexOf(';')!==-1?';':(lines[0].indexOf('\t')!==-1?'\t':',');
+      var headers=lines[0].split(delim).map(function(h){return h.replace(/"/g,'').trim();});
+      function get(cols,key){var idx=-1;for(var i=0;i<headers.length;i++){if(headers[i]===key||headers[i].trim()===key.trim()){idx=i;break;}}return idx===-1?'':(cols[idx]||'').replace(/"/g,'').trim();}
+      var result=[];
+      for(var i=1;i<lines.length;i++){
+        var cols=lines[i].split(delim);
+        var name=get(cols,'Site Name ')||get(cols,'Site Name');
+        if(!name) continue;
+        result.push({name:name,cap:parseFloat((get(cols,'PV Capacity (kW)')||'0').replace(',','.'))/1000||0,province:get(cols,'Province'),country:get(cols,'Country ')||get(cols,'Country')||'South Africa',type:get(cols,'Business Type'),contract:get(cols,'Contract Type'),investor:get(cols,'Investment Party'),platform:get(cols,'Platform'),battery:parseFloat(get(cols,'Battery Size (kWh)'))/1000||0,status:get(cols,'Operational Satus')||get(cols,'Operational Status')||'Active',location:get(cols,'Location ')||get(cols,'Location')});
+      }
+      SITES=result;
+      updateStats(); populateProvinceFilter();
+      setText('lastUpd',file.name+' - '+SITES.length+' sites - '+new Date().toLocaleTimeString());
+      showNotif(SITES.length+' sites loaded!');
+    } catch(err){showNotif('Error: '+err.message,'#ef4444');}
+  };
+  reader.readAsText(file);
+}
+
+function getInvestorForSite(name) {
+  for(var i=0;i<SITES.length;i++){
+    if(SITES[i].name.toLowerCase().trim()===name.toLowerCase().trim()) return SITES[i].investor||'';
+  }
+  return '';
+}
+
+function getPFBand(pct) {
+  if(pct>=90) return 'Expected';
+  if(pct>=70) return 'Moderate';
+  return 'Poor';
+}
+
+function normaliseDate(raw) {
+  if(!raw) return '';
+  raw=raw.toString().trim();
+  if(/^\d{4}-\d{2}$/.test(raw)) return raw;
+  if(/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw.substring(0,7);
+  var months={jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun:'06',jul:'07',aug:'08',sep:'09',sept:'09',oct:'10',nov:'11',dec:'12'};
+  var m=raw.match(/^([A-Za-z]+)[-\/\s](\d{2,4})$/);
+  if(m){
+    var mk=m[1].toLowerCase().substring(0,4);
+    var mn=months[mk]||months[m[1].toLowerCase().substring(0,3)];
+    if(mn){var yr=m[2].length===2?'20'+m[2]:m[2];return yr+'-'+mn;}
+  }
+  var m2=raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if(m2) return m2[3]+'-'+(m2[2].length===1?'0'+m2[2]:m2[2]);
+  var serial=parseFloat(raw);
+  if(!isNaN(serial)&&serial>40000){
+    var epoch=new Date(1899,11,30);
+    var d=new Date(epoch.getTime()+serial*86400000);
+    var y=d.getFullYear(),mo=d.getMonth()+1;
+    if(y>=2020&&y<=2030) return y+'-'+(mo<10?'0'+mo:''+mo);
+  }
+  return raw;
+}
+
+function formatDateLabel(yyyymm) {
+  if(!yyyymm) return yyyymm;
+  var parts=yyyymm.split('-');
+  if(parts.length!==2) return yyyymm;
+  var months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var mo=parseInt(parts[1],10)-1;
+  return months[mo]+'-'+parts[0].substring(2);
+}
+
+function loadPerformanceData() {
+  setText('pf-status','Loading performance data...');
+  fetch('https://sheetdb.io/api/v1/bjqcbxvn9yowy')
+    .then(function(res){return res.json();})
+    .then(function(data){
+      if(!Array.isArray(data)||data.length===0) throw new Error('No data');
+      PERF_DATA=[];
+      for(var i=0;i<data.length;i++){
+        var r=data[i];
+        var name=(r['Site Name']||r['Site Name ']||'').trim();
+        if(!name) continue;
+        var pfBand=(r['PF Band']||r['PF Band,']||'').toString().trim();
+        if(!pfBand||pfBand.toLowerCase()==='null') continue;
+        var pfLower=pfBand.toLowerCase();
+        if(pfLower==='expected'||pfLower==='good') pfBand='Expected';
+        else if(pfLower==='moderate'||pfLower==='average') pfBand='Moderate';
+        else if(pfLower==='poor'||pfLower==='bad') pfBand='Poor';
+        var perfRaw=(r['Performance']||r['Performance,']||'0').toString().replace('%','').replace(',','.').trim();
+        var perf=parseFloat(perfRaw)||0;
+        var rawDate=(r['Date']||r['Date,']||'').toString().trim();
+        var normDate=normaliseDate(rawDate);
+        var measured=parseFloat((r['Measured (kWh)']||r['Measured (kWh),']||'0').toString().replace(',','.').trim())||0;
+        var expected=parseFloat((r['Expected (kWh)']||r['Expected (kWh),']||'0').toString().replace(',','.').trim())||0;
+        var investor=(r['Investment Party']||r['Investor']||'').trim();
+        if(!investor) investor=getInvestorForSite(name);
+        PERF_DATA.push({name:name,date:normDate,investor:investor,measured:measured,expected:expected,performance:perf,band:pfBand});
+      }
+      populatePerformanceFilters();
+      setText('pf-status',PERF_DATA.length+' performance records loaded from SheetDB');
+    })
+    .catch(function(e){
+      console.warn('Performance data failed:',e);
+      setText('pf-status','Could not load performance data.');
+    });
+}
+
+function populatePerformanceFilters() {
+  var allDates=[];
+  for(var yr=2024;yr<=2027;yr++){for(var mo=1;mo<=12;mo++){var m=mo<10?'0'+mo:''+mo;allDates.push(yr+'-'+m);}}
+  var dateHtml='<option value="">All</option>';
+  for(var i=0;i<allDates.length;i++) dateHtml+='<option value="'+allDates[i]+'">'+formatDateLabel(allDates[i])+'</option>';
+  setHTML('pf-date',dateHtml);
+  var datesWithData=[];
+  for(var i=0;i<PERF_DATA.length;i++){if(PERF_DATA[i].date&&datesWithData.indexOf(PERF_DATA[i].date)===-1)datesWithData.push(PERF_DATA[i].date);}
+  datesWithData.sort().reverse();
+  var de=el('pf-date');
+  if(de&&datesWithData.length>0) de.value=datesWithData[0];
+  filterPerformance();
+}
+
+function filterPerformance() {
+  var inv=el('pf-investor')?el('pf-investor').value.trim():'';
+  var date=el('pf-date')?el('pf-date').value.trim():'';
+  var band=el('pf-band')?el('pf-band').value.trim():'';
+  var chartData=[],tableData=[];
+  for(var i=0;i<PERF_DATA.length;i++){
+    var r=PERF_DATA[i];
+    var mI=!inv||(r.investor||'').trim()===inv;
+    var mD=!date||(r.date||'').trim()===date;
+    var mB=!band||(r.band||'').trim()===band;
+    if(mI&&mD) chartData.push(r);
+    if(mI&&mD&&mB) tableData.push(r);
+  }
+  renderPerformance(chartData,tableData);
+}
+
+function renderPerformance(chartData,tableData) {
+  var exp=0,mod=0,poor=0,chartTotal=0;
+  for(var i=0;i<chartData.length;i++){
+    chartTotal+=chartData[i].performance;
+    if(chartData[i].band==='Expected') exp++;
+    else if(chartData[i].band==='Moderate') mod++;
+    else poor++;
+  }
+  var avg=chartData.length>0?(chartTotal/chartData.length).toFixed(2):0;
+  setHTML('pf-legend',
+    '<span><span class="leg-dot" style="background:'+C.blue+'"></span>Expected ('+exp+')</span>'+
+    '<span><span class="leg-dot" style="background:'+C.green+'"></span>Moderate ('+mod+')</span>'+
+    '<span><span class="leg-dot" style="background:'+C.yellow+'"></span>Poor ('+poor+')</span>');
+  if(charts['pfChart']){charts['pfChart'].destroy();delete charts['pfChart'];}
+  var pfEl=el('pfChart');
+  if(pfEl){
+    charts['pfChart']=new Chart(pfEl,{type:'pie',data:{labels:['Expected','Moderate','Poor'],datasets:[{data:[exp,mod,poor],backgroundColor:[C.blue,C.green,C.yellow],borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'right'}}}});
+  }
+  setHTML('pf-kpis',
+    '<div class="kpi"><div class="kpi-label">Total Sites</div><div class="kpi-val">'+chartData.length+'</div></div>'+
+    '<div class="kpi g"><div class="kpi-label">Expected</div><div class="kpi-val" style="color:'+C.blue+'">'+exp+'</div></div>'+
+    '<div class="kpi y"><div class="kpi-label">Moderate</div><div class="kpi-val" style="color:'+C.green+'">'+mod+'</div></div>'+
+    '<div class="kpi" style="border-top-color:#ef4444"><div class="kpi-label">Poor</div><div class="kpi-val" style="color:#ef4444">'+poor+'</div></div>'+
+    '<div class="kpi"><div class="kpi-label">Avg Performance</div><div class="kpi-val">'+avg+'<span class="kpi-unit">%</span></div></div>'+
+    '<div class="kpi"><div class="kpi-label">Total</div><div class="kpi-val">'+chartTotal.toFixed(2)+'<span class="kpi-unit">%</span></div></div>');
+  var tableTotal=0;
+  for(var i=0;i<tableData.length;i++) tableTotal+=tableData[i].performance;
+  var bandColors={Expected:'b-blue',Moderate:'b-green',Poor:'b-yellow'};
+  var html='';
+  for(var i=0;i<tableData.length;i++){
+    var r=tableData[i];
+    html+='<tr><td style="font-weight:500">'+r.name+'</td><td>'+(r.investor||'--')+'</td><td>'+r.date+'</td>'+
+      '<td style="text-align:right">'+(r.measured?r.measured.toLocaleString():'--')+'</td>'+
+      '<td style="text-align:right">'+(r.expected?r.expected.toLocaleString():'--')+'</td>'+
+      '<td style="text-align:right;font-weight:600">'+r.performance.toFixed(2)+'%</td>'+
+      '<td><span class="badge '+(bandColors[r.band]||'b-gray')+'">'+r.band+'</span></td></tr>';
+  }
+  setHTML('pf-body',html||'<tr><td colspan="7" style="text-align:center;color:#9ab8d8;padding:14px">No data for selected filters</td></tr>');
+  setText('pf-total',tableTotal.toFixed(2)+'%');
+}
+
+function populateReportDates() {
+  var allDates=[];
+  for(var yr=2024;yr<=2027;yr++){for(var mo=1;mo<=12;mo++){var m=mo<10?'0'+mo:''+mo;allDates.push(yr+'-'+m);}}
+  var html='<option value="">All</option>';
+  for(var i=0;i<allDates.length;i++) html+='<option value="'+allDates[i]+'">'+formatDateLabel(allDates[i])+'</option>';
+  setHTML('rpt-date-perf',html);
+  var datesWithData=[];
+  for(var i=0;i<PERF_DATA.length;i++){if(PERF_DATA[i].date&&datesWithData.indexOf(PERF_DATA[i].date)===-1)datesWithData.push(PERF_DATA[i].date);}
+  datesWithData.sort().reverse();
+  var de=el('rpt-date-perf');
+  if(de&&datesWithData.length>0) de.value=datesWithData[0];
+}
+
+function buildReportHTML(title,subtitle,kpisHTML,tableHTML) {
+  var genDate=new Date().toLocaleDateString('en-ZA');
+  return '<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>'+title+'</title>'+
+    '<style>body{font-family:Segoe UI,sans-serif;margin:40px;color:#1a2332;}h1{color:#2B7FD4;font-size:22px;margin-bottom:4px;}.sub{color:#7a9aba;font-size:13px;margin-bottom:20px;}.kpis{display:flex;gap:14px;margin:16px 0;flex-wrap:wrap;}.kpi{border:1px solid #dce8f8;border-radius:8px;padding:12px 16px;border-top:3px solid #2B7FD4;min-width:110px;}.kl{font-size:10px;color:#7a9aba;}.kv{font-size:20px;font-weight:700;color:#1a2a4a;}table{width:100%;border-collapse:collapse;font-size:11px;margin-top:16px;}th{background:#f0f6ff;padding:8px;text-align:left;border-bottom:2px solid #dce8f8;color:#2B7FD4;text-transform:uppercase;font-size:10px;}td{padding:7px 8px;border-bottom:1px solid #f0f6ff;}tr:nth-child(even) td{background:#f8fbff;}.footer{margin-top:30px;font-size:10px;color:#9ab8d8;border-top:1px solid #dce8f8;padding-top:10px;}@media print{body{margin:20px;}}</style></head><body>'+
+    '<h1>'+title+'</h1><div class="sub">'+subtitle+' | '+genDate+'</div>'+
+    '<div class="kpis">'+kpisHTML+'</div>'+tableHTML+
+    '<div class="footer">Sosimple Energy &copy; '+new Date().getFullYear()+' | Cheap energy. Clean business.</div>'+
+    '</body></html>';
+}
+
+function openReport(html) {
+  var blob=new Blob([html],{type:'text/html'});
+  var url=URL.createObjectURL(blob);
+  var win=window.open(url,'_blank');
+  if(!win){alert('Please allow popups to download reports.');return;}
+  win.onload=function(){win.print();};
+}
+
+function downloadInstallReport() {
+  var inv=el('rpt-inv-install')?el('rpt-inv-install').value:'';
+  var filtered=[];
+  for(var i=0;i<SITES.length;i++){if(!inv||SITES[i].investor===inv)filtered.push(SITES[i]);}
+  var totalCap=0,ppa=0,rto=0,bess=0;
+  for(var i=0;i<filtered.length;i++){
+    totalCap+=filtered[i].cap;
+    if(filtered[i].contract==='PPA') ppa++;
+    if(filtered[i].contract==='RTO') rto++;
+    if(filtered[i].battery>0) bess++;
+  }
+  var kpisHTML='<div class="kpi"><div class="kl">Total Sites</div><div class="kv">'+filtered.length+'</div></div>'+
+    '<div class="kpi"><div class="kl">Capacity</div><div class="kv">'+(totalCap/1000).toFixed(2)+' MWp</div></div>'+
+    '<div class="kpi"><div class="kl">PPA</div><div class="kv">'+ppa+'</div></div>'+
+    '<div class="kpi"><div class="kl">RTO</div><div class="kv">'+rto+'</div></div>'+
+    '<div class="kpi"><div class="kl">BESS</div><div class="kv">'+bess+'</div></div>';
+  var rows='';
+  for(var i=0;i<filtered.length;i++){
+    var s=filtered[i];
+    rows+='<tr><td>'+s.name+'</td><td>'+(s.province||'--')+'</td><td>'+s.cap.toFixed(1)+'</td><td>'+(s.type||'--')+'</td><td>'+(s.contract||'--')+'</td><td>'+(s.investor||'--')+'</td><td>'+(s.status||'--')+'</td></tr>';
+  }
+  var tableHTML='<table><thead><tr><th>Site Name</th><th>Province</th><th>Capacity (kWp)</th><th>Type</th><th>Contract</th><th>Investor</th><th>Status</th></tr></thead><tbody>'+rows+'</tbody></table>';
+  openReport(buildReportHTML('Installation Overview Report',inv?'Investment Party: '+inv:'All Investment Parties',kpisHTML,tableHTML));
+}
+
+function downloadPerfReport() {
+  var inv=el('rpt-inv-perf')?el('rpt-inv-perf').value:'';
+  var date=el('rpt-date-perf')?el('rpt-date-perf').value:'';
+  var filtered=[];
+  for(var i=0;i<PERF_DATA.length;i++){
+    var r=PERF_DATA[i];
+    if((!inv||(r.investor||'').trim()===inv)&&(!date||(r.date||'').trim()===date)) filtered.push(r);
+  }
+  var exp=0,mod=0,poor=0,total=0;
+  for(var i=0;i<filtered.length;i++){
+    total+=filtered[i].performance;
+    if(filtered[i].band==='Expected') exp++;
+    else if(filtered[i].band==='Moderate') mod++;
+    else poor++;
+  }
+  var avg=filtered.length>0?(total/filtered.length).toFixed(2):0;
+  var kpisHTML='<div class="kpi"><div class="kl">Total Sites</div><div class="kv">'+filtered.length+'</div></div>'+
+    '<div class="kpi" style="border-top-color:#2B7FD4"><div class="kl">Expected</div><div class="kv" style="color:#2B7FD4">'+exp+'</div></div>'+
+    '<div class="kpi" style="border-top-color:#7DC242"><div class="kl">Moderate</div><div class="kv" style="color:#7DC242">'+mod+'</div></div>'+
+    '<div class="kpi" style="border-top-color:#ef4444"><div class="kl">Poor</div><div class="kv" style="color:#ef4444">'+poor+'</div></div>'+
+    '<div class="kpi"><div class="kl">Avg Performance</div><div class="kv">'+avg+'%</div></div>';
+  var rows='';
+  for(var i=0;i<filtered.length;i++){
+    var r=filtered[i];
+    rows+='<tr><td>'+r.name+'</td><td>'+(r.investor||'--')+'</td><td>'+r.date+'</td>'+
+      '<td style="text-align:right">'+(r.measured?r.measured.toLocaleString():'--')+'</td>'+
+      '<td style="text-align:right">'+(r.expected?r.expected.toLocaleString():'--')+'</td>'+
+      '<td style="text-align:right;font-weight:600">'+r.performance.toFixed(2)+'%</td>'+
+      '<td>'+r.band+'</td></tr>';
+  }
+  var tableHTML='<table><thead><tr><th>Site Name</th><th>Investment Party</th><th>Date</th><th>Measured (kWh)</th><th>Expected (kWh)</th><th>Performance (%)</th><th>PF Band</th></tr></thead><tbody>'+rows+'</tbody></table>';
+  openReport(buildReportHTML('Performance Overview Report',(inv||'All Investors')+' | '+(date?formatDateLabel(date):'All Dates'),kpisHTML,tableHTML));
+}
+
+// ============================================================
+// SHAREPOINT LIVE CONNECTION (Microsoft Graph API via MSAL)
+// ============================================================
+// >>> FILL THESE IN FROM YOUR AZURE APP REGISTRATION <<<
+var AZURE_CONFIG = {
+  clientId: "92233c3b-b5a6-4e50-b05a-a9cb412ddc20",   // Application (client) ID
+  tenantId: "3763e3b2-8f2c-49dd-9572-942c7f066b0b"    // Directory (tenant) ID
+};
+
+// The SharePoint file location (already located for you)
+var SP_FILE = {
+  driveId: "b!DrDmCtlyikGtTDzLGMjUa7VAAqk4TgZFk17T7X7XBULqTB8IqOTxToVprNZpJv91",
+  itemId:  "01WWSM4ACHNAKC6G642NC2FAIHZWUWUCPZ",
+  name:    "sites_info.csv"
+};
+
+var msalInstance = null;
+var graphToken = null;
+
+function initMsal() {
+  if(typeof msal === 'undefined') {
+    console.warn('MSAL library not loaded');
+    return false;
+  }
+  if(AZURE_CONFIG.clientId.indexOf('PASTE') !== -1) {
+    setText('lastUpd','⚠ Add your Azure Client ID & Tenant ID to go live');
+    return false;
+  }
+  msalInstance = new msal.PublicClientApplication({
+    auth: {
+      clientId: AZURE_CONFIG.clientId,
+      authority: 'https://login.microsoftonline.com/' + AZURE_CONFIG.tenantId,
+      redirectUri: window.location.origin
+    },
+    cache: { cacheLocation: 'sessionStorage' }
+  });
+  return true;
+}
+
+function signIn() {
+  if(!msalInstance && !initMsal()) {
+    showNotif('Add your Azure Client ID & Tenant ID first','#ef4444');
+    return;
+  }
+  msalInstance.loginPopup({ scopes: ['Files.Read.All','Sites.Read.All'] })
+    .then(function(resp){
+      msalInstance.setActiveAccount(resp.account);
+      return acquireToken();
+    })
+    .then(function(){
+      el('signInBtn').style.display = 'none';
+      el('refreshBtn').style.display = '';
+      refreshFromSharePoint();
+    })
+    .catch(function(e){
+      console.error('Login failed:',e);
+      showNotif('Sign-in failed: '+e.message,'#ef4444');
+    });
+}
+
+function acquireToken() {
+  var account = msalInstance.getActiveAccount();
+  return msalInstance.acquireTokenSilent({ scopes: ['Files.Read.All','Sites.Read.All'], account: account })
+    .then(function(r){ graphToken = r.accessToken; })
+    .catch(function(){
+      return msalInstance.acquireTokenPopup({ scopes: ['Files.Read.All','Sites.Read.All'] })
+        .then(function(r){ graphToken = r.accessToken; });
+    });
+}
+
+function refreshFromSharePoint() {
+  if(!graphToken) { showNotif('Please sign in first','#ef4444'); return; }
+  setText('lastUpd','Fetching from SharePoint...');
+  var url = 'https://graph.microsoft.com/v1.0/drives/' + SP_FILE.driveId + '/items/' + SP_FILE.itemId + '/content';
+  fetch(url, { headers: { Authorization: 'Bearer ' + graphToken } })
+    .then(function(res){
+      if(!res.ok) throw new Error('Graph returned ' + res.status);
+      return res.text();
+    })
+    .then(function(csvText){
+      SITES = parseCSV(csvText);
+      updateStats();
+      populateProvinceFilter();
+      setText('lastUpd','✓ Live from SharePoint — ' + new Date().toLocaleTimeString());
+      showNotif(SITES.length + ' sites loaded live from SharePoint!');
+    })
+    .catch(function(e){
+      // Token may have expired — try to re-acquire once
+      console.warn('Fetch failed, retrying token:', e);
+      acquireToken().then(function(){
+        return fetch(url, { headers: { Authorization: 'Bearer ' + graphToken } });
+      }).then(function(res){ return res.text(); })
+        .then(function(csvText){
+          SITES = parseCSV(csvText);
+          updateStats(); populateProvinceFilter();
+          setText('lastUpd','✓ Live from SharePoint — ' + new Date().toLocaleTimeString());
+        })
+        .catch(function(err){
+          setText('lastUpd','SharePoint fetch failed — showing last data');
+          showNotif('Could not reach SharePoint: '+err.message,'#ef4444');
+        });
+    });
+}
+
+window.onload = function() {
+  // Start with the embedded snapshot so the dashboard is never blank
+  SITES = parseCSV(SHAREPOINT_CSV);
+  updateStats();
+  populateProvinceFilter();
+  setText('lastUpd','Snapshot data — sign in for live SharePoint');
+
+  // Try to initialise MSAL and auto-load if already signed in
+  if(initMsal()) {
+    var accounts = msalInstance.getAllAccounts();
+    if(accounts.length > 0) {
+      msalInstance.setActiveAccount(accounts[0]);
+      el('signInBtn').style.display = 'none';
+      el('refreshBtn').style.display = '';
+      acquireToken().then(refreshFromSharePoint);
+    }
+    // Auto-refresh every 5 minutes when signed in
+    setInterval(function(){ if(graphToken) refreshFromSharePoint(); }, 5*60000);
+  }
+};
+</script>
+</body>
+</html>
