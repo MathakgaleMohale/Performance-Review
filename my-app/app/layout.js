@@ -1,8 +1,8 @@
 import './globals.css'
 
 export const metadata = {
-  title: 'My App',
-  description: 'Built with Next.js',
+  title: 'Sosimple Energy Portal',
+  description: 'Solar performance monitoring for Sosimple Energy',
 }
 
 export default function RootLayout({ children }) {

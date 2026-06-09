@@ -1,8 +1,12 @@
-export default function Home() {
-  return (
-    <main>
-      <h1>Welcome to My App</h1>
-      <p>Get started by editing app/page.js</p>
-    </main>
-  )
+import { redirect } from 'next/navigation'
+import { getCurrentUser } from '@/lib/auth'
+
+export default async function Home() {
+  const user = await getCurrentUser()
+
+  if (!user) redirect('/login')
+  if (user.role === 'employee') redirect('/dashboard')
+  if (user.role === 'investor') redirect('/investor')
+
+  redirect('/login')
 }
