@@ -9,14 +9,15 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [activePage, setActivePage] = useState('overview')
   const [searchQuery, setSearchQuery] = useState('')
-  const [filterProvince, setFilterProvince] = useState('')
   const [filterType, setFilterType] = useState('')
   const [filterContract, setFilterContract] = useState('')
   const [activeInvTab, setActiveInvTab] = useState('all')
   const [chartReady, setChartReady] = useState(false)
+  const [filterInvestor, setFilterInvestor] = useState('')
+  const [filterInstaller, setFilterInstaller] = useState('')
+  const [filterOverviewContract, setFilterOverviewContract] = useState('')
   const chartsRef = useRef({})
 
-  // Load Chart.js dynamically — only on dashboard, avoids errors on other pages
   useEffect(() => {
     if (window.Chart) { setChartReady(true); return }
     const script = document.createElement('script')
@@ -39,23 +40,38 @@ export default function DashboardPage() {
     loadData()
   }, [])
 
+  // Rebuild charts when filters, data or chartReady changes
   useEffect(() => {
     if (!loading && sites.length > 0 && chartReady && activePage === 'overview') {
-      setTimeout(() => buildCharts(sites), 100)
+      setTimeout(() => buildCharts(filteredOverview), 100)
     }
-  }, [loading, sites, activePage, chartReady])
+  }, [loading, sites, activePage, chartReady, filterInvestor, filterInstaller, filterOverviewContract])
 
-  function signOut() {
-    supabase.auth.signOut().then(() => { window.location.href = '/login' })
-  }
+  useEffect(() => {
+    if (activePage === 'investor' && chartReady) setTimeout(() => buildCharts(invSites), 100)
+  }, [activePage, activeInvTab, chartReady])
 
-  const provinces = [...new Set(sites.map(s => s.location?.split(',').slice(-2, -1)[0]?.trim()).filter(Boolean))].sort()
+  function signOut() { supabase.auth.signOut().then(() => { window.location.href = '/login' }) }
+
+  // Derived values
+  const investors = [...new Set(sites.map(s => s.investment_party).filter(Boolean))].sort()
+  const installers = [...new Set(sites.map(s => s.installer_name).filter(Boolean))].sort()
   const activeSites = sites.filter(s => s.status === 'active')
   const totalCap = activeSites.reduce((sum, s) => sum + (s.capacity_kw || 0), 0)
   const ppaCount = sites.filter(s => s.system_type === 'PPA').length
   const rtoCount = sites.filter(s => s.system_type === 'RTO').length
-  const investors = ['SSI', 'Anuva', '12B Fund']
+  const totalBessWh = sites.reduce((sum, s) => sum + (s.battery_size_wh || 0), 0)
+  const totalBessMwh = (totalBessWh / 1000000).toFixed(2)
 
+  // Overview filter
+  const filteredOverview = sites.filter(s => {
+    const mI = !filterInvestor || s.investment_party === filterInvestor
+    const mIn = !filterInstaller || s.installer_name === filterInstaller
+    const mC = !filterOverviewContract || s.system_type === filterOverviewContract
+    return mI && mIn && mC
+  })
+
+  // All sites filter
   const filteredSites = sites.filter(s => {
     const q = searchQuery.toLowerCase()
     const matchQ = !q || s.name?.toLowerCase().includes(q) || s.location?.toLowerCase().includes(q)
@@ -72,46 +88,68 @@ export default function DashboardPage() {
     if (!Chart) return
 
     const destroy = (id) => { if (chartsRef.current[id]) { chartsRef.current[id].destroy(); delete chartsRef.current[id] } }
-    const C = { blue: '#2B7FD4', yellow: '#F5D000', green: '#7DC242', orange: '#f0a500', gray: '#9ab8d8', purple: '#8b5cf6' }
+    const C = { blue: '#2B7FD4', yellow: '#F5D000', green: '#7DC242', orange: '#f0a500', gray: '#9ab8d8', purple: '#8b5cf6', red: '#ef4444' }
+    const commonOpts = { responsive: true, maintainAspectRatio: false }
 
-    // Business type chart
+    // Business type donut
     const types = ['Retail', 'Manufacture', 'Residential', 'Commercial', 'Agricultural']
     const tColors = [C.blue, C.yellow, C.green, C.orange, C.gray]
     const tCounts = types.map(t => sitesData.filter(s => s.business_type === t).length)
     destroy('bizChart')
     const bizEl = document.getElementById('bizChart')
-    if (bizEl) chartsRef.current['bizChart'] = new Chart(bizEl, { type: 'doughnut', data: { labels: types, datasets: [{ data: tCounts, backgroundColor: tColors, borderWidth: 2, borderColor: '#fff' }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'right', labels: { font: { size: 11 }, boxWidth: 12 } } } } })
+    if (bizEl) chartsRef.current['bizChart'] = new Chart(bizEl, { type: 'doughnut', data: { labels: types, datasets: [{ data: tCounts, backgroundColor: tColors, borderWidth: 2, borderColor: '#fff' }] }, options: { ...commonOpts, cutout: '55%', plugins: { legend: { display: true, position: 'right', labels: { font: { size: 11 }, boxWidth: 12 } } } } })
 
-    // Province chart
-    const provMap = {}
-    sitesData.forEach(s => { const p = s.location?.split(',').slice(-2, -1)[0]?.trim() || 'Unknown'; provMap[p] = (provMap[p] || 0) + 1 })
-    const provKeys = Object.keys(provMap).sort((a, b) => provMap[b] - provMap[a]).slice(0, 8)
-    destroy('provChart')
-    const provEl = document.getElementById('provChart')
-    if (provEl) chartsRef.current['provChart'] = new Chart(provEl, { type: 'bar', data: { labels: provKeys, datasets: [{ data: provKeys.map(p => provMap[p]), backgroundColor: C.blue, borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { maxRotation: 40, font: { size: 9 } } }, y: { grid: { color: '#dce8f8' } } } } })
+    // MWp by province bar chart
+    const provCapMap = {}
+    sitesData.forEach(s => {
+      const p = s.province || s.location?.split(',').slice(-2, -1)[0]?.trim() || 'Unknown'
+      provCapMap[p] = (provCapMap[p] || 0) + (s.capacity_kw || 0)
+    })
+    const provKeys = Object.keys(provCapMap).sort((a, b) => provCapMap[b] - provCapMap[a]).slice(0, 9)
+    destroy('provMwpChart')
+    const provMwpEl = document.getElementById('provMwpChart')
+    if (provMwpEl) chartsRef.current['provMwpChart'] = new Chart(provMwpEl, {
+      type: 'bar',
+      data: { labels: provKeys, datasets: [{ label: 'MWp', data: provKeys.map(p => (provCapMap[p] / 1000).toFixed(2)), backgroundColor: C.blue, borderRadius: 4 }] },
+      options: { ...commonOpts, plugins: { legend: { display: false } }, scales: { x: { ticks: { maxRotation: 40, font: { size: 9 } } }, y: { grid: { color: '#dce8f8' }, ticks: { callback: v => v + ' MWp' } } } }
+    })
 
-    // Contract chart
-    const other = sitesData.filter(s => s.system_type !== 'PPA' && s.system_type !== 'RTO').length
+    // MWh BESS by province bar chart
+    const provBessMap = {}
+    sitesData.forEach(s => {
+      const p = s.province || s.location?.split(',').slice(-2, -1)[0]?.trim() || 'Unknown'
+      if (s.battery_size_wh > 0) provBessMap[p] = (provBessMap[p] || 0) + (s.battery_size_wh || 0)
+    })
+    const bessKeys = Object.keys(provBessMap).sort((a, b) => provBessMap[b] - provBessMap[a])
+    destroy('provBessChart')
+    const provBessEl = document.getElementById('provBessChart')
+    if (provBessEl) chartsRef.current['provBessChart'] = new Chart(provBessEl, {
+      type: 'bar',
+      data: { labels: bessKeys.length ? bessKeys : ['No BESS data'], datasets: [{ label: 'MWh', data: bessKeys.length ? bessKeys.map(p => (provBessMap[p] / 1000000).toFixed(2)) : [0], backgroundColor: C.yellow, borderRadius: 4 }] },
+      options: { ...commonOpts, plugins: { legend: { display: false } }, scales: { x: { ticks: { maxRotation: 40, font: { size: 9 } } }, y: { grid: { color: '#dce8f8' }, ticks: { callback: v => v + ' MWh' } } } }
+    })
+
+    // Contract split donut
+    const otherC = sitesData.filter(s => s.system_type !== 'PPA' && s.system_type !== 'RTO').length
+    const ppa = sitesData.filter(s => s.system_type === 'PPA').length
+    const rto = sitesData.filter(s => s.system_type === 'RTO').length
     destroy('contractChart')
     const conEl = document.getElementById('contractChart')
-    if (conEl) chartsRef.current['contractChart'] = new Chart(conEl, { type: 'doughnut', data: { labels: ['PPA', 'RTO', 'Other'], datasets: [{ data: [ppaCount, rtoCount, other], backgroundColor: [C.blue, C.green, C.gray], borderWidth: 2, borderColor: '#fff' }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '60%', plugins: { legend: { display: true, position: 'right', labels: { font: { size: 11 }, boxWidth: 12 } } } } })
+    if (conEl) chartsRef.current['contractChart'] = new Chart(conEl, { type: 'doughnut', data: { labels: ['PPA', 'RTO', 'Other'], datasets: [{ data: [ppa, rto, otherC], backgroundColor: [C.blue, C.green, C.gray], borderWidth: 2, borderColor: '#fff' }] }, options: { ...commonOpts, cutout: '60%', plugins: { legend: { display: true, position: 'right', labels: { font: { size: 11 }, boxWidth: 12 } } } } })
 
-    // Investor chart
-    const invCounts = investors.map(inv => sitesData.filter(s => s.investment_party === inv).length)
+    // Investor donut
+    const invList = ['SSI', 'Anuva', '12B Fund']
+    const invCounts = invList.map(inv => sitesData.filter(s => s.investment_party === inv).length)
     destroy('investorChart')
     const invEl = document.getElementById('investorChart')
-    if (invEl) chartsRef.current['investorChart'] = new Chart(invEl, { type: 'doughnut', data: { labels: investors, datasets: [{ data: invCounts, backgroundColor: [C.blue, C.yellow, C.green], borderWidth: 2, borderColor: '#fff' }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '60%', plugins: { legend: { display: true, position: 'right', labels: { font: { size: 11 }, boxWidth: 12 } } } } })
+    if (invEl) chartsRef.current['investorChart'] = new Chart(invEl, { type: 'doughnut', data: { labels: invList, datasets: [{ data: invCounts, backgroundColor: [C.blue, C.yellow, C.green], borderWidth: 2, borderColor: '#fff' }] }, options: { ...commonOpts, cutout: '60%', plugins: { legend: { display: true, position: 'right', labels: { font: { size: 11 }, boxWidth: 12 } } } } })
 
-    // Investor capacity chart
-    const invCaps = investors.map(inv => (sitesData.filter(s => s.investment_party === inv).reduce((sum, s) => sum + (s.capacity_kw || 0), 0) / 1000).toFixed(2))
+    // Investor capacity bar
+    const invCaps = invList.map(inv => (sitesData.filter(s => s.investment_party === inv).reduce((s, x) => s + (x.capacity_kw || 0), 0) / 1000).toFixed(2))
     destroy('invCapChart')
     const invCapEl = document.getElementById('invCapChart')
-    if (invCapEl) chartsRef.current['invCapChart'] = new Chart(invCapEl, { type: 'bar', data: { labels: investors, datasets: [{ data: invCaps, backgroundColor: [C.blue, C.yellow, C.green], borderRadius: 8 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#dce8f8' }, ticks: { callback: v => v + ' MWp' } } } } })
+    if (invCapEl) chartsRef.current['invCapChart'] = new Chart(invCapEl, { type: 'bar', data: { labels: invList, datasets: [{ data: invCaps, backgroundColor: [C.blue, C.yellow, C.green], borderRadius: 8 }] }, options: { ...commonOpts, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#dce8f8' }, ticks: { callback: v => v + ' MWp' } } } } })
   }
-
-  useEffect(() => {
-    if (activePage === 'investor' && chartReady) setTimeout(() => buildCharts(sites), 100)
-  }, [activePage, activeInvTab, chartReady])
 
   function statusBadge(status) {
     const map = { active: { bg: '#edfae0', color: '#3a7a00', border: '#b8e890' }, inactive: { bg: '#fce8e8', color: '#9a1a1a', border: '#f5b8b8' } }
@@ -125,16 +163,23 @@ export default function DashboardPage() {
     return <span style={{ background: parts[0], color: parts[1], border: `1px solid ${parts[2]}`, borderRadius: '20px', padding: '2px 8px', fontSize: '10px', fontWeight: 500 }}>{type || '--'}</span>
   }
 
+  const selectStyle = { padding: '6px 11px', border: '1px solid #c0d8f8', borderRadius: '8px', fontSize: '12px', color: '#1a2a4a', background: '#fff', outline: 'none', cursor: 'pointer' }
+
   if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', fontSize: '14px', color: '#7a9aba' }}>Loading Sosimple Portal...</div>
+
+  // Filtered overview stats
+  const fCap = filteredOverview.reduce((sum, s) => sum + (s.capacity_kw || 0), 0)
+  const fBess = filteredOverview.reduce((sum, s) => sum + (s.battery_size_wh || 0), 0)
+  const fPpa = filteredOverview.filter(s => s.system_type === 'PPA').length
+  const fRto = filteredOverview.filter(s => s.system_type === 'RTO').length
 
   return (
     <>
       <style>{`
-        @import url('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css');
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', sans-serif; background: #f4f7fb; }
         .nav-item:hover { background: #f0f6ff; color: #2B7FD4; }
-        .tbl tr:hover td { background: #f8fbff; }
+        .tbl-row:hover td { background: #f8fbff; }
         .tab:hover { background: #f0f6ff; }
       `}</style>
 
@@ -154,6 +199,7 @@ export default function DashboardPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ background: '#f0f6ff', border: '1px solid #c0d8f8', borderRadius: '20px', padding: '4px 12px', fontSize: '11px', color: '#2B7FD4', fontWeight: 500 }}>{sites.length} Sites</span>
           <span style={{ background: '#fffbe0', border: '1px solid #f0d840', borderRadius: '20px', padding: '4px 12px', fontSize: '11px', color: '#8a6a00', fontWeight: 500 }}>{(totalCap / 1000).toFixed(2)} MWp</span>
+          <span style={{ background: '#edfae0', border: '1px solid #b8e890', borderRadius: '20px', padding: '4px 12px', fontSize: '11px', color: '#3a7a00', fontWeight: 500 }}>{totalBessMwh} MWh BESS</span>
           <span style={{ fontSize: '12px', color: '#7a9aba' }}>Welcome, {user?.full_name || 'Employee'}</span>
           <button onClick={signOut} style={{ background: '#f0f6ff', border: '1px solid #c0d8f8', borderRadius: '8px', padding: '6px 14px', color: '#2B7FD4', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>Sign Out</button>
         </div>
@@ -179,7 +225,7 @@ export default function DashboardPage() {
         {/* Main content */}
         <main style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
 
-          {/* OVERVIEW PAGE */}
+          {/* ── OVERVIEW PAGE ── */}
           {activePage === 'overview' && (
             <div>
               {/* Hero */}
@@ -189,7 +235,13 @@ export default function DashboardPage() {
                   <p style={{ fontSize: '12px', color: '#c0d8f8' }}>{sites.length} solar installations across South Africa &amp; beyond</p>
                 </div>
                 <div style={{ display: 'flex', gap: '18px', flexWrap: 'wrap' }}>
-                  {[{ val: sites.length, label: 'Total Sites' }, { val: (totalCap / 1000).toFixed(2), label: 'MWp Installed' }, { val: ppaCount, label: 'PPA Sites' }, { val: rtoCount, label: 'RTO Sites' }].map(s => (
+                  {[
+                    { val: sites.length, label: 'Total Sites' },
+                    { val: (totalCap / 1000).toFixed(2), label: 'MWp Installed' },
+                    { val: totalBessMwh, label: 'MWh BESS' },
+                    { val: ppaCount, label: 'PPA Sites' },
+                    { val: rtoCount, label: 'RTO Sites' },
+                  ].map(s => (
                     <div key={s.label}>
                       <div style={{ fontSize: '22px', fontWeight: 700, color: '#F5D000' }}>{s.val}</div>
                       <div style={{ fontSize: '10px', color: '#c0d8f8' }}>{s.label}</div>
@@ -198,15 +250,43 @@ export default function DashboardPage() {
                 </div>
               </div>
 
+              {/* Filters */}
+              <div style={{ background: '#fff', border: '1px solid #dce8f8', borderRadius: '10px', padding: '14px 16px', marginBottom: '16px', display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <span style={{ fontSize: '11px', fontWeight: 600, color: '#7a9aba', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  <i className="ti ti-filter" style={{ marginRight: '4px' }} />Filter
+                </span>
+                <select style={selectStyle} value={filterInvestor} onChange={e => setFilterInvestor(e.target.value)}>
+                  <option value="">All Investors</option>
+                  {investors.map(i => <option key={i}>{i}</option>)}
+                </select>
+                <select style={selectStyle} value={filterInstaller} onChange={e => setFilterInstaller(e.target.value)}>
+                  <option value="">All Installers</option>
+                  {installers.map(i => <option key={i}>{i}</option>)}
+                </select>
+                <select style={selectStyle} value={filterOverviewContract} onChange={e => setFilterOverviewContract(e.target.value)}>
+                  <option value="">All Contracts</option>
+                  <option>PPA</option>
+                  <option>RTO</option>
+                </select>
+                {(filterInvestor || filterInstaller || filterOverviewContract) && (
+                  <button onClick={() => { setFilterInvestor(''); setFilterInstaller(''); setFilterOverviewContract('') }} style={{ ...selectStyle, background: '#fce8e8', border: '1px solid #f5b8b8', color: '#9a1a1a', cursor: 'pointer' }}>
+                    Clear filters ×
+                  </button>
+                )}
+                <span style={{ fontSize: '11px', color: '#9ab8d8', marginLeft: 'auto' }}>
+                  Showing {filteredOverview.length} of {sites.length} sites
+                </span>
+              </div>
+
               {/* KPI Grid */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: '10px', marginBottom: '18px' }}>
                 {[
-                  { label: 'Total Sites', val: sites.length, sub: `${activeSites.length} active`, accent: '#F5D000' },
-                  { label: 'Capacity (MWp)', val: (totalCap / 1000).toFixed(2), accent: '#2B7FD4' },
-                  { label: 'PPA Sites', val: ppaCount, accent: '#7DC242' },
-                  { label: 'RTO Sites', val: rtoCount, accent: '#2B7FD4' },
-                  { label: 'Inactive Sites', val: sites.filter(s => s.status === 'inactive').length, accent: '#ef4444' },
-                  { label: 'Retail Sites', val: sites.filter(s => s.business_type === 'Retail').length, accent: '#7DC242' },
+                  { label: 'Total Sites', val: filteredOverview.length, sub: `${filteredOverview.filter(s=>s.status==='active').length} active`, accent: '#F5D000' },
+                  { label: 'Capacity (MWp)', val: (fCap / 1000).toFixed(2), accent: '#2B7FD4' },
+                  { label: 'BESS (MWh)', val: (fBess / 1000000).toFixed(2), accent: '#7DC242' },
+                  { label: 'PPA Sites', val: fPpa, accent: '#2B7FD4' },
+                  { label: 'RTO Sites', val: fRto, accent: '#7DC242' },
+                  { label: 'Inactive Sites', val: filteredOverview.filter(s => s.status === 'inactive').length, accent: '#ef4444' },
                 ].map(k => (
                   <div key={k.label} style={{ background: '#fff', border: '1px solid #dce8f8', borderRadius: '10px', padding: '12px 14px', borderTop: `3px solid ${k.accent}` }}>
                     <div style={{ fontSize: '10px', color: '#7a9aba', marginBottom: '5px', fontWeight: 500 }}>{k.label}</div>
@@ -216,33 +296,49 @@ export default function DashboardPage() {
                 ))}
               </div>
 
-              {/* Charts Row 1 */}
+              {/* Charts Row 1 — Business type + MWp by province */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
                 <div style={{ background: '#fff', border: '1px solid #dce8f8', borderRadius: '10px', padding: '16px' }}>
-                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a2a4a', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '7px' }}><i className="ti ti-chart-donut" style={{ color: '#2B7FD4' }} />By business type</div>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a2a4a', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '7px' }}>
+                    <i className="ti ti-chart-donut" style={{ color: '#2B7FD4' }} />By business type
+                  </div>
                   <div style={{ position: 'relative', height: '190px' }}><canvas id="bizChart" /></div>
                 </div>
                 <div style={{ background: '#fff', border: '1px solid #dce8f8', borderRadius: '10px', padding: '16px' }}>
-                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a2a4a', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '7px' }}><i className="ti ti-map" style={{ color: '#2B7FD4' }} />Sites by province</div>
-                  <div style={{ position: 'relative', height: '190px' }}><canvas id="provChart" /></div>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a2a4a', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '7px' }}>
+                    <i className="ti ti-map" style={{ color: '#2B7FD4' }} />MWp by province
+                  </div>
+                  <div style={{ position: 'relative', height: '190px' }}><canvas id="provMwpChart" /></div>
                 </div>
               </div>
 
-              {/* Charts Row 2 */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+              {/* Charts Row 2 — MWh BESS by province + Contract split */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
                 <div style={{ background: '#fff', border: '1px solid #dce8f8', borderRadius: '10px', padding: '16px' }}>
-                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a2a4a', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '7px' }}><i className="ti ti-file-invoice" style={{ color: '#F5D000' }} />Contract split</div>
-                  <div style={{ position: 'relative', height: '170px' }}><canvas id="contractChart" /></div>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a2a4a', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '7px' }}>
+                    <i className="ti ti-battery" style={{ color: '#7DC242' }} />MWh BESS by province
+                  </div>
+                  <div style={{ position: 'relative', height: '190px' }}><canvas id="provBessChart" /></div>
                 </div>
                 <div style={{ background: '#fff', border: '1px solid #dce8f8', borderRadius: '10px', padding: '16px' }}>
-                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a2a4a', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '7px' }}><i className="ti ti-users" style={{ color: '#7DC242' }} />By investor</div>
-                  <div style={{ position: 'relative', height: '170px' }}><canvas id="investorChart" /></div>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a2a4a', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '7px' }}>
+                    <i className="ti ti-file-invoice" style={{ color: '#F5D000' }} />Contract split
+                  </div>
+                  <div style={{ position: 'relative', height: '190px' }}><canvas id="contractChart" /></div>
                 </div>
+              </div>
+
+              {/* Charts Row 3 — Investor */}
+              <div style={{ background: '#fff', border: '1px solid #dce8f8', borderRadius: '10px', padding: '16px' }}>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a2a4a', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '7px' }}>
+                  <i className="ti ti-users" style={{ color: '#7DC242' }} />By investor
+                </div>
+                <div style={{ position: 'relative', height: '170px' }}><canvas id="investorChart" /></div>
               </div>
             </div>
           )}
 
-          {/* ALL SITES PAGE */}
+          {/* ── ALL SITES PAGE ── */}
           {activePage === 'sites' && (
             <div>
               <div style={{ fontSize: '19px', fontWeight: 700, color: '#1a2a4a', marginBottom: '2px' }}>All Sites</div>
@@ -250,11 +346,11 @@ export default function DashboardPage() {
 
               <div style={{ display: 'flex', gap: '8px', marginBottom: '14px', flexWrap: 'wrap' }}>
                 <input type="text" placeholder="Search site name or location..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} style={{ padding: '6px 11px', border: '1px solid #c0d8f8', borderRadius: '8px', fontSize: '12px', color: '#1a2a4a', flex: 1, minWidth: '160px', outline: 'none' }} />
-                <select value={filterType} onChange={e => setFilterType(e.target.value)} style={{ padding: '6px 11px', border: '1px solid #c0d8f8', borderRadius: '8px', fontSize: '12px', color: '#1a2a4a', outline: 'none' }}>
+                <select value={filterType} onChange={e => setFilterType(e.target.value)} style={selectStyle}>
                   <option value="">All Types</option>
                   {['Retail', 'Manufacture', 'Residential', 'Commercial', 'Agricultural'].map(t => <option key={t}>{t}</option>)}
                 </select>
-                <select value={filterContract} onChange={e => setFilterContract(e.target.value)} style={{ padding: '6px 11px', border: '1px solid #c0d8f8', borderRadius: '8px', fontSize: '12px', color: '#1a2a4a', outline: 'none' }}>
+                <select value={filterContract} onChange={e => setFilterContract(e.target.value)} style={selectStyle}>
                   <option value="">All Contracts</option>
                   <option>PPA</option>
                   <option>RTO</option>
@@ -267,17 +363,18 @@ export default function DashboardPage() {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                   <thead>
                     <tr style={{ background: '#f8fbff' }}>
-                      {['Site Name', 'Location', 'Capacity', 'Type', 'Contract', 'Investor', 'Status'].map(h => (
+                      {['Site Name', 'Province', 'Capacity', 'BESS (kWh)', 'Type', 'Contract', 'Investor', 'Status'].map(h => (
                         <th key={h} style={{ textAlign: 'left', padding: '7px 9px', fontSize: '10px', color: '#9ab8d8', fontWeight: 600, borderBottom: '2px solid #dce8f8', textTransform: 'uppercase' }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredSites.map((site, i) => (
-                      <tr key={site.id} className="tbl" style={{ cursor: 'pointer' }} onClick={() => window.location.href = `/sites/${site.id}`}>
+                    {filteredSites.map(site => (
+                      <tr key={site.id} className="tbl-row" style={{ cursor: 'pointer' }} onClick={() => window.location.href = `/sites/${site.id}`}>
                         <td style={{ padding: '7px 9px', borderBottom: '1px solid #f0f6ff', fontWeight: 500, color: '#2B7FD4' }}>{site.name}</td>
-                        <td style={{ padding: '7px 9px', borderBottom: '1px solid #f0f6ff', color: '#2a3a5a', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{site.location}</td>
+                        <td style={{ padding: '7px 9px', borderBottom: '1px solid #f0f6ff', color: '#2a3a5a' }}>{site.province || '—'}</td>
                         <td style={{ padding: '7px 9px', borderBottom: '1px solid #f0f6ff', color: '#2a3a5a' }}>{site.capacity_kw} kWp</td>
+                        <td style={{ padding: '7px 9px', borderBottom: '1px solid #f0f6ff', color: '#2a3a5a' }}>{site.battery_size_wh > 0 ? (site.battery_size_wh / 1000).toFixed(1) : '—'}</td>
                         <td style={{ padding: '7px 9px', borderBottom: '1px solid #f0f6ff' }}>{typeBadge(site.business_type)}</td>
                         <td style={{ padding: '7px 9px', borderBottom: '1px solid #f0f6ff', color: '#2a3a5a' }}>{site.system_type || '--'}</td>
                         <td style={{ padding: '7px 9px', borderBottom: '1px solid #f0f6ff', color: '#2a3a5a' }}>{site.investment_party || '--'}</td>
@@ -290,14 +387,14 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* INVESTOR VIEW PAGE */}
+          {/* ── INVESTOR VIEW PAGE ── */}
           {activePage === 'investor' && (
             <div>
               <div style={{ fontSize: '19px', fontWeight: 700, color: '#1a2a4a', marginBottom: '2px' }}>Investor View</div>
               <div style={{ fontSize: '12px', color: '#7a9aba', marginBottom: '18px' }}>Portfolio by investment party</div>
 
               <div style={{ display: 'flex', gap: '5px', marginBottom: '14px', flexWrap: 'wrap' }}>
-                {['all', ...investors].map(inv => (
+                {['all', 'SSI', 'Anuva', '12B Fund'].map(inv => (
                   <div key={inv} className="tab" onClick={() => setActiveInvTab(inv)} style={{ padding: '5px 13px', borderRadius: '20px', fontSize: '11px', border: '1px solid #c0d8f8', cursor: 'pointer', background: activeInvTab === inv ? '#2B7FD4' : '#fff', color: activeInvTab === inv ? '#fff' : '#5a7aaa', fontWeight: activeInvTab === inv ? 600 : 400 }}>
                     {inv === 'all' ? 'All' : inv}
                   </div>
@@ -308,8 +405,9 @@ export default function DashboardPage() {
                 {[
                   { label: 'Sites', val: invSites.length, accent: '#2B7FD4' },
                   { label: 'Capacity (MWp)', val: (invSites.reduce((s, x) => s + (x.capacity_kw || 0), 0) / 1000).toFixed(2), accent: '#F5D000' },
-                  { label: 'PPA', val: invSites.filter(s => s.system_type === 'PPA').length, accent: '#7DC242' },
-                  { label: 'RTO', val: invSites.filter(s => s.system_type === 'RTO').length, accent: '#2B7FD4' },
+                  { label: 'BESS (MWh)', val: (invSites.reduce((s, x) => s + (x.battery_size_wh || 0), 0) / 1000000).toFixed(2), accent: '#7DC242' },
+                  { label: 'PPA', val: invSites.filter(s => s.system_type === 'PPA').length, accent: '#2B7FD4' },
+                  { label: 'RTO', val: invSites.filter(s => s.system_type === 'RTO').length, accent: '#7DC242' },
                 ].map(k => (
                   <div key={k.label} style={{ background: '#fff', border: '1px solid #dce8f8', borderRadius: '10px', padding: '12px 14px', borderTop: `3px solid ${k.accent}` }}>
                     <div style={{ fontSize: '10px', color: '#7a9aba', marginBottom: '5px', fontWeight: 500 }}>{k.label}</div>
@@ -319,7 +417,9 @@ export default function DashboardPage() {
               </div>
 
               <div style={{ background: '#fff', border: '1px solid #dce8f8', borderRadius: '10px', padding: '16px', marginBottom: '14px' }}>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a2a4a', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '7px' }}><i className="ti ti-chart-bar" style={{ color: '#2B7FD4' }} />Capacity by investor (MWp)</div>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a2a4a', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '7px' }}>
+                  <i className="ti ti-chart-bar" style={{ color: '#2B7FD4' }} />Capacity by investor (MWp)
+                </div>
                 <div style={{ position: 'relative', height: '200px' }}><canvas id="invCapChart" /></div>
               </div>
 
@@ -327,17 +427,18 @@ export default function DashboardPage() {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                   <thead>
                     <tr style={{ background: '#f8fbff' }}>
-                      {['Site', 'Location', 'Capacity', 'Contract', 'Type', 'Status'].map(h => (
+                      {['Site', 'Province', 'Capacity', 'BESS (kWh)', 'Contract', 'Type', 'Status'].map(h => (
                         <th key={h} style={{ textAlign: 'left', padding: '7px 9px', fontSize: '10px', color: '#9ab8d8', fontWeight: 600, borderBottom: '2px solid #dce8f8', textTransform: 'uppercase' }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {invSites.map(site => (
-                      <tr key={site.id} className="tbl" style={{ cursor: 'pointer' }} onClick={() => window.location.href = `/sites/${site.id}`}>
+                      <tr key={site.id} className="tbl-row" style={{ cursor: 'pointer' }} onClick={() => window.location.href = `/sites/${site.id}`}>
                         <td style={{ padding: '7px 9px', borderBottom: '1px solid #f0f6ff', fontWeight: 500, color: '#2B7FD4' }}>{site.name}</td>
-                        <td style={{ padding: '7px 9px', borderBottom: '1px solid #f0f6ff', color: '#2a3a5a', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{site.location}</td>
+                        <td style={{ padding: '7px 9px', borderBottom: '1px solid #f0f6ff', color: '#2a3a5a' }}>{site.province || '—'}</td>
                         <td style={{ padding: '7px 9px', borderBottom: '1px solid #f0f6ff', color: '#2a3a5a' }}>{site.capacity_kw} kWp</td>
+                        <td style={{ padding: '7px 9px', borderBottom: '1px solid #f0f6ff', color: '#2a3a5a' }}>{site.battery_size_wh > 0 ? (site.battery_size_wh / 1000).toFixed(1) : '—'}</td>
                         <td style={{ padding: '7px 9px', borderBottom: '1px solid #f0f6ff', color: '#2a3a5a' }}>{site.system_type || '--'}</td>
                         <td style={{ padding: '7px 9px', borderBottom: '1px solid #f0f6ff' }}>{typeBadge(site.business_type)}</td>
                         <td style={{ padding: '7px 9px', borderBottom: '1px solid #f0f6ff' }}>{statusBadge(site.status)}</td>
