@@ -1,113 +1,347 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
-import Link from 'next/link'
 
 export default function DashboardPage() {
   const [sites, setSites] = useState([])
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [activePage, setActivePage] = useState('overview')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [filterProvince, setFilterProvince] = useState('')
+  const [filterType, setFilterType] = useState('')
+  const [filterContract, setFilterContract] = useState('')
+  const [activeInvTab, setActiveInvTab] = useState('all')
+  const chartsRef = useRef({})
 
   useEffect(() => {
     async function loadData() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { window.location.href = '/login'; return }
-
-      const { data: profile } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', user.id)
-        .single()
-
+      const { data: profile } = await supabase.from('users').select('*').eq('id', user.id).single()
       if (profile?.role !== 'employee') { window.location.href = '/login'; return }
-
       setUser({ ...user, ...profile })
-
-      const { data: sites } = await supabase.from('sites').select('*').order('name')
-      setSites(sites || [])
+      const { data: sitesData } = await supabase.from('sites').select('*').order('name')
+      setSites(sitesData || [])
       setLoading(false)
     }
     loadData()
   }, [])
 
-  if (loading) return <div style={{ padding: '40px', textAlign: 'center' }}>Loading...</div>
+  useEffect(() => {
+    if (!loading && sites.length > 0 && activePage === 'overview') {
+      setTimeout(() => buildCharts(sites), 100)
+    }
+  }, [loading, sites, activePage])
 
-  const totalCapacity = sites.reduce((sum, s) => sum + (s.capacity_kw || 0), 0)
+  function signOut() {
+    supabase.auth.signOut().then(() => { window.location.href = '/login' })
+  }
+
+  const provinces = [...new Set(sites.map(s => s.location?.split(',').slice(-2, -1)[0]?.trim()).filter(Boolean))].sort()
+  const activeSites = sites.filter(s => s.status === 'active')
+  const totalCap = activeSites.reduce((sum, s) => sum + (s.capacity_kw || 0), 0)
+  const ppaCount = sites.filter(s => s.system_type === 'PPA').length
+  const rtoCount = sites.filter(s => s.system_type === 'RTO').length
+  const investors = ['SSI', 'Anuva', '12B Fund']
+
+  const filteredSites = sites.filter(s => {
+    const q = searchQuery.toLowerCase()
+    const matchQ = !q || s.name?.toLowerCase().includes(q) || s.location?.toLowerCase().includes(q)
+    const matchType = !filterType || s.business_type === filterType
+    const matchContract = !filterContract || s.system_type === filterContract
+    return matchQ && matchType && matchContract
+  })
+
+  const invSites = activeInvTab === 'all' ? sites : sites.filter(s => s.investment_party === activeInvTab)
+
+  function buildCharts(sitesData) {
+    if (typeof window === 'undefined') return
+    const Chart = window.Chart
+    if (!Chart) return
+
+    const destroy = (id) => { if (chartsRef.current[id]) { chartsRef.current[id].destroy(); delete chartsRef.current[id] } }
+    const C = { blue: '#2B7FD4', yellow: '#F5D000', green: '#7DC242', orange: '#f0a500', gray: '#9ab8d8', purple: '#8b5cf6' }
+
+    // Business type chart
+    const types = ['Retail', 'Manufacture', 'Residential', 'Commercial', 'Agricultural']
+    const tColors = [C.blue, C.yellow, C.green, C.orange, C.gray]
+    const tCounts = types.map(t => sitesData.filter(s => s.business_type === t).length)
+    destroy('bizChart')
+    const bizEl = document.getElementById('bizChart')
+    if (bizEl) chartsRef.current['bizChart'] = new Chart(bizEl, { type: 'doughnut', data: { labels: types, datasets: [{ data: tCounts, backgroundColor: tColors, borderWidth: 2, borderColor: '#fff' }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'right', labels: { font: { size: 11 }, boxWidth: 12 } } } } })
+
+    // Province chart
+    const provMap = {}
+    sitesData.forEach(s => { const p = s.location?.split(',').slice(-2, -1)[0]?.trim() || 'Unknown'; provMap[p] = (provMap[p] || 0) + 1 })
+    const provKeys = Object.keys(provMap).sort((a, b) => provMap[b] - provMap[a]).slice(0, 8)
+    destroy('provChart')
+    const provEl = document.getElementById('provChart')
+    if (provEl) chartsRef.current['provChart'] = new Chart(provEl, { type: 'bar', data: { labels: provKeys, datasets: [{ data: provKeys.map(p => provMap[p]), backgroundColor: C.blue, borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { maxRotation: 40, font: { size: 9 } } }, y: { grid: { color: '#dce8f8' } } } } })
+
+    // Contract chart
+    const other = sitesData.filter(s => s.system_type !== 'PPA' && s.system_type !== 'RTO').length
+    destroy('contractChart')
+    const conEl = document.getElementById('contractChart')
+    if (conEl) chartsRef.current['contractChart'] = new Chart(conEl, { type: 'doughnut', data: { labels: ['PPA', 'RTO', 'Other'], datasets: [{ data: [ppaCount, rtoCount, other], backgroundColor: [C.blue, C.green, C.gray], borderWidth: 2, borderColor: '#fff' }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '60%', plugins: { legend: { display: true, position: 'right', labels: { font: { size: 11 }, boxWidth: 12 } } } } })
+
+    // Investor chart
+    const invCounts = investors.map(inv => sitesData.filter(s => s.investment_party === inv).length)
+    destroy('investorChart')
+    const invEl = document.getElementById('investorChart')
+    if (invEl) chartsRef.current['investorChart'] = new Chart(invEl, { type: 'doughnut', data: { labels: investors, datasets: [{ data: invCounts, backgroundColor: [C.blue, C.yellow, C.green], borderWidth: 2, borderColor: '#fff' }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '60%', plugins: { legend: { display: true, position: 'right', labels: { font: { size: 11 }, boxWidth: 12 } } } } })
+
+    // Investor capacity chart
+    const invCaps = investors.map(inv => (sitesData.filter(s => s.investment_party === inv).reduce((sum, s) => sum + (s.capacity_kw || 0), 0) / 1000).toFixed(2))
+    destroy('invCapChart')
+    const invCapEl = document.getElementById('invCapChart')
+    if (invCapEl) chartsRef.current['invCapChart'] = new Chart(invCapEl, { type: 'bar', data: { labels: investors, datasets: [{ data: invCaps, backgroundColor: [C.blue, C.yellow, C.green], borderRadius: 8 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#dce8f8' }, ticks: { callback: v => v + ' MWp' } } } } })
+  }
+
+  useEffect(() => {
+    if (activePage === 'investor') setTimeout(() => buildCharts(sites), 100)
+  }, [activePage, activeInvTab])
+
+  function statusBadge(status) {
+    const map = { active: { bg: '#edfae0', color: '#3a7a00', border: '#b8e890' }, inactive: { bg: '#fce8e8', color: '#9a1a1a', border: '#f5b8b8' } }
+    const s = map[status] || { bg: '#f0f0f0', color: '#4a4a4a', border: '#d0d0d0' }
+    return <span style={{ background: s.bg, color: s.color, border: `1px solid ${s.border}`, borderRadius: '20px', padding: '2px 8px', fontSize: '10px', fontWeight: 500 }}>{status || 'active'}</span>
+  }
+
+  function typeBadge(type) {
+    const map = { Retail: '#fffbe0|#8a6a00|#f0d840', Manufacture: '#f3e8fb|#5a1a8a|#d4b8ee', Residential: '#edfae0|#3a7a00|#b8e890', Commercial: '#e8f0fb|#1a4a9a|#b8ccee', Agricultural: '#f0f0f0|#4a4a4a|#d0d0d0' }
+    const parts = (map[type] || '#f0f0f0|#4a4a4a|#d0d0d0').split('|')
+    return <span style={{ background: parts[0], color: parts[1], border: `1px solid ${parts[2]}`, borderRadius: '20px', padding: '2px 8px', fontSize: '10px', fontWeight: 500 }}>{type || '--'}</span>
+  }
+
+  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', fontSize: '14px', color: '#7a9aba' }}>Loading Sosimple Portal...</div>
 
   return (
-    <div style={styles.page}>
-      <header style={styles.header}>
-        <div style={styles.headerInner}>
-          <span style={styles.brand}>☀️ Sosimple Energy</span>
-          <span style={styles.role}>Employee Portal</span>
-        </div>
-      </header>
+    <>
+      <style>{`
+        @import url('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css');
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f4f7fb; }
+        .nav-item:hover { background: #f0f6ff; color: #2B7FD4; }
+        .tbl tr:hover td { background: #f8fbff; }
+        .tab:hover { background: #f0f6ff; }
+      `}</style>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js" />
 
-      <main style={styles.main}>
-        <h1 style={styles.heading}>Portfolio Overview</h1>
-        <p style={styles.subheading}>All {sites.length} solar sites · {totalCapacity.toFixed(1)} kW total capacity</p>
-
-        <div style={styles.statsRow}>
-          <div style={styles.statCard}>
-            <p style={styles.statValue}>{sites.length}</p>
-            <p style={styles.statLabel}>Total Sites</p>
-          </div>
-          <div style={styles.statCard}>
-            <p style={styles.statValue}>{totalCapacity.toFixed(0)} kW</p>
-            <p style={styles.statLabel}>Total Capacity</p>
-          </div>
-          <div style={styles.statCard}>
-            <p style={styles.statValue}>{sites.filter(s => s.status === 'active').length}</p>
-            <p style={styles.statLabel}>Active Sites</p>
+      {/* Topbar */}
+      <div style={{ background: '#fff', borderBottom: '3px solid #2B7FD4', padding: '0 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '64px', position: 'sticky', top: 0, zIndex: 100, boxShadow: '0 2px 12px rgba(43,127,212,0.1)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <svg width="40" height="46" viewBox="0 0 46 52" fill="none">
+            <ellipse cx="23" cy="16" rx="18" ry="16" fill="#F5D000"/>
+            <ellipse cx="23" cy="36" rx="18" ry="16" fill="#2B7FD4"/>
+            <rect x="14" y="20" width="14" height="12" rx="2" fill="#7DC242" transform="rotate(-8 14 20)"/>
+          </svg>
+          <div>
+            <div style={{ fontSize: '20px', fontWeight: 800, color: '#2B7FD4' }}>Sosimple</div>
+            <div style={{ fontSize: '10px', color: '#7DC242', fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase' }}>Cheap energy. Clean business.</div>
           </div>
         </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ background: '#f0f6ff', border: '1px solid #c0d8f8', borderRadius: '20px', padding: '4px 12px', fontSize: '11px', color: '#2B7FD4', fontWeight: 500 }}>{sites.length} Sites</span>
+          <span style={{ background: '#fffbe0', border: '1px solid #f0d840', borderRadius: '20px', padding: '4px 12px', fontSize: '11px', color: '#8a6a00', fontWeight: 500 }}>{(totalCap / 1000).toFixed(2)} MWp</span>
+          <span style={{ fontSize: '12px', color: '#7a9aba' }}>Welcome, {user?.full_name || 'Employee'}</span>
+          <button onClick={signOut} style={{ background: '#f0f6ff', border: '1px solid #c0d8f8', borderRadius: '8px', padding: '6px 14px', color: '#2B7FD4', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>Sign Out</button>
+        </div>
+      </div>
 
-        <div style={styles.grid}>
-          {sites.map((site) => (
-            <Link key={site.id} href={`/sites/${site.id}`} style={styles.card}>
-              <div style={styles.cardTop}>
-                <span style={styles.siteName}>{site.name}</span>
-                <span style={{
-                  ...styles.badge,
-                  background: site.status === 'active' ? '#E8F5E9' : '#FFF3E0',
-                  color: site.status === 'active' ? '#2E7D32' : '#E65100',
-                }}>
-                  {site.status || 'active'}
-                </span>
-              </div>
-              <p style={styles.siteLocation}>📍 {site.location}</p>
-              <p style={styles.siteStat}>⚡ {site.capacity_kw} kW installed</p>
-              <p style={styles.siteDate}>Installed: {site.install_date || 'N/A'}</p>
-              <p style={styles.viewLink}>View details →</p>
-            </Link>
+      <div style={{ display: 'flex', height: 'calc(100vh - 64px)' }}>
+        {/* Sidebar */}
+        <nav style={{ width: '220px', background: '#fff', borderRight: '1px solid #dce8f8', padding: '14px 0', flexShrink: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '1px', color: '#9ab8d8', padding: '8px 18px 4px', fontWeight: 600 }}>Portfolio</div>
+          {[
+            { id: 'overview', icon: 'ti-dashboard', label: 'Installation Overview' },
+            { id: 'sites', icon: 'ti-map-pin', label: 'All Sites' },
+            { id: 'investor', icon: 'ti-chart-bar', label: 'Investor View' },
+          ].map(item => (
+            <div key={item.id} className="nav-item" onClick={() => setActivePage(item.id)} style={{ display: 'flex', alignItems: 'center', gap: '9px', padding: '8px 18px', cursor: 'pointer', fontSize: '13px', color: activePage === item.id ? '#2B7FD4' : '#5a7aaa', borderLeft: `3px solid ${activePage === item.id ? '#2B7FD4' : 'transparent'}`, background: activePage === item.id ? '#f0f6ff' : 'transparent', fontWeight: activePage === item.id ? 600 : 400 }}>
+              <i className={`ti ${item.icon}`} style={{ fontSize: '16px' }} />
+              <span>{item.label}</span>
+            </div>
           ))}
-        </div>
-      </main>
-    </div>
-  )
-}
+          <div style={{ marginTop: 'auto', padding: '14px 18px', borderTop: '1px solid #dce8f8', fontSize: '10px', color: '#9ab8d8', lineHeight: 1.6 }}>2026 Sosimple Energy<br />Cheap energy. Clean business.</div>
+        </nav>
 
-const styles = {
-  page: { minHeight: '100vh', background: '#F5F5F5' },
-  header: { background: '#2E7D32', padding: '0 24px' },
-  headerInner: { maxWidth: '1100px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '60px' },
-  brand: { color: '#fff', fontWeight: '700', fontSize: '18px' },
-  role: { color: '#A5D6A7', fontSize: '14px' },
-  main: { maxWidth: '1100px', margin: '0 auto', padding: '32px 24px' },
-  heading: { fontSize: '26px', fontWeight: '700', marginBottom: '4px' },
-  subheading: { color: '#666', marginBottom: '24px' },
-  statsRow: { display: 'flex', gap: '16px', marginBottom: '32px', flexWrap: 'wrap' },
-  statCard: { background: '#fff', borderRadius: '10px', padding: '20px 28px', flex: '1', minWidth: '140px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' },
-  statValue: { fontSize: '28px', fontWeight: '700', color: '#2E7D32' },
-  statLabel: { fontSize: '13px', color: '#666', marginTop: '2px' },
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' },
-  card: { background: '#fff', borderRadius: '10px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', textDecoration: 'none', color: 'inherit', display: 'block' },
-  cardTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' },
-  siteName: { fontWeight: '600', fontSize: '16px' },
-  badge: { fontSize: '12px', padding: '2px 10px', borderRadius: '20px', fontWeight: '500' },
-  siteLocation: { fontSize: '14px', color: '#555', marginBottom: '6px' },
-  siteStat: { fontSize: '14px', color: '#555', marginBottom: '4px' },
-  siteDate: { fontSize: '13px', color: '#888', marginBottom: '12px' },
-  viewLink: { fontSize: '13px', color: '#2E7D32', fontWeight: '500' },
+        {/* Main content */}
+        <main style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
+
+          {/* OVERVIEW PAGE */}
+          {activePage === 'overview' && (
+            <div>
+              {/* Hero */}
+              <div style={{ background: 'linear-gradient(135deg,#2B7FD4,#1a5fa0)', borderRadius: '14px', padding: '20px 24px', marginBottom: '18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px' }}>
+                <div>
+                  <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#fff', marginBottom: '3px' }}>Portfolio Dashboard</h2>
+                  <p style={{ fontSize: '12px', color: '#c0d8f8' }}>{sites.length} solar installations across South Africa &amp; beyond</p>
+                </div>
+                <div style={{ display: 'flex', gap: '18px', flexWrap: 'wrap' }}>
+                  {[{ val: sites.length, label: 'Total Sites' }, { val: (totalCap / 1000).toFixed(2), label: 'MWp Installed' }, { val: ppaCount, label: 'PPA Sites' }, { val: rtoCount, label: 'RTO Sites' }].map(s => (
+                    <div key={s.label}>
+                      <div style={{ fontSize: '22px', fontWeight: 700, color: '#F5D000' }}>{s.val}</div>
+                      <div style={{ fontSize: '10px', color: '#c0d8f8' }}>{s.label}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* KPI Grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: '10px', marginBottom: '18px' }}>
+                {[
+                  { label: 'Total Sites', val: sites.length, sub: `${activeSites.length} active`, accent: '#F5D000' },
+                  { label: 'Capacity (MWp)', val: (totalCap / 1000).toFixed(2), accent: '#2B7FD4' },
+                  { label: 'PPA Sites', val: ppaCount, accent: '#7DC242' },
+                  { label: 'RTO Sites', val: rtoCount, accent: '#2B7FD4' },
+                  { label: 'Inactive Sites', val: sites.filter(s => s.status === 'inactive').length, accent: '#ef4444' },
+                  { label: 'Retail Sites', val: sites.filter(s => s.business_type === 'Retail').length, accent: '#7DC242' },
+                ].map(k => (
+                  <div key={k.label} style={{ background: '#fff', border: '1px solid #dce8f8', borderRadius: '10px', padding: '12px 14px', borderTop: `3px solid ${k.accent}` }}>
+                    <div style={{ fontSize: '10px', color: '#7a9aba', marginBottom: '5px', fontWeight: 500 }}>{k.label}</div>
+                    <div style={{ fontSize: '24px', fontWeight: 700, color: '#1a2a4a' }}>{k.val}</div>
+                    {k.sub && <div style={{ fontSize: '10px', color: '#9ab8d8' }}>{k.sub}</div>}
+                  </div>
+                ))}
+              </div>
+
+              {/* Charts Row 1 */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
+                <div style={{ background: '#fff', border: '1px solid #dce8f8', borderRadius: '10px', padding: '16px' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a2a4a', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '7px' }}><i className="ti ti-chart-donut" style={{ color: '#2B7FD4' }} />By business type</div>
+                  <div style={{ position: 'relative', height: '190px' }}><canvas id="bizChart" /></div>
+                </div>
+                <div style={{ background: '#fff', border: '1px solid #dce8f8', borderRadius: '10px', padding: '16px' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a2a4a', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '7px' }}><i className="ti ti-map" style={{ color: '#2B7FD4' }} />Sites by province</div>
+                  <div style={{ position: 'relative', height: '190px' }}><canvas id="provChart" /></div>
+                </div>
+              </div>
+
+              {/* Charts Row 2 */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                <div style={{ background: '#fff', border: '1px solid #dce8f8', borderRadius: '10px', padding: '16px' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a2a4a', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '7px' }}><i className="ti ti-file-invoice" style={{ color: '#F5D000' }} />Contract split</div>
+                  <div style={{ position: 'relative', height: '170px' }}><canvas id="contractChart" /></div>
+                </div>
+                <div style={{ background: '#fff', border: '1px solid #dce8f8', borderRadius: '10px', padding: '16px' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a2a4a', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '7px' }}><i className="ti ti-users" style={{ color: '#7DC242' }} />By investor</div>
+                  <div style={{ position: 'relative', height: '170px' }}><canvas id="investorChart" /></div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ALL SITES PAGE */}
+          {activePage === 'sites' && (
+            <div>
+              <div style={{ fontSize: '19px', fontWeight: 700, color: '#1a2a4a', marginBottom: '2px' }}>All Sites</div>
+              <div style={{ fontSize: '12px', color: '#7a9aba', marginBottom: '18px' }}>Complete portfolio — {sites.length} solar installations</div>
+
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '14px', flexWrap: 'wrap' }}>
+                <input type="text" placeholder="Search site name or location..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} style={{ padding: '6px 11px', border: '1px solid #c0d8f8', borderRadius: '8px', fontSize: '12px', color: '#1a2a4a', flex: 1, minWidth: '160px', outline: 'none' }} />
+                <select value={filterType} onChange={e => setFilterType(e.target.value)} style={{ padding: '6px 11px', border: '1px solid #c0d8f8', borderRadius: '8px', fontSize: '12px', color: '#1a2a4a', outline: 'none' }}>
+                  <option value="">All Types</option>
+                  {['Retail', 'Manufacture', 'Residential', 'Commercial', 'Agricultural'].map(t => <option key={t}>{t}</option>)}
+                </select>
+                <select value={filterContract} onChange={e => setFilterContract(e.target.value)} style={{ padding: '6px 11px', border: '1px solid #c0d8f8', borderRadius: '8px', fontSize: '12px', color: '#1a2a4a', outline: 'none' }}>
+                  <option value="">All Contracts</option>
+                  <option>PPA</option>
+                  <option>RTO</option>
+                </select>
+              </div>
+
+              <div style={{ fontSize: '11px', color: '#7a9aba', marginBottom: '8px' }}>Showing {filteredSites.length} of {sites.length} sites</div>
+
+              <div style={{ background: '#fff', border: '1px solid #dce8f8', borderRadius: '10px', overflow: 'hidden' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                  <thead>
+                    <tr style={{ background: '#f8fbff' }}>
+                      {['Site Name', 'Location', 'Capacity', 'Type', 'Contract', 'Investor', 'Status'].map(h => (
+                        <th key={h} style={{ textAlign: 'left', padding: '7px 9px', fontSize: '10px', color: '#9ab8d8', fontWeight: 600, borderBottom: '2px solid #dce8f8', textTransform: 'uppercase' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredSites.map((site, i) => (
+                      <tr key={site.id} className="tbl" style={{ cursor: 'pointer' }} onClick={() => window.location.href = `/sites/${site.id}`}>
+                        <td style={{ padding: '7px 9px', borderBottom: '1px solid #f0f6ff', fontWeight: 500, color: '#2B7FD4' }}>{site.name}</td>
+                        <td style={{ padding: '7px 9px', borderBottom: '1px solid #f0f6ff', color: '#2a3a5a', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{site.location}</td>
+                        <td style={{ padding: '7px 9px', borderBottom: '1px solid #f0f6ff', color: '#2a3a5a' }}>{site.capacity_kw} kWp</td>
+                        <td style={{ padding: '7px 9px', borderBottom: '1px solid #f0f6ff' }}>{typeBadge(site.business_type)}</td>
+                        <td style={{ padding: '7px 9px', borderBottom: '1px solid #f0f6ff', color: '#2a3a5a' }}>{site.system_type || '--'}</td>
+                        <td style={{ padding: '7px 9px', borderBottom: '1px solid #f0f6ff', color: '#2a3a5a' }}>{site.investment_party || '--'}</td>
+                        <td style={{ padding: '7px 9px', borderBottom: '1px solid #f0f6ff' }}>{statusBadge(site.status)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* INVESTOR VIEW PAGE */}
+          {activePage === 'investor' && (
+            <div>
+              <div style={{ fontSize: '19px', fontWeight: 700, color: '#1a2a4a', marginBottom: '2px' }}>Investor View</div>
+              <div style={{ fontSize: '12px', color: '#7a9aba', marginBottom: '18px' }}>Portfolio by investment party</div>
+
+              <div style={{ display: 'flex', gap: '5px', marginBottom: '14px', flexWrap: 'wrap' }}>
+                {['all', ...investors].map(inv => (
+                  <div key={inv} className="tab" onClick={() => setActiveInvTab(inv)} style={{ padding: '5px 13px', borderRadius: '20px', fontSize: '11px', border: '1px solid #c0d8f8', cursor: 'pointer', background: activeInvTab === inv ? '#2B7FD4' : '#fff', color: activeInvTab === inv ? '#fff' : '#5a7aaa', fontWeight: activeInvTab === inv ? 600 : 400 }}>
+                    {inv === 'all' ? 'All' : inv}
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: '10px', marginBottom: '18px' }}>
+                {[
+                  { label: 'Sites', val: invSites.length, accent: '#2B7FD4' },
+                  { label: 'Capacity (MWp)', val: (invSites.reduce((s, x) => s + (x.capacity_kw || 0), 0) / 1000).toFixed(2), accent: '#F5D000' },
+                  { label: 'PPA', val: invSites.filter(s => s.system_type === 'PPA').length, accent: '#7DC242' },
+                  { label: 'RTO', val: invSites.filter(s => s.system_type === 'RTO').length, accent: '#2B7FD4' },
+                ].map(k => (
+                  <div key={k.label} style={{ background: '#fff', border: '1px solid #dce8f8', borderRadius: '10px', padding: '12px 14px', borderTop: `3px solid ${k.accent}` }}>
+                    <div style={{ fontSize: '10px', color: '#7a9aba', marginBottom: '5px', fontWeight: 500 }}>{k.label}</div>
+                    <div style={{ fontSize: '24px', fontWeight: 700, color: '#1a2a4a' }}>{k.val}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ background: '#fff', border: '1px solid #dce8f8', borderRadius: '10px', padding: '16px', marginBottom: '14px' }}>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a2a4a', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '7px' }}><i className="ti ti-chart-bar" style={{ color: '#2B7FD4' }} />Capacity by investor (MWp)</div>
+                <div style={{ position: 'relative', height: '200px' }}><canvas id="invCapChart" /></div>
+              </div>
+
+              <div style={{ background: '#fff', border: '1px solid #dce8f8', borderRadius: '10px', overflow: 'hidden' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                  <thead>
+                    <tr style={{ background: '#f8fbff' }}>
+                      {['Site', 'Location', 'Capacity', 'Contract', 'Type', 'Status'].map(h => (
+                        <th key={h} style={{ textAlign: 'left', padding: '7px 9px', fontSize: '10px', color: '#9ab8d8', fontWeight: 600, borderBottom: '2px solid #dce8f8', textTransform: 'uppercase' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {invSites.map(site => (
+                      <tr key={site.id} className="tbl" style={{ cursor: 'pointer' }} onClick={() => window.location.href = `/sites/${site.id}`}>
+                        <td style={{ padding: '7px 9px', borderBottom: '1px solid #f0f6ff', fontWeight: 500, color: '#2B7FD4' }}>{site.name}</td>
+                        <td style={{ padding: '7px 9px', borderBottom: '1px solid #f0f6ff', color: '#2a3a5a', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{site.location}</td>
+                        <td style={{ padding: '7px 9px', borderBottom: '1px solid #f0f6ff', color: '#2a3a5a' }}>{site.capacity_kw} kWp</td>
+                        <td style={{ padding: '7px 9px', borderBottom: '1px solid #f0f6ff', color: '#2a3a5a' }}>{site.system_type || '--'}</td>
+                        <td style={{ padding: '7px 9px', borderBottom: '1px solid #f0f6ff' }}>{typeBadge(site.business_type)}</td>
+                        <td style={{ padding: '7px 9px', borderBottom: '1px solid #f0f6ff' }}>{statusBadge(site.status)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+        </main>
+      </div>
+    </>
+  )
 }
