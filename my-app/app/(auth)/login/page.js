@@ -1,23 +1,32 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
+import './login.css'
 
 export default function LoginPage() {
-  const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [stats, setStats] = useState({ sites: 78, mwp: '7.2' })
 
-    async function handleLogin() {
+  useEffect(() => {
+    async function loadStats() {
+      const { data } = await supabase.from('sites').select('capacity_kw, status')
+      if (data) {
+        const mwp = (data.reduce((sum, s) => sum + (s.capacity_kw || 0), 0) / 1000).toFixed(1)
+        setStats({ sites: data.length, mwp })
+      }
+    }
+    loadStats()
+  }, [])
+
+  async function handleLogin() {
     setLoading(true)
     setError('')
 
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-
-    console.log('Auth result:', data, error)
 
     if (error) {
       setError('Invalid email or password. Please try again.')
@@ -25,116 +34,121 @@ export default function LoginPage() {
       return
     }
 
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile } = await supabase
       .from('users')
       .select('role')
       .eq('id', data.user.id)
       .single()
 
-    console.log('Profile result:', profile, profileError)
-
-    if (profile?.role === 'employee') router.push('/dashboard')
-    else if (profile?.role === 'investor') router.push('/investor')
+    if (profile?.role === 'employee') window.location.href = '/dashboard'
+    else if (profile?.role === 'investor') window.location.href = '/investor'
     else {
       setError('No role assigned. Contact your administrator.')
       setLoading(false)
     }
-
   }
 
-
-
   return (
-    <div style={styles.page}>
-      <div style={styles.card}>
-        <div style={styles.logo}>☀️</div>
-        <h1 style={styles.title}>Sosimple Energy</h1>
-        <p style={styles.subtitle}>Performance Portal</p>
+    <div className="login-page">
 
-        {error && <p style={styles.error}>{error}</p>}
-
-        <div style={styles.field}>
-          <label style={styles.label}>Email</label>
-          <input
-            style={styles.input}
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@sosimple.com"
-          />
+      {/* Left branding panel */}
+      <div className="login-left">
+        <div className="left-logo">
+          <svg width="52" height="58" viewBox="0 0 46 52" fill="none">
+            <ellipse cx="23" cy="16" rx="18" ry="16" fill="#F5D000"/>
+            <ellipse cx="23" cy="36" rx="18" ry="16" fill="#2B7FD4"/>
+            <rect x="14" y="20" width="14" height="12" rx="2" fill="#7DC242" transform="rotate(-8 14 20)"/>
+          </svg>
+          <div>
+            <div className="left-brand-name">Sosimple</div>
+            <div className="left-tagline">Cheap energy. Clean business.</div>
+          </div>
         </div>
 
-        <div style={styles.field}>
-          <label style={styles.label}>Password</label>
-          <input
-            style={styles.input}
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="••••••••"
-          />
+        <div className="left-hero">
+          <h1>Solar performance,<br /><span>simplified.</span></h1>
+          <p>Monitor your entire solar portfolio in one place. Real-time production data, site performance tracking and investor reporting — all in one clean dashboard.</p>
         </div>
 
-        <button
-          style={loading ? { ...styles.button, opacity: 0.7 } : styles.button}
-          onClick={handleLogin}
-          disabled={loading}
-        >
-          {loading ? 'Signing in...' : 'Sign In'}
-        </button>
+        <div className="left-stats">
+          <div>
+            <div className="left-stat-val">{stats.sites}+</div>
+            <div className="left-stat-label">Active Sites</div>
+          </div>
+          <div>
+            <div className="left-stat-val">{stats.mwp} MWp</div>
+            <div className="left-stat-label">Installed Capacity</div>
+          </div>
+          <div>
+            <div className="left-stat-val">100%</div>
+            <div className="left-stat-label">Clean Energy</div>
+          </div>
+        </div>
+
+        <div className="left-footer">
+          © 2026 Sosimple Energy · South Africa &amp; Zambia
+        </div>
       </div>
+
+      {/* Right login panel */}
+      <div className="login-right">
+        <div className="login-card">
+          <h2>Welcome back</h2>
+          <p className="subtitle">Sign in to your Sosimple Energy portal</p>
+
+          {error && (
+            <div className="error-box">
+              <i className="ti ti-alert-circle" />
+              {error}
+            </div>
+          )}
+
+          <div className="form-group">
+            <label>Email address</label>
+            <div className="input-wrap">
+              <i className="ti ti-mail" />
+              <input
+                className="form-input"
+                type="email"
+                placeholder="you@sosimpleenergy.co.za"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleLogin()}
+              />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label>Password</label>
+            <div className="input-wrap">
+              <i className="ti ti-lock" />
+              <input
+                className="form-input"
+                type="password"
+                placeholder="••••••••••"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleLogin()}
+              />
+            </div>
+          </div>
+
+          <button className="login-btn" onClick={handleLogin} disabled={loading}>
+            {loading
+              ? <><i className="ti ti-loader" /> Signing in...</>
+              : <><i className="ti ti-login" /> Sign In</>
+            }
+          </button>
+
+          <div className="login-footer">
+            Having trouble signing in? Contact<br />
+            <a href="mailto:support@sosimpleenergy.co.za" style={{ color: '#2B7FD4' }}>
+              support@sosimpleenergy.co.za
+            </a>
+          </div>
+        </div>
+      </div>
+
     </div>
   )
-}
-
-const styles = {
-  page: {
-    minHeight: '100vh',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    background: '#F5F5F5',
-  },
-  card: {
-    background: '#fff',
-    borderRadius: '12px',
-    padding: '40px',
-    width: '100%',
-    maxWidth: '400px',
-    boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
-    textAlign: 'center',
-  },
-  logo: { fontSize: '40px', marginBottom: '12px' },
-  title: { fontSize: '24px', fontWeight: '600', color: '#1A1A1A' },
-  subtitle: { color: '#666', marginBottom: '32px', fontSize: '14px' },
-  error: {
-    background: '#FFEBEE',
-    color: '#C62828',
-    padding: '10px 14px',
-    borderRadius: '6px',
-    marginBottom: '16px',
-    fontSize: '14px',
-  },
-  field: { textAlign: 'left', marginBottom: '16px' },
-  label: { display: 'block', fontSize: '14px', fontWeight: '500', marginBottom: '6px' },
-  input: {
-    width: '100%',
-    padding: '10px 14px',
-    border: '1px solid #E0E0E0',
-    borderRadius: '6px',
-    fontSize: '15px',
-    outline: 'none',
-  },
-  button: {
-    width: '100%',
-    padding: '12px',
-    background: '#2E7D32',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '6px',
-    fontSize: '16px',
-    fontWeight: '600',
-    cursor: 'pointer',
-    marginTop: '8px',
-  },
 }

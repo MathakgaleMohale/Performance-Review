@@ -13,7 +13,17 @@ export default function DashboardPage() {
   const [filterType, setFilterType] = useState('')
   const [filterContract, setFilterContract] = useState('')
   const [activeInvTab, setActiveInvTab] = useState('all')
+  const [chartReady, setChartReady] = useState(false)
   const chartsRef = useRef({})
+
+  // Load Chart.js dynamically — only on dashboard, avoids errors on other pages
+  useEffect(() => {
+    if (window.Chart) { setChartReady(true); return }
+    const script = document.createElement('script')
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js'
+    script.onload = () => setChartReady(true)
+    document.head.appendChild(script)
+  }, [])
 
   useEffect(() => {
     async function loadData() {
@@ -30,10 +40,10 @@ export default function DashboardPage() {
   }, [])
 
   useEffect(() => {
-    if (!loading && sites.length > 0 && activePage === 'overview') {
+    if (!loading && sites.length > 0 && chartReady && activePage === 'overview') {
       setTimeout(() => buildCharts(sites), 100)
     }
-  }, [loading, sites, activePage])
+  }, [loading, sites, activePage, chartReady])
 
   function signOut() {
     supabase.auth.signOut().then(() => { window.location.href = '/login' })
@@ -100,8 +110,8 @@ export default function DashboardPage() {
   }
 
   useEffect(() => {
-    if (activePage === 'investor') setTimeout(() => buildCharts(sites), 100)
-  }, [activePage, activeInvTab])
+    if (activePage === 'investor' && chartReady) setTimeout(() => buildCharts(sites), 100)
+  }, [activePage, activeInvTab, chartReady])
 
   function statusBadge(status) {
     const map = { active: { bg: '#edfae0', color: '#3a7a00', border: '#b8e890' }, inactive: { bg: '#fce8e8', color: '#9a1a1a', border: '#f5b8b8' } }
@@ -127,7 +137,6 @@ export default function DashboardPage() {
         .tbl tr:hover td { background: #f8fbff; }
         .tab:hover { background: #f0f6ff; }
       `}</style>
-      <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js" />
 
       {/* Topbar */}
       <div style={{ background: '#fff', borderBottom: '3px solid #2B7FD4', padding: '0 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '64px', position: 'sticky', top: 0, zIndex: 100, boxShadow: '0 2px 12px rgba(43,127,212,0.1)' }}>
