@@ -1,19 +1,39 @@
-import { redirect } from 'next/navigation'
-import { getCurrentUser } from '@/lib/auth'
+'use client'
+
+import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 
-export default async function DashboardPage() {
-  const user = await getCurrentUser()
-  if (!user || user.role !== 'employee') redirect('/login')
+export default function DashboardPage() {
+  const [sites, setSites] = useState([])
+  const [user, setUser] = useState(null)
+  const [loading, setLoading] = useState(true)
 
-  const { data: sites } = await supabase
-    .from('sites')
-    .select('*')
-    .order('name')
+  useEffect(() => {
+    async function loadData() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { window.location.href = '/login'; return }
 
-  const totalCapacity = sites?.reduce((sum, s) => sum + (s.capacity_kw || 0), 0) || 0
-  const totalSites = sites?.length || 0
+      const { data: profile } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', user.id)
+        .single()
+
+      if (profile?.role !== 'employee') { window.location.href = '/login'; return }
+
+      setUser({ ...user, ...profile })
+
+      const { data: sites } = await supabase.from('sites').select('*').order('name')
+      setSites(sites || [])
+      setLoading(false)
+    }
+    loadData()
+  }, [])
+
+  if (loading) return <div style={{ padding: '40px', textAlign: 'center' }}>Loading...</div>
+
+  const totalCapacity = sites.reduce((sum, s) => sum + (s.capacity_kw || 0), 0)
 
   return (
     <div style={styles.page}>
@@ -26,11 +46,11 @@ export default async function DashboardPage() {
 
       <main style={styles.main}>
         <h1 style={styles.heading}>Portfolio Overview</h1>
-        <p style={styles.subheading}>All {totalSites} solar sites · {totalCapacity.toFixed(1)} kW total capacity</p>
+        <p style={styles.subheading}>All {sites.length} solar sites · {totalCapacity.toFixed(1)} kW total capacity</p>
 
         <div style={styles.statsRow}>
           <div style={styles.statCard}>
-            <p style={styles.statValue}>{totalSites}</p>
+            <p style={styles.statValue}>{sites.length}</p>
             <p style={styles.statLabel}>Total Sites</p>
           </div>
           <div style={styles.statCard}>
@@ -38,13 +58,13 @@ export default async function DashboardPage() {
             <p style={styles.statLabel}>Total Capacity</p>
           </div>
           <div style={styles.statCard}>
-            <p style={styles.statValue}>{sites?.filter(s => s.status === 'active').length || 0}</p>
+            <p style={styles.statValue}>{sites.filter(s => s.status === 'active').length}</p>
             <p style={styles.statLabel}>Active Sites</p>
           </div>
         </div>
 
         <div style={styles.grid}>
-          {sites?.map((site) => (
+          {sites.map((site) => (
             <Link key={site.id} href={`/sites/${site.id}`} style={styles.card}>
               <div style={styles.cardTop}>
                 <span style={styles.siteName}>{site.name}</span>
@@ -82,7 +102,7 @@ const styles = {
   statValue: { fontSize: '28px', fontWeight: '700', color: '#2E7D32' },
   statLabel: { fontSize: '13px', color: '#666', marginTop: '2px' },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' },
-  card: { background: '#fff', borderRadius: '10px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', textDecoration: 'none', color: 'inherit', display: 'block', transition: 'box-shadow 0.2s' },
+  card: { background: '#fff', borderRadius: '10px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', textDecoration: 'none', color: 'inherit', display: 'block' },
   cardTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' },
   siteName: { fontWeight: '600', fontSize: '16px' },
   badge: { fontSize: '12px', padding: '2px 10px', borderRadius: '20px', fontWeight: '500' },

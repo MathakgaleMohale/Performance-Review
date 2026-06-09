@@ -11,11 +11,13 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  async function handleLogin() {
+    async function handleLogin() {
     setLoading(true)
     setError('')
 
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+
+    console.log('Auth result:', data, error)
 
     if (error) {
       setError('Invalid email or password. Please try again.')
@@ -23,17 +25,24 @@ export default function LoginPage() {
       return
     }
 
-    // Fetch role and redirect
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from('users')
       .select('role')
       .eq('id', data.user.id)
       .single()
 
+    console.log('Profile result:', profile, profileError)
+
     if (profile?.role === 'employee') router.push('/dashboard')
     else if (profile?.role === 'investor') router.push('/investor')
-    else router.push('/')
+    else {
+      setError('No role assigned. Contact your administrator.')
+      setLoading(false)
+    }
+
   }
+
+
 
   return (
     <div style={styles.page}>
