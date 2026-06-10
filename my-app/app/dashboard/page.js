@@ -3,6 +3,51 @@
 import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 
+// Parses semicolon-delimited CSV with quoted multiline fields
+function parseCSV(text) {
+  const rows = []
+  let row = [], field = '', inQuotes = false
+  text = text.replace(/^\uFEFF/, '')
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]
+    if (inQuotes) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++ }
+        else inQuotes = false
+      } else field += ch
+    } else {
+      if (ch === '"') inQuotes = true
+      else if (ch === ';') { row.push(field); field = '' }
+      else if (ch === '\n') { row.push(field); field = ''; if (row.some(f => f.trim())) rows.push(row); row = [] }
+      else if (ch !== '\r') field += ch
+    }
+  }
+  if (field || row.length) { row.push(field); if (row.some(f => f.trim())) rows.push(row) }
+  return rows
+}
+
+const MONTH_MAP = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, sept: 9, oct: 10, nov: 11, dec: 12 }
+
+function parseMonthYear(raw) {
+  const parts = (raw || '').trim().split('-')
+  if (parts.length !== 2) return [null, null]
+  const m = MONTH_MAP[parts[0].toLowerCase()]
+  const y = parts[1].length === 2 ? parseInt('20' + parts[1]) : parseInt(parts[1])
+  return m && y ? [m, y] : [null, null]
+}
+
+function parseNum(val) {
+  const v = (val || '').trim().replace('%', '').replace(',', '.')
+  if (!v || v.toLowerCase() === 'null' || v === 'N/A') return null
+  const n = parseFloat(v)
+  return isNaN(n) ? null : n
+}
+
+function cleanStr(val) {
+  const v = (val || '').trim()
+  return !v || v.toLowerCase() === 'null' || v === 'N/A' ? null : v
+}
+
 export default function DashboardPage() {
   const [sites, setSites] = useState([])
   const [user, setUser] = useState(null)
@@ -29,6 +74,12 @@ export default function DashboardPage() {
   const [spYearA, setSpYearA] = useState('')
   const [spYearB, setSpYearB] = useState('')
   const [spCommentDate, setSpCommentDate] = useState('')
+  // Data Upload state
+  const [upPerf, setUpPerf] = useState(null)
+  const [upSites, setUpSites] = useState(null)
+  const [upComments, setUpComments] = useState(null)
+  const [upMsg, setUpMsg] = useState('')
+  const [upBusy, setUpBusy] = useState(false)
   const chartsRef = useRef({})
 
   useEffect(() => {
@@ -193,6 +244,181 @@ export default function DashboardPage() {
     destroy('invCapChart')
     const invCapEl = document.getElementById('invCapChart')
     if (invCapEl) chartsRef.current['invCapChart'] = new Chart(invCapEl, { type: 'bar', data: { labels: invList, datasets: [{ data: invCaps, backgroundColor: [C.blue,C.yellow,C.green], borderRadius: 8 }] }, options: { ...commonOpts, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#dce8f8' }, ticks: { callback: v => v+' MWp' } } } } })
+  }
+
+  function handlePerfFile(e) {
+    const file = e.target.files[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      const rows = parseCSV(reader.result)
+      const headers = rows[0].map(h => h.trim().toLowerCase())
+      const idx = {
+        name: headers.findIndex(h => h.includes('site name')),
+        date: headers.findIndex(h => h === 'date'),
+        measured: headers.findIndex(h => h.includes('measured')),
+        expected: headers.findIndex(h => h.includes('expected')),
+        perf: headers.findIndex(h => h === 'performance'),
+        band: headers.findIndex(h => h.includes('pf band')),
+      }
+      if (idx.name < 0 || idx.date < 0) { setUpMsg('❌ Performance CSV must have "Site Name" and "Date" columns'); return }
+      const parsed = [], errors = []
+      rows.slice(1).forEach((r, i) => {
+        const name = (r[idx.name] || '').trim()
+        const [month, year] = parseMonthYear(r[idx.date])
+        if (!name || !month) { errors.push(i + 2); return }
+        const rec = { site_name: name, month, year }
+        if (idx.measured >= 0) rec.kwh_produced = parseNum(r[idx.measured])
+        if (idx.expected >= 0) rec.expected_kwh = parseNum(r[idx.expected])
+        if (idx.perf >= 0) rec.performance_pct = parseNum(r[idx.perf])
+        if (idx.band >= 0) rec.pf_band = cleanStr(r[idx.band])
+        parsed.push(rec)
+      })
+      setUpPerf({ rows: parsed, errors, fileName: file.name })
+      setUpMsg('')
+    }
+    reader.readAsText(file)
+    e.target.value = ''
+  }
+
+  function handleSitesFile(e) {
+    const file = e.target.files[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      const rows = parseCSV(reader.result)
+      const headers = rows[0].map(h => h.trim().toLowerCase())
+      const find = (s) => headers.findIndex(h => h.includes(s))
+      const idx = {
+        name: find('site name'), location: find('location'), province: find('province'),
+        country: find('country'), capacity: find('pv capacity'), date: find('commisioned date'),
+        status: find('operational'), battery_name: find('battery name'), contract: find('contract type'),
+        business: find('business type'), investor: find('investment party'), battery_wh: find('battery size (wh)'),
+        installer: find('installer name'), project: find('project number'), platform: headers.findIndex(h => h === 'platform'),
+      }
+      if (idx.name < 0) { setUpMsg('❌ Sites CSV must have a "Site Name" column'); return }
+      const parsed = [], errors = []
+      rows.slice(1).forEach((r, i) => {
+        const name = (r[idx.name] || '').trim()
+        if (!name) { errors.push(i + 2); return }
+        const province = idx.province >= 0 ? cleanStr(r[idx.province]) : null
+        const location = idx.location >= 0 ? cleanStr(r[idx.location]) : null
+        const country = idx.country >= 0 ? cleanStr(r[idx.country]) : null
+        const rec = {
+          name,
+          location: [location || province, country].filter(Boolean).join(', ') || null,
+          province,
+          capacity_kw: idx.capacity >= 0 && parseNum(r[idx.capacity]) != null ? parseNum(r[idx.capacity]) / 1000 : null,
+          battery_size_wh: idx.battery_wh >= 0 ? parseNum(r[idx.battery_wh]) : null,
+          system_type: idx.contract >= 0 ? cleanStr(r[idx.contract]) : null,
+          business_type: idx.business >= 0 ? cleanStr(r[idx.business]) : null,
+          investment_party: idx.investor >= 0 ? cleanStr(r[idx.investor]) : null,
+          installer_name: idx.installer >= 0 ? cleanStr(r[idx.installer]) : null,
+          project_number: idx.project >= 0 ? cleanStr(r[idx.project]) : null,
+          platform: idx.platform >= 0 ? cleanStr(r[idx.platform]) : null,
+          inverter_brand: idx.battery_name >= 0 ? cleanStr(r[idx.battery_name]) : null,
+        }
+        if (idx.date >= 0) {
+          const d = (r[idx.date] || '').trim()
+          const p = d.split('/')
+          rec.install_date = p.length === 3 ? `${p[0]}-${p[1]}-${p[2]}` : null
+        }
+        if (idx.status >= 0) {
+          const s = (r[idx.status] || '').trim().toLowerCase()
+          rec.status = s.includes('decommission') ? 'inactive' : 'active'
+        }
+        parsed.push(rec)
+      })
+      setUpSites({ rows: parsed, errors, fileName: file.name })
+      setUpMsg('')
+    }
+    reader.readAsText(file)
+    e.target.value = ''
+  }
+
+  async function uploadPerf() {
+    if (!upPerf?.rows?.length) return
+    setUpBusy(true)
+    setUpMsg('Uploading performance data...')
+    let done = 0, failed = 0
+    for (let i = 0; i < upPerf.rows.length; i += 500) {
+      const batch = upPerf.rows.slice(i, i + 500)
+      const { error } = await supabase.from('performance').upsert(batch, { onConflict: 'site_name,month,year' })
+      if (error) { failed += batch.length; console.error(error) }
+      else done += batch.length
+      setUpMsg(`Uploading... ${done + failed}/${upPerf.rows.length}`)
+    }
+    setUpMsg(failed === 0 ? `✅ ${done} performance records uploaded successfully` : `⚠️ ${done} uploaded, ${failed} failed — check console (F12)`)
+    setUpPerf(null)
+    setPerfData([])
+    setUpBusy(false)
+  }
+
+  async function uploadSites() {
+    if (!upSites?.rows?.length) return
+    setUpBusy(true)
+    setUpMsg('Uploading site data...')
+    let done = 0, failed = 0
+    for (let i = 0; i < upSites.rows.length; i += 200) {
+      const batch = upSites.rows.slice(i, i + 200)
+      const { error } = await supabase.from('sites').upsert(batch, { onConflict: 'name' })
+      if (error) { failed += batch.length; console.error(error) }
+      else done += batch.length
+      setUpMsg(`Uploading... ${done + failed}/${upSites.rows.length}`)
+    }
+    setUpMsg(failed === 0 ? `✅ ${done} sites uploaded successfully` : `⚠️ ${done} uploaded, ${failed} failed — check console (F12)`)
+    setUpSites(null)
+    const { data: sitesData } = await supabase.from('sites').select('*').order('name')
+    setSites(sitesData || [])
+    setUpBusy(false)
+  }
+
+  function handleCommentsFile(e) {
+    const file = e.target.files[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      const rows = parseCSV(reader.result)
+      const headers = rows[0].map(h => h.trim().toLowerCase())
+      const idx = {
+        name: headers.findIndex(h => h.includes('site name')),
+        date: headers.findIndex(h => h === 'date'),
+        comment: headers.findIndex(h => h.includes('comment')),
+      }
+      if (idx.name < 0 || idx.date < 0 || idx.comment < 0) { setUpMsg('❌ Comments CSV must have "Site Name", "Date" and "Comment" columns'); return }
+      const parsed = [], errors = []
+      let emptySkipped = 0
+      rows.slice(1).forEach((r, i) => {
+        const name = (r[idx.name] || '').trim()
+        const [month, year] = parseMonthYear(r[idx.date])
+        const comment = cleanStr(r[idx.comment])
+        if (!name || !month) { errors.push(i + 2); return }
+        if (!comment) { emptySkipped++; return }
+        parsed.push({ site_name: name, month, year, comment })
+      })
+      setUpComments({ rows: parsed, errors, emptySkipped, fileName: file.name })
+      setUpMsg('')
+    }
+    reader.readAsText(file)
+    e.target.value = ''
+  }
+
+  async function uploadComments() {
+    if (!upComments?.rows?.length) return
+    setUpBusy(true)
+    setUpMsg('Uploading comments...')
+    let done = 0, failed = 0
+    for (let i = 0; i < upComments.rows.length; i += 500) {
+      const batch = upComments.rows.slice(i, i + 500)
+      const { error } = await supabase.from('performance').upsert(batch, { onConflict: 'site_name,month,year' })
+      if (error) { failed += batch.length; console.error(error) }
+      else done += batch.length
+      setUpMsg(`Uploading... ${done + failed}/${upComments.rows.length}`)
+    }
+    setUpMsg(failed === 0 ? `✅ ${done} comments uploaded successfully` : `⚠️ ${done} uploaded, ${failed} failed — check console (F12)`)
+    setUpComments(null)
+    setPerfData([])
+    setUpBusy(false)
   }
 
   useEffect(() => {
@@ -425,6 +651,7 @@ export default function DashboardPage() {
             { id: 'performance', icon: 'ti-activity', label: 'Performance' },
             { id: 'siteperf', icon: 'ti-chart-line', label: 'Site Performance' },
             { id: 'investor', icon: 'ti-chart-bar', label: 'Investor View' },
+            { id: 'upload', icon: 'ti-upload', label: 'Data Upload' },
           ].map(item => (
             <div key={item.id} className="nav-item" onClick={() => setActivePage(item.id)} style={{ display: 'flex', alignItems: 'center', gap: '9px', padding: '8px 18px', cursor: 'pointer', fontSize: '13px', color: activePage === item.id ? '#2B7FD4' : '#5a7aaa', borderLeft: `3px solid ${activePage === item.id ? '#2B7FD4' : 'transparent'}`, background: activePage === item.id ? '#f0f6ff' : 'transparent', fontWeight: activePage === item.id ? 600 : 400 }}>
               <i className={`ti ${item.icon}`} style={{ fontSize: '16px' }} />
@@ -834,6 +1061,180 @@ export default function DashboardPage() {
               </div>
             )
           })()}
+
+          {/* ── DATA UPLOAD ── */}
+          {activePage === 'upload' && (
+            <div>
+              <div style={{ fontSize: '19px', fontWeight: 700, color: '#1a2a4a', marginBottom: '2px' }}>Data Upload</div>
+              <div style={{ fontSize: '12px', color: '#7a9aba', marginBottom: '18px' }}>Upload monthly performance data and site information — existing records are updated, new ones are added</div>
+
+              {upMsg && (
+                <div style={{ background: upMsg.startsWith('✅') ? '#edfae0' : upMsg.startsWith('❌') || upMsg.startsWith('⚠️') ? '#fce8e8' : '#f0f6ff', border: '1px solid #c0d8f8', borderRadius: '8px', padding: '12px 16px', fontSize: '13px', color: '#1a2a4a', marginBottom: '16px' }}>
+                  {upMsg}
+                </div>
+              )}
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '14px' }}>
+
+                {/* Performance upload card */}
+                <div style={{ background: '#fff', border: '1px solid #dce8f8', borderRadius: '10px', padding: '20px' }}>
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: '#2B7FD4', marginBottom: '6px' }}>
+                    <i className="ti ti-activity" style={{ marginRight: '6px' }} />Performance Data
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#7a9aba', marginBottom: '14px', lineHeight: 1.6 }}>
+                    CSV with columns: <b>Site Name; Date; Measured (kWh); Expected (kWh); Performance; PF Band</b><br />
+                    Date format: Jan-25, Feb-25... Semicolon separated.
+                  </div>
+
+                  <label style={{ display: 'block', border: '2px dashed #c0d8f8', borderRadius: '10px', padding: '24px', textAlign: 'center', cursor: 'pointer', background: '#f8fbff' }}>
+                    <i className="ti ti-file-upload" style={{ fontSize: '28px', color: '#2B7FD4', display: 'block', marginBottom: '8px' }} />
+                    <span style={{ fontSize: '12px', color: '#5a7aaa' }}>Click to select performance CSV</span>
+                    <input type="file" accept=".csv" onChange={handlePerfFile} style={{ display: 'none' }} disabled={upBusy} />
+                  </label>
+
+                  {upPerf && (
+                    <div style={{ marginTop: '14px' }}>
+                      <div style={{ fontSize: '12px', color: '#1a2a4a', marginBottom: '8px' }}>
+                        📄 <b>{upPerf.fileName}</b> — {upPerf.rows.length} valid records
+                        {upPerf.errors.length > 0 && <span style={{ color: '#9a1a1a' }}> · {upPerf.errors.length} rows skipped</span>}
+                      </div>
+                      <div style={{ maxHeight: '160px', overflowY: 'auto', border: '1px solid #dce8f8', borderRadius: '8px', marginBottom: '10px' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+                          <thead><tr style={{ background: '#f8fbff' }}>
+                            {['Site', 'Month', 'Year', 'Measured', 'Expected', 'Band'].map(h => <th key={h} style={{ padding: '5px 8px', textAlign: 'left', color: '#9ab8d8', fontSize: '9px', textTransform: 'uppercase' }}>{h}</th>)}
+                          </tr></thead>
+                          <tbody>
+                            {upPerf.rows.slice(0, 8).map((r, i) => (
+                              <tr key={i}>
+                                <td style={{ padding: '4px 8px', borderTop: '1px solid #f0f6ff' }}>{r.site_name}</td>
+                                <td style={{ padding: '4px 8px', borderTop: '1px solid #f0f6ff' }}>{r.month}</td>
+                                <td style={{ padding: '4px 8px', borderTop: '1px solid #f0f6ff' }}>{r.year}</td>
+                                <td style={{ padding: '4px 8px', borderTop: '1px solid #f0f6ff' }}>{r.kwh_produced ?? '—'}</td>
+                                <td style={{ padding: '4px 8px', borderTop: '1px solid #f0f6ff' }}>{r.expected_kwh ?? '—'}</td>
+                                <td style={{ padding: '4px 8px', borderTop: '1px solid #f0f6ff' }}>{r.pf_band ?? '—'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button onClick={uploadPerf} disabled={upBusy} style={{ flex: 1, padding: '10px', background: '#2B7FD4', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: upBusy ? 'not-allowed' : 'pointer', opacity: upBusy ? 0.6 : 1 }}>
+                          {upBusy ? 'Uploading...' : `Upload ${upPerf.rows.length} records`}
+                        </button>
+                        <button onClick={() => setUpPerf(null)} disabled={upBusy} style={{ padding: '10px 16px', background: '#fff', color: '#9a1a1a', border: '1px solid #f5b8b8', borderRadius: '8px', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Sites upload card */}
+                <div style={{ background: '#fff', border: '1px solid #dce8f8', borderRadius: '10px', padding: '20px' }}>
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: '#7DC242', marginBottom: '6px' }}>
+                    <i className="ti ti-map-pin" style={{ marginRight: '6px' }} />Site / Installation Info
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#7a9aba', marginBottom: '14px', lineHeight: 1.6 }}>
+                    CSV with columns: <b>Site Name; Location; Province; Country; PV Capacity (W); Commisioned Date; Operational Satus; Contract Type; Business Type; Investment Party; Battery Size (Wh); Installer Name...</b><br />
+                    Same format as your site_tech_info file. Matched by Site Name.
+                  </div>
+
+                  <label style={{ display: 'block', border: '2px dashed #b8e890', borderRadius: '10px', padding: '24px', textAlign: 'center', cursor: 'pointer', background: '#f8fdf4' }}>
+                    <i className="ti ti-file-upload" style={{ fontSize: '28px', color: '#7DC242', display: 'block', marginBottom: '8px' }} />
+                    <span style={{ fontSize: '12px', color: '#5a7aaa' }}>Click to select sites CSV</span>
+                    <input type="file" accept=".csv" onChange={handleSitesFile} style={{ display: 'none' }} disabled={upBusy} />
+                  </label>
+
+                  {upSites && (
+                    <div style={{ marginTop: '14px' }}>
+                      <div style={{ fontSize: '12px', color: '#1a2a4a', marginBottom: '8px' }}>
+                        📄 <b>{upSites.fileName}</b> — {upSites.rows.length} valid sites
+                        {upSites.errors.length > 0 && <span style={{ color: '#9a1a1a' }}> · {upSites.errors.length} rows skipped</span>}
+                      </div>
+                      <div style={{ maxHeight: '160px', overflowY: 'auto', border: '1px solid #dce8f8', borderRadius: '8px', marginBottom: '10px' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+                          <thead><tr style={{ background: '#f8fbff' }}>
+                            {['Site', 'Province', 'kWp', 'Contract', 'Investor', 'Status'].map(h => <th key={h} style={{ padding: '5px 8px', textAlign: 'left', color: '#9ab8d8', fontSize: '9px', textTransform: 'uppercase' }}>{h}</th>)}
+                          </tr></thead>
+                          <tbody>
+                            {upSites.rows.slice(0, 8).map((r, i) => (
+                              <tr key={i}>
+                                <td style={{ padding: '4px 8px', borderTop: '1px solid #f0f6ff' }}>{r.name}</td>
+                                <td style={{ padding: '4px 8px', borderTop: '1px solid #f0f6ff' }}>{r.province ?? '—'}</td>
+                                <td style={{ padding: '4px 8px', borderTop: '1px solid #f0f6ff' }}>{r.capacity_kw ?? '—'}</td>
+                                <td style={{ padding: '4px 8px', borderTop: '1px solid #f0f6ff' }}>{r.system_type ?? '—'}</td>
+                                <td style={{ padding: '4px 8px', borderTop: '1px solid #f0f6ff' }}>{r.investment_party ?? '—'}</td>
+                                <td style={{ padding: '4px 8px', borderTop: '1px solid #f0f6ff' }}>{r.status ?? '—'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button onClick={uploadSites} disabled={upBusy} style={{ flex: 1, padding: '10px', background: '#7DC242', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: upBusy ? 'not-allowed' : 'pointer', opacity: upBusy ? 0.6 : 1 }}>
+                          {upBusy ? 'Uploading...' : `Upload ${upSites.rows.length} sites`}
+                        </button>
+                        <button onClick={() => setUpSites(null)} disabled={upBusy} style={{ padding: '10px 16px', background: '#fff', color: '#9a1a1a', border: '1px solid #f5b8b8', borderRadius: '8px', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                {/* Comments upload card */}
+                <div style={{ background: '#fff', border: '1px solid #dce8f8', borderRadius: '10px', padding: '20px' }}>
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: '#f0a500', marginBottom: '6px' }}>
+                    <i className="ti ti-message-2" style={{ marginRight: '6px' }} />Technical Comments
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#7a9aba', marginBottom: '14px', lineHeight: 1.6 }}>
+                    CSV with columns: <b>Site Name; Date; Comment</b><br />
+                    Date format: Jan-25, Feb-25... Semicolon separated. Rows with empty comments are skipped.
+                  </div>
+
+                  <label style={{ display: 'block', border: '2px dashed #f0d840', borderRadius: '10px', padding: '24px', textAlign: 'center', cursor: 'pointer', background: '#fffdf4' }}>
+                    <i className="ti ti-file-upload" style={{ fontSize: '28px', color: '#f0a500', display: 'block', marginBottom: '8px' }} />
+                    <span style={{ fontSize: '12px', color: '#5a7aaa' }}>Click to select comments CSV</span>
+                    <input type="file" accept=".csv" onChange={handleCommentsFile} style={{ display: 'none' }} disabled={upBusy} />
+                  </label>
+
+                  {upComments && (
+                    <div style={{ marginTop: '14px' }}>
+                      <div style={{ fontSize: '12px', color: '#1a2a4a', marginBottom: '8px' }}>
+                        📄 <b>{upComments.fileName}</b> — {upComments.rows.length} comments
+                        {upComments.emptySkipped > 0 && <span style={{ color: '#9ab8d8' }}> · {upComments.emptySkipped} empty skipped</span>}
+                        {upComments.errors.length > 0 && <span style={{ color: '#9a1a1a' }}> · {upComments.errors.length} invalid rows</span>}
+                      </div>
+                      <div style={{ maxHeight: '160px', overflowY: 'auto', border: '1px solid #dce8f8', borderRadius: '8px', marginBottom: '10px' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+                          <thead><tr style={{ background: '#f8fbff' }}>
+                            {['Site', 'Month', 'Year', 'Comment'].map(h => <th key={h} style={{ padding: '5px 8px', textAlign: 'left', color: '#9ab8d8', fontSize: '9px', textTransform: 'uppercase' }}>{h}</th>)}
+                          </tr></thead>
+                          <tbody>
+                            {upComments.rows.slice(0, 8).map((r, i) => (
+                              <tr key={i}>
+                                <td style={{ padding: '4px 8px', borderTop: '1px solid #f0f6ff', whiteSpace: 'nowrap' }}>{r.site_name}</td>
+                                <td style={{ padding: '4px 8px', borderTop: '1px solid #f0f6ff' }}>{r.month}</td>
+                                <td style={{ padding: '4px 8px', borderTop: '1px solid #f0f6ff' }}>{r.year}</td>
+                                <td style={{ padding: '4px 8px', borderTop: '1px solid #f0f6ff', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.comment}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button onClick={uploadComments} disabled={upBusy} style={{ flex: 1, padding: '10px', background: '#f0a500', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: upBusy ? 'not-allowed' : 'pointer', opacity: upBusy ? 0.6 : 1 }}>
+                          {upBusy ? 'Uploading...' : `Upload ${upComments.rows.length} comments`}
+                        </button>
+                        <button onClick={() => setUpComments(null)} disabled={upBusy} style={{ padding: '10px 16px', background: '#fff', color: '#9a1a1a', border: '1px solid #f5b8b8', borderRadius: '8px', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ background: '#fffbe0', border: '1px solid #f0d840', borderRadius: '10px', padding: '14px 18px', marginTop: '16px', fontSize: '12px', color: '#8a6a00', lineHeight: 1.7 }}>
+                <b>💡 How it works:</b> Records are matched by Site Name + Month + Year (performance &amp; comments) or Site Name (sites).
+                If a match exists it gets <b>updated</b>, otherwise a <b>new record is added</b>. You can safely re-upload the same file —
+                no duplicates will be created. Export your Excel sheet as CSV (semicolon separated) before uploading.
+              </div>
+            </div>
+          )}
 
           {/* ── INVESTOR VIEW ── */}
           {activePage === 'investor' && (
