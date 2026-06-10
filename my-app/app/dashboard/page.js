@@ -58,6 +58,7 @@ export default function DashboardPage() {
   const [filterContract, setFilterContract] = useState('')
   const [activeInvTab, setActiveInvTab] = useState('all')
   const [chartReady, setChartReady] = useState(false)
+  const [geoReady, setGeoReady] = useState(false)
   const [filterInvestor, setFilterInvestor] = useState('')
   const [filterInstaller, setFilterInstaller] = useState('')
   const [filterOverviewContract, setFilterOverviewContract] = useState('')
@@ -87,10 +88,36 @@ export default function DashboardPage() {
   const chartsRef = useRef({})
 
   useEffect(() => {
-    if (window.Chart) { setChartReady(true); return }
+    function loadGeo() {
+      if (window.ChartGeo && window._zaFeatures) { setGeoReady(true); return }
+      const geoScript = document.createElement('script')
+      geoScript.src = 'https://cdn.jsdelivr.net/npm/chartjs-chart-geo@4.3.4/build/index.umd.min.js'
+      geoScript.onload = async () => {
+        try {
+          const urls = [
+            'https://cdn.jsdelivr.net/gh/deldersveld/topojson@master/countries/south-africa/south-africa-provinces.json',
+            'https://cdn.jsdelivr.net/gh/deldersveld/topojson@master/countries/zambia/zambia-provinces.json',
+          ]
+          const results = await Promise.allSettled(urls.map(u => fetch(u).then(r => r.json())))
+          let features = []
+          results.forEach(r => {
+            if (r.status === 'fulfilled') {
+              const topo = r.value
+              const key = Object.keys(topo.objects)[0]
+              features = features.concat(window.ChartGeo.topojson.feature(topo, topo.objects[key]).features)
+            }
+          })
+          if (features.length === 0) throw new Error('No geo data loaded')
+          window._zaFeatures = features
+          setGeoReady(true)
+        } catch (e) { console.error('Geo map data failed to load, falling back to bar chart', e) }
+      }
+      document.head.appendChild(geoScript)
+    }
+    if (window.Chart) { setChartReady(true); loadGeo(); return }
     const script = document.createElement('script')
     script.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js'
-    script.onload = () => setChartReady(true)
+    script.onload = () => { setChartReady(true); loadGeo() }
     document.head.appendChild(script)
   }, [])
 
@@ -141,7 +168,7 @@ export default function DashboardPage() {
     if (!loading && sites.length > 0 && chartReady && activePage === 'overview') {
       setTimeout(() => buildCharts(filteredOverview), 100)
     }
-  }, [loading, sites, activePage, chartReady, filterInvestor, filterInstaller, filterOverviewContract])
+  }, [loading, sites, activePage, chartReady, geoReady, filterInvestor, filterInstaller, filterOverviewContract])
 
   useEffect(() => {
     if (activePage === 'investor' && chartReady) setTimeout(() => buildCharts(invSites), 100)
@@ -217,12 +244,88 @@ export default function DashboardPage() {
     const bizEl = document.getElementById('bizChart')
     if (bizEl) chartsRef.current['bizChart'] = new Chart(bizEl, { type: 'doughnut', data: { labels: types, datasets: [{ data: tCounts, backgroundColor: tColors, borderWidth: 2, borderColor: '#fff' }] }, options: { ...commonOpts, cutout: '55%', plugins: { legend: { display: true, position: 'right', labels: { font: { size: 11 }, boxWidth: 12 } } } } })
 
+    // ── Geo maps: MWp + site count per province (SA & Zambia) ──
+    const alias = { 'kzn': 'KwaZulu-Natal', 'kwazulu-natal': 'KwaZulu-Natal', 'kwazulu natal': 'KwaZulu-Natal', 'free state': 'Free State', 'freestate': 'Free State', 'gauteng': 'Gauteng', 'limpopo': 'Limpopo', 'north west': 'North West', 'northwest': 'North West', 'western cape': 'Western Cape', 'mpumalanga': 'Mpumalanga', 'northern cape': 'Northern Cape', 'eastern cape': 'Eastern Cape', 'lusaka': 'Lusaka', 'zambia': 'Lusaka', 'copperbelt': 'Copperbelt', 'southern': 'Southern', 'central': 'Central', 'eastern': 'Eastern', 'northern': 'Northern', 'western': 'Western', 'north-western': 'North-Western', 'luapula': 'Luapula', 'muchinga': 'Muchinga' }
+    const featName = f => f.properties.NAME_1 || f.properties.name || ''
+    const lerp = (a, b, t) => Math.round(a + (b - a) * t)
+    const orangeRamp = (t) => {
+      if (t <= 0) return '#e6e6e6'
+      const from = [252, 228, 214], to = [178, 49, 22]
+      return `rgb(${lerp(from[0], to[0], t)},${lerp(from[1], to[1], t)},${lerp(from[2], to[2], t)})`
+    }
+
+    function buildGeoMap(canvasId, rawMap, { decimals = 1, unit = 'MWp' } = {}) {
+      destroy(canvasId)
+      const el = document.getElementById(canvasId)
+      if (!el) return
+      const features = window._zaFeatures
+      const normMap = {}
+      Object.entries(rawMap).forEach(([p, v]) => {
+        const norm = alias[p.trim().toLowerCase()]
+        if (norm) normMap[norm] = (normMap[norm] || 0) + v
+      })
+      if (features && features.length) {
+        const labelPlugin = {
+          id: canvasId + 'Labels',
+          afterDatasetsDraw(chart) {
+            const meta = chart.getDatasetMeta(0)
+            const ds = chart.data.datasets[0]
+            const { ctx } = chart
+            const maxVal = Math.max(...ds.data.map(d => d.value), 0.001)
+            ctx.save()
+            ctx.font = 'bold 11px Segoe UI'
+            ctx.textAlign = 'center'
+            ctx.textBaseline = 'middle'
+            meta.data.forEach((elm, i) => {
+              const v = ds.data[i].value
+              if (!v || v <= 0) return
+              const cp = elm.getCenterPoint ? elm.getCenterPoint() : null
+              if (!cp) return
+              const t = v / maxVal
+              ctx.fillStyle = t > 0.55 ? '#ffffff' : '#7a3010'
+              ctx.fillText(decimals === 0 ? String(Math.round(v)) : v.toFixed(decimals), cp.x, cp.y)
+            })
+            ctx.restore()
+          }
+        }
+        chartsRef.current[canvasId] = new Chart(el, {
+          type: 'choropleth',
+          data: {
+            labels: features.map(featName),
+            datasets: [{
+              outline: features,
+              data: features.map(f => ({ feature: f, value: +((normMap[featName(f)] || 0)).toFixed(decimals) })),
+              borderColor: '#ffffff',
+              borderWidth: 1.5,
+            }]
+          },
+          plugins: [labelPlugin],
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: { callbacks: { label: ctx => `${featName(ctx.raw.feature)}: ${ctx.raw.value} ${unit}` } }
+            },
+            scales: {
+              projection: { axis: 'x', projection: 'mercator' },
+              color: { axis: 'x', interpolate: orangeRamp, legend: { display: false } }
+            }
+          }
+        })
+      } else {
+        // Fallback bar chart
+        const keys = Object.keys(rawMap).sort((a, b) => rawMap[b] - rawMap[a]).slice(0, 9)
+        chartsRef.current[canvasId] = new Chart(el, { type: 'bar', data: { labels: keys, datasets: [{ data: keys.map(p => rawMap[p].toFixed(decimals)), backgroundColor: C.blue, borderRadius: 4 }] }, options: { ...commonOpts, plugins: { legend: { display: false } }, scales: { x: { ticks: { maxRotation: 40, font: { size: 9 } } }, y: { grid: { color: '#dce8f8' }, ticks: { callback: v => v + ' ' + unit } } } } })
+      }
+    }
+
     const provCapMap = {}
-    sitesData.forEach(s => { const p = s.province || 'Unknown'; provCapMap[p] = (provCapMap[p] || 0) + (s.capacity_kw || 0) })
-    const provKeys = Object.keys(provCapMap).sort((a, b) => provCapMap[b] - provCapMap[a]).slice(0, 9)
-    destroy('provMwpChart')
-    const provMwpEl = document.getElementById('provMwpChart')
-    if (provMwpEl) chartsRef.current['provMwpChart'] = new Chart(provMwpEl, { type: 'bar', data: { labels: provKeys, datasets: [{ data: provKeys.map(p => (provCapMap[p]/1000).toFixed(2)), backgroundColor: C.blue, borderRadius: 4 }] }, options: { ...commonOpts, plugins: { legend: { display: false } }, scales: { x: { ticks: { maxRotation: 40, font: { size: 9 } } }, y: { grid: { color: '#dce8f8' }, ticks: { callback: v => v+' MWp' } } } } })
+    sitesData.forEach(s => { const p = s.province || 'Unknown'; provCapMap[p] = (provCapMap[p] || 0) + (s.capacity_kw || 0) / 1000 })
+    buildGeoMap('provMwpChart', provCapMap, { decimals: 1, unit: 'MWp' })
+
+    const provCountMap = {}
+    sitesData.forEach(s => { const p = s.province || 'Unknown'; provCountMap[p] = (provCountMap[p] || 0) + 1 })
+    buildGeoMap('provSitesChart', provCountMap, { decimals: 0, unit: 'sites' })
 
     const provBessMap = {}
     sitesData.forEach(s => { const p = s.province || 'Unknown'; if (s.battery_size_wh > 0) provBessMap[p] = (provBessMap[p] || 0) + (s.battery_size_wh || 0) })
@@ -735,8 +838,8 @@ export default function DashboardPage() {
                   <div style={{ position: 'relative', height: '190px' }}><canvas id="bizChart" /></div>
                 </div>
                 <div style={{ background: '#fff', border: '1px solid #dce8f8', borderRadius: '10px', padding: '16px' }}>
-                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a2a4a', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '7px' }}><i className="ti ti-map" style={{ color: '#2B7FD4' }} />MWp by province</div>
-                  <div style={{ position: 'relative', height: '190px' }}><canvas id="provMwpChart" /></div>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a2a4a', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '7px' }}><i className="ti ti-map" style={{ color: '#2B7FD4' }} />MWp by province — South Africa &amp; Zambia</div>
+                  <div style={{ position: 'relative', height: '300px' }}><canvas id="provMwpChart" /></div>
                 </div>
               </div>
 
@@ -751,9 +854,15 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              <div style={{ background: '#fff', border: '1px solid #dce8f8', borderRadius: '10px', padding: '16px' }}>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a2a4a', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '7px' }}><i className="ti ti-users" style={{ color: '#7DC242' }} />By investor</div>
-                <div style={{ position: 'relative', height: '170px' }}><canvas id="investorChart" /></div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                <div style={{ background: '#fff', border: '1px solid #dce8f8', borderRadius: '10px', padding: '16px' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a2a4a', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '7px' }}><i className="ti ti-map-pin" style={{ color: '#2B7FD4' }} />Sites by province — South Africa &amp; Zambia</div>
+                  <div style={{ position: 'relative', height: '300px' }}><canvas id="provSitesChart" /></div>
+                </div>
+                <div style={{ background: '#fff', border: '1px solid #dce8f8', borderRadius: '10px', padding: '16px' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a2a4a', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '7px' }}><i className="ti ti-users" style={{ color: '#7DC242' }} />By investor</div>
+                  <div style={{ position: 'relative', height: '300px' }}><canvas id="investorChart" /></div>
+                </div>
               </div>
             </div>
           )}
