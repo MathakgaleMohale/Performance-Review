@@ -22,6 +22,12 @@ export default function DashboardPage() {
   const [pfFilterInvestor, setPfFilterInvestor] = useState('')
   const [pfFilterDate, setPfFilterDate] = useState('')
   const [pfFilterBand, setPfFilterBand] = useState('')
+  // Site Performance state
+  const [spSite, setSpSite] = useState('')
+  const [spSearch, setSpSearch] = useState('')
+  const [spYear, setSpYear] = useState('')
+  const [spYearA, setSpYearA] = useState('')
+  const [spYearB, setSpYearB] = useState('')
   const chartsRef = useRef({})
 
   useEffect(() => {
@@ -48,7 +54,7 @@ export default function DashboardPage() {
 
   // Load performance data when page is opened
   useEffect(() => {
-    if (activePage === 'performance' && perfData.length === 0) {
+    if ((activePage === 'performance' || activePage === 'siteperf') && perfData.length === 0) {
       loadPerformance()
     }
   }, [activePage])
@@ -188,6 +194,119 @@ export default function DashboardPage() {
     if (invCapEl) chartsRef.current['invCapChart'] = new Chart(invCapEl, { type: 'bar', data: { labels: invList, datasets: [{ data: invCaps, backgroundColor: [C.blue,C.yellow,C.green], borderRadius: 8 }] }, options: { ...commonOpts, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#dce8f8' }, ticks: { callback: v => v+' MWp' } } } } })
   }
 
+  useEffect(() => {
+    if (activePage === 'siteperf' && chartReady && perfData.length > 0 && spSite) {
+      setTimeout(() => buildSitePerfCharts(), 100)
+    }
+  }, [activePage, chartReady, perfData, spSite, spYear, spYearA, spYearB])
+
+  function buildSitePerfCharts() {
+    if (typeof window === 'undefined') return
+    const Chart = window.Chart
+    if (!Chart || !spSite) return
+    const destroy = (id) => { if (chartsRef.current[id]) { chartsRef.current[id].destroy(); delete chartsRef.current[id] } }
+    const C = { blue: '#2B7FD4', yellow: '#F5D000', green: '#7DC242', red: '#ef4444', gray: '#c5d5e8', dark: '#3a3a3a' }
+    const recs = perfData.filter(p => p.site_name?.trim().toLowerCase() === spSite.trim().toLowerCase())
+    const years = [...new Set(recs.map(p => p.year))].sort()
+    const monthLabels = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+
+    // Chart 1: Expected vs Measured + delta %
+    const yr = parseInt(spYear) || years[years.length - 1]
+    const measured = [], expected = [], delta = []
+    for (let m = 1; m <= 12; m++) {
+      const r = recs.find(p => p.year === yr && p.month === m)
+      const me = r?.kwh_produced ?? null
+      const ex = r?.expected_kwh ?? null
+      measured.push(me); expected.push(ex)
+      delta.push(me != null && ex ? +(((me - ex) / ex) * 100).toFixed(1) : null)
+    }
+    // Plugin that writes the Δ% value above/below each delta bar
+    const deltaLabelPlugin = {
+      id: 'deltaLabels',
+      afterDatasetsDraw(chart) {
+        const ds = chart.data.datasets[0]
+        if (!ds || ds.yAxisID !== 'y1') return
+        const meta = chart.getDatasetMeta(0)
+        const { ctx } = chart
+        ctx.save()
+        ctx.font = 'bold 10px Segoe UI'
+        ctx.textAlign = 'center'
+        meta.data.forEach((bar, i) => {
+          const v = ds.data[i]
+          if (v == null) return
+          ctx.fillStyle = v >= 0 ? '#3a7a00' : '#9a1a1a'
+          const y = v >= 0 ? bar.y - 5 : bar.y + 13
+          ctx.fillText((v > 0 ? '+' : '') + v + '%', bar.x, y)
+        })
+        ctx.restore()
+      }
+    }
+
+    destroy('spExpMeasChart')
+    const el1 = document.getElementById('spExpMeasChart')
+    if (el1) chartsRef.current['spExpMeasChart'] = new Chart(el1, {
+      data: {
+        labels: monthLabels,
+        datasets: [
+          { type: 'bar', label: 'Δ % vs expected', data: delta, backgroundColor: delta.map(v => v == null ? C.gray : v >= 0 ? C.green : C.red), yAxisID: 'y1', barPercentage: 0.18, categoryPercentage: 0.9, borderRadius: 2 },
+          { type: 'bar', label: 'Expected (kWh)', data: expected, backgroundColor: C.gray, borderRadius: 4 },
+          { type: 'bar', label: 'Measured (kWh)', data: measured, backgroundColor: C.dark, borderRadius: 4 },
+        ]
+      },
+      plugins: [deltaLabelPlugin],
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        layout: { padding: { top: 16 } },
+        plugins: {
+          legend: { position: 'top', labels: { font: { size: 11 }, boxWidth: 12 } },
+          tooltip: { callbacks: { label: ctx => ctx.dataset.yAxisID === 'y1' ? `Δ ${ctx.parsed.y > 0 ? '+' : ''}${ctx.parsed.y}%` : `${ctx.dataset.label}: ${ctx.parsed.y?.toLocaleString()} kWh` } }
+        },
+        scales: {
+          y: { grid: { color: '#dce8f8' }, ticks: { callback: v => (v/1000).toFixed(0)+'k' } },
+          y1: { position: 'right', grid: { drawOnChartArea: false }, ticks: { callback: v => v + '%' } }
+        }
+      }
+    })
+
+    // Chart 2: Year to Year comparison + delta %
+    const yA = parseInt(spYearA) || years[years.length - 1]
+    const yB = parseInt(spYearB) || years[years.length - 2] || yA
+    const mA = [], mB = [], dY = []
+    for (let m = 1; m <= 12; m++) {
+      const ra = recs.find(p => p.year === yA && p.month === m)
+      const rb = recs.find(p => p.year === yB && p.month === m)
+      const a = ra?.kwh_produced ?? null
+      const b = rb?.kwh_produced ?? null
+      mA.push(a); mB.push(b)
+      dY.push(a != null && b ? +(((a - b) / b) * 100).toFixed(1) : null)
+    }
+    destroy('spYoYChart')
+    const el2 = document.getElementById('spYoYChart')
+    if (el2) chartsRef.current['spYoYChart'] = new Chart(el2, {
+      data: {
+        labels: monthLabels,
+        datasets: [
+          { type: 'bar', label: 'Δ % vs ' + yB, data: dY, backgroundColor: dY.map(v => v == null ? C.gray : v >= 0 ? C.green : C.red), yAxisID: 'y1', barPercentage: 0.18, categoryPercentage: 0.9, borderRadius: 2 },
+          { type: 'bar', label: yB + ' Measured (kWh)', data: mB, backgroundColor: C.gray, borderRadius: 4 },
+          { type: 'bar', label: yA + ' Measured (kWh)', data: mA, backgroundColor: C.dark, borderRadius: 4 },
+        ]
+      },
+      plugins: [deltaLabelPlugin],
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        layout: { padding: { top: 16 } },
+        plugins: {
+          legend: { position: 'top', labels: { font: { size: 11 }, boxWidth: 12 } },
+          tooltip: { callbacks: { label: ctx => ctx.dataset.yAxisID === 'y1' ? `Δ ${ctx.parsed.y > 0 ? '+' : ''}${ctx.parsed.y}%` : `${ctx.dataset.label}: ${ctx.parsed.y?.toLocaleString()} kWh` } }
+        },
+        scales: {
+          y: { grid: { color: '#dce8f8' }, ticks: { callback: v => (v/1000).toFixed(0)+'k' } },
+          y1: { position: 'right', grid: { drawOnChartArea: false }, ticks: { callback: v => v + '%' } }
+        }
+      }
+    })
+  }
+
   function buildPerfCharts(data) {
     if (typeof window === 'undefined') return
     const Chart = window.Chart
@@ -303,6 +422,7 @@ export default function DashboardPage() {
             { id: 'overview', icon: 'ti-dashboard', label: 'Installation Overview' },
             { id: 'sites', icon: 'ti-map-pin', label: 'All Sites' },
             { id: 'performance', icon: 'ti-activity', label: 'Performance' },
+            { id: 'siteperf', icon: 'ti-chart-line', label: 'Site Performance' },
             { id: 'investor', icon: 'ti-chart-bar', label: 'Investor View' },
           ].map(item => (
             <div key={item.id} className="nav-item" onClick={() => setActivePage(item.id)} style={{ display: 'flex', alignItems: 'center', gap: '9px', padding: '8px 18px', cursor: 'pointer', fontSize: '13px', color: activePage === item.id ? '#2B7FD4' : '#5a7aaa', borderLeft: `3px solid ${activePage === item.id ? '#2B7FD4' : 'transparent'}`, background: activePage === item.id ? '#f0f6ff' : 'transparent', fontWeight: activePage === item.id ? 600 : 400 }}>
@@ -547,6 +667,133 @@ export default function DashboardPage() {
               )}
             </div>
           )}
+
+          {/* ── SITE PERFORMANCE ── */}
+          {activePage === 'siteperf' && (() => {
+            const spSiteNames = [...new Set(perfData.map(p => p.site_name?.trim()).filter(Boolean))].sort()
+            const spRecs = perfData.filter(p => p.site_name?.trim() === spSite)
+            const spYears = [...new Set(spRecs.map(p => p.year))].sort()
+            const yrSel = parseInt(spYear) || spYears[spYears.length - 1]
+            const yrA = parseInt(spYearA) || spYears[spYears.length - 1]
+            const yrB = parseInt(spYearB) || spYears[spYears.length - 2] || yrA
+            const yrRecs = spRecs.filter(p => p.year === yrSel && p.kwh_produced != null)
+            const spTotMeas = yrRecs.reduce((s, p) => s + (p.kwh_produced || 0), 0)
+            const spTotExp = yrRecs.reduce((s, p) => s + (p.expected_kwh || 0), 0)
+            const spDelta = spTotExp > 0 ? (((spTotMeas - spTotExp) / spTotExp) * 100).toFixed(1) : null
+            const yoA = spRecs.filter(p => p.year === yrA && p.kwh_produced != null)
+            const yoB = spRecs.filter(p => p.year === yrB && p.kwh_produced != null)
+            const commonM = yoA.map(p => p.month).filter(m => yoB.some(q => q.month === m))
+            const totA = yoA.filter(p => commonM.includes(p.month)).reduce((s, p) => s + p.kwh_produced, 0)
+            const totB = yoB.filter(p => commonM.includes(p.month)).reduce((s, p) => s + p.kwh_produced, 0)
+            const yoyDelta = totB > 0 ? (((totA - totB) / totB) * 100).toFixed(1) : null
+
+            return (
+              <div>
+                <div style={{ fontSize: '19px', fontWeight: 700, color: '#1a2a4a', marginBottom: '2px' }}>Site Performance</div>
+                <div style={{ fontSize: '12px', color: '#7a9aba', marginBottom: '18px' }}>Per-site production analysis — expected vs measured and year-on-year comparison</div>
+
+                {perfLoading ? (
+                  <div style={{ textAlign: 'center', padding: '40px', color: '#9ab8d8' }}>Loading performance data...</div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: '250px 1fr', gap: '14px', alignItems: 'start' }}>
+
+                    {/* Left: site selector */}
+                    <div style={{ background: '#fff', border: '1px solid #dce8f8', borderRadius: '10px', padding: '14px' }}>
+                      <div style={{ fontSize: '13px', fontWeight: 600, color: '#2B7FD4', marginBottom: '10px' }}>Site Name</div>
+                      <input type="text" placeholder="Search sites..." value={spSearch} onChange={e => setSpSearch(e.target.value)} style={{ width: '100%', padding: '6px 10px', border: '1px solid #c0d8f8', borderRadius: '8px', fontSize: '12px', outline: 'none', marginBottom: '10px' }} />
+                      <div style={{ maxHeight: '500px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        {spSiteNames.filter(n => n.toLowerCase().includes(spSearch.toLowerCase())).map(n => (
+                          <div key={n} onClick={() => { setSpSite(n); setSpYear(''); setSpYearA(''); setSpYearB('') }} style={{ padding: '8px 10px', border: '1px solid #c0d8f8', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', background: spSite === n ? '#1a2a4a' : '#fff', color: spSite === n ? '#fff' : '#1a2a4a', fontWeight: spSite === n ? 600 : 400, textAlign: 'center' }}>
+                            {n}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Right: charts */}
+                    <div>
+                      {!spSite ? (
+                        <div style={{ background: '#fff', border: '1px solid #dce8f8', borderRadius: '10px', padding: '60px', textAlign: 'center', color: '#9ab8d8' }}>
+                          <i className="ti ti-chart-line" style={{ fontSize: '40px', display: 'block', marginBottom: '12px' }} />
+                          Select a site from the list to view its performance
+                        </div>
+                      ) : (
+                        <>
+                          {/* Chart 1: Expected vs Measured */}
+                          <div style={{ background: '#fff', border: '1px solid #dce8f8', borderRadius: '10px', padding: '16px', marginBottom: '14px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '12px' }}>
+                              <div style={{ fontSize: '14px', fontWeight: 600, color: '#2B7FD4' }}>
+                                <i className="ti ti-chart-bar" style={{ marginRight: '6px' }} />Expected vs Measured — {spSite}
+                              </div>
+                              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                <span style={{ fontSize: '11px', color: '#7a9aba', fontWeight: 600 }}>Year</span>
+                                <select style={selectStyle} value={spYear || yrSel || ''} onChange={e => setSpYear(e.target.value)}>
+                                  {spYears.map(y => <option key={y} value={y}>{y}</option>)}
+                                </select>
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', gap: '14px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                              <div style={{ background: '#f8fbff', borderRadius: '8px', padding: '8px 14px' }}>
+                                <div style={{ fontSize: '10px', color: '#7a9aba' }}>Total Measured</div>
+                                <div style={{ fontSize: '18px', fontWeight: 700, color: '#1a2a4a' }}>{spTotMeas.toLocaleString()} kWh</div>
+                              </div>
+                              <div style={{ background: '#f8fbff', borderRadius: '8px', padding: '8px 14px' }}>
+                                <div style={{ fontSize: '10px', color: '#7a9aba' }}>Total Expected</div>
+                                <div style={{ fontSize: '18px', fontWeight: 700, color: '#1a2a4a' }}>{spTotExp.toLocaleString()} kWh</div>
+                              </div>
+                              <div style={{ background: spDelta >= 0 ? '#edfae0' : '#fce8e8', borderRadius: '8px', padding: '8px 14px' }}>
+                                <div style={{ fontSize: '10px', color: '#7a9aba' }}>Δ vs Expected</div>
+                                <div style={{ fontSize: '18px', fontWeight: 700, color: spDelta >= 0 ? '#3a7a00' : '#9a1a1a' }}>
+                                  {spDelta != null ? `${spDelta > 0 ? '+' : ''}${spDelta}%` : '—'}
+                                </div>
+                              </div>
+                            </div>
+                            <div style={{ position: 'relative', height: '260px' }}><canvas id="spExpMeasChart" /></div>
+                          </div>
+
+                          {/* Chart 2: Year to Year */}
+                          <div style={{ background: '#fff', border: '1px solid #dce8f8', borderRadius: '10px', padding: '16px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '12px' }}>
+                              <div style={{ fontSize: '14px', fontWeight: 600, color: '#2B7FD4' }}>
+                                <i className="ti ti-arrows-diff" style={{ marginRight: '6px' }} />Year to Year Comparison
+                              </div>
+                              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                <span style={{ fontSize: '11px', color: '#7a9aba', fontWeight: 600 }}>Compare</span>
+                                <select style={selectStyle} value={spYearA || yrA || ''} onChange={e => setSpYearA(e.target.value)}>
+                                  {spYears.map(y => <option key={y} value={y}>{y}</option>)}
+                                </select>
+                                <span style={{ fontSize: '11px', color: '#7a9aba' }}>vs</span>
+                                <select style={selectStyle} value={spYearB || yrB || ''} onChange={e => setSpYearB(e.target.value)}>
+                                  {spYears.map(y => <option key={y} value={y}>{y}</option>)}
+                                </select>
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', gap: '14px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                              <div style={{ background: '#f8fbff', borderRadius: '8px', padding: '8px 14px' }}>
+                                <div style={{ fontSize: '10px', color: '#7a9aba' }}>{yrA} Total (common months)</div>
+                                <div style={{ fontSize: '18px', fontWeight: 700, color: '#1a2a4a' }}>{totA.toLocaleString()} kWh</div>
+                              </div>
+                              <div style={{ background: '#f8fbff', borderRadius: '8px', padding: '8px 14px' }}>
+                                <div style={{ fontSize: '10px', color: '#7a9aba' }}>{yrB} Total (common months)</div>
+                                <div style={{ fontSize: '18px', fontWeight: 700, color: '#1a2a4a' }}>{totB.toLocaleString()} kWh</div>
+                              </div>
+                              <div style={{ background: yoyDelta >= 0 ? '#edfae0' : '#fce8e8', borderRadius: '8px', padding: '8px 14px' }}>
+                                <div style={{ fontSize: '10px', color: '#7a9aba' }}>Δ {yrA} vs {yrB}</div>
+                                <div style={{ fontSize: '18px', fontWeight: 700, color: yoyDelta >= 0 ? '#3a7a00' : '#9a1a1a' }}>
+                                  {yoyDelta != null ? `${yoyDelta > 0 ? '+' : ''}${yoyDelta}%` : '—'}
+                                </div>
+                              </div>
+                            </div>
+                            <div style={{ position: 'relative', height: '260px' }}><canvas id="spYoYChart" /></div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })()}
 
           {/* ── INVESTOR VIEW ── */}
           {activePage === 'investor' && (
