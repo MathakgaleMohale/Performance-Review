@@ -28,6 +28,7 @@ export default function DashboardPage() {
   const [spYear, setSpYear] = useState('')
   const [spYearA, setSpYearA] = useState('')
   const [spYearB, setSpYearB] = useState('')
+  const [spCommentDate, setSpCommentDate] = useState('')
   const chartsRef = useRef({})
 
   useEffect(() => {
@@ -703,7 +704,7 @@ export default function DashboardPage() {
                       <input type="text" placeholder="Search sites..." value={spSearch} onChange={e => setSpSearch(e.target.value)} style={{ width: '100%', padding: '6px 10px', border: '1px solid #c0d8f8', borderRadius: '8px', fontSize: '12px', outline: 'none', marginBottom: '10px' }} />
                       <div style={{ maxHeight: '500px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                         {spSiteNames.filter(n => n.toLowerCase().includes(spSearch.toLowerCase())).map(n => (
-                          <div key={n} onClick={() => { setSpSite(n); setSpYear(''); setSpYearA(''); setSpYearB('') }} style={{ padding: '8px 10px', border: '1px solid #c0d8f8', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', background: spSite === n ? '#1a2a4a' : '#fff', color: spSite === n ? '#fff' : '#1a2a4a', fontWeight: spSite === n ? 600 : 400, textAlign: 'center' }}>
+                          <div key={n} onClick={() => { setSpSite(n); setSpYear(''); setSpYearA(''); setSpYearB(''); setSpCommentDate('') }} style={{ padding: '8px 10px', border: '1px solid #c0d8f8', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', background: spSite === n ? '#1a2a4a' : '#fff', color: spSite === n ? '#fff' : '#1a2a4a', fontWeight: spSite === n ? 600 : 400, textAlign: 'center' }}>
                             {n}
                           </div>
                         ))}
@@ -786,6 +787,45 @@ export default function DashboardPage() {
                             </div>
                             <div style={{ position: 'relative', height: '260px' }}><canvas id="spYoYChart" /></div>
                           </div>
+
+                          {/* Technical Comments */}
+                          {(() => {
+                            const commentRecs = spRecs
+                              .filter(p => p.comment)
+                              .sort((a, b) => (b.year - a.year) || (b.month - a.month))
+                            const cDates = commentRecs.map(p => `${p.year}-${String(p.month).padStart(2, '0')}`)
+                            const selDate = spCommentDate || cDates[0] || ''
+                            const selRec = commentRecs.find(p => `${p.year}-${String(p.month).padStart(2, '0')}` === selDate)
+                            const monthNamesC = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+                            return (
+                              <div style={{ background: '#fff', border: '1px solid #dce8f8', borderRadius: '10px', padding: '16px', marginTop: '14px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '12px' }}>
+                                  <div style={{ fontSize: '14px', fontWeight: 600, color: '#2B7FD4' }}>
+                                    <i className="ti ti-message-2" style={{ marginRight: '6px' }} />Technical Comments
+                                  </div>
+                                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                    <span style={{ fontSize: '11px', color: '#7a9aba', fontWeight: 600 }}>Date</span>
+                                    <select style={selectStyle} value={selDate} onChange={e => setSpCommentDate(e.target.value)}>
+                                      {cDates.length === 0 && <option value="">No comments</option>}
+                                      {cDates.map(d => {
+                                        const [y, m] = d.split('-')
+                                        return <option key={d} value={d}>{monthNamesC[parseInt(m) - 1]}-{y.slice(2)}</option>
+                                      })}
+                                    </select>
+                                  </div>
+                                </div>
+                                {selRec ? (
+                                  <div style={{ background: '#f8fbff', border: '1px solid #dce8f8', borderRadius: '8px', padding: '14px 16px', fontSize: '13px', color: '#2a3a5a', lineHeight: 1.7, whiteSpace: 'pre-line' }}>
+                                    {selRec.comment}
+                                  </div>
+                                ) : (
+                                  <div style={{ padding: '20px', textAlign: 'center', color: '#9ab8d8', fontSize: '12px' }}>
+                                    No technical comments recorded for this site yet
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })()}
                         </>
                       )}
                     </div>
