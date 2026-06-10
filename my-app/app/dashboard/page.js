@@ -68,6 +68,7 @@ export default function DashboardPage() {
   const [pfFilterInvestor, setPfFilterInvestor] = useState('')
   const [pfFilterDate, setPfFilterDate] = useState('')
   const [pfFilterBand, setPfFilterBand] = useState('')
+  const [pfSort, setPfSort] = useState({ key: 'date', dir: 'desc' })
   // Site Performance state
   const [spSite, setSpSite] = useState('')
   const [spSearch, setSpSearch] = useState('')
@@ -225,6 +226,34 @@ export default function DashboardPage() {
     const mB = !pfFilterBand || p.pf_band === pfFilterBand
     return mI && mD && mB
   })
+
+  // Sort the performance table by the selected column
+  const sortedPerf = [...filteredPerf].sort((a, b) => {
+    const dir = pfSort.dir === 'asc' ? 1 : -1
+    const val = (p) => {
+      switch (pfSort.key) {
+        case 'site': return (p.site_name || '').toLowerCase()
+        case 'investor': return (getInvestor(p) || '').toLowerCase()
+        case 'date': return p.year * 100 + p.month
+        case 'measured': return p.kwh_produced
+        case 'expected': return p.expected_kwh
+        case 'perf': return p.performance_pct
+        case 'band': return (p.pf_band || '').toLowerCase()
+        default: return 0
+      }
+    }
+    const va = val(a), vb = val(b)
+    if (va == null && vb == null) return 0
+    if (va == null) return 1   // nulls always last
+    if (vb == null) return -1
+    if (va < vb) return -1 * dir
+    if (va > vb) return 1 * dir
+    return 0
+  })
+
+  function togglePfSort(key) {
+    setPfSort(s => s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: key === 'site' || key === 'investor' || key === 'band' ? 'asc' : 'desc' })
+  }
 
   const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
   function fmtDate(month, year) { return `${monthNames[month-1]}-${String(year).slice(2)}` }
@@ -977,14 +1006,24 @@ export default function DashboardPage() {
                   <div style={{ background: '#fff', border: '1px solid #dce8f8', borderRadius: '10px', overflow: 'hidden' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                       <thead><tr style={{ background: '#f8fbff' }}>
-                        {['Site Name','Investor','Date','Measured (kWh)','Expected (kWh)','Performance %','PF Band'].map(h => (
-                          <th key={h} style={{ textAlign: 'left', padding: '7px 9px', fontSize: '10px', color: '#9ab8d8', fontWeight: 600, borderBottom: '2px solid #dce8f8', textTransform: 'uppercase' }}>{h}</th>
+                        {[
+                          { label: 'Site Name', key: 'site' },
+                          { label: 'Investor', key: 'investor' },
+                          { label: 'Date', key: 'date' },
+                          { label: 'Measured (kWh)', key: 'measured' },
+                          { label: 'Expected (kWh)', key: 'expected' },
+                          { label: 'Performance %', key: 'perf' },
+                          { label: 'PF Band', key: 'band' },
+                        ].map(h => (
+                          <th key={h.key} onClick={() => togglePfSort(h.key)} style={{ textAlign: 'left', padding: '7px 9px', fontSize: '10px', color: pfSort.key === h.key ? '#2B7FD4' : '#9ab8d8', fontWeight: 600, borderBottom: '2px solid #dce8f8', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                            {h.label} {pfSort.key === h.key ? (pfSort.dir === 'asc' ? '▲' : '▼') : <span style={{ opacity: 0.35 }}>⇅</span>}
+                          </th>
                         ))}
                       </tr></thead>
                       <tbody>
                         {filteredPerf.length === 0 ? (
                           <tr><td colSpan={7} style={{ padding: '24px', textAlign: 'center', color: '#9ab8d8' }}>No records match the selected filters</td></tr>
-                        ) : filteredPerf.map((p, i) => (
+                        ) : sortedPerf.map((p, i) => (
                           <tr key={p.id} className="tbl-row">
                             <td style={{ padding: '7px 9px', borderBottom: '1px solid #f0f6ff', fontWeight: 500, color: '#2B7FD4' }}>{p.site_name}</td>
                             <td style={{ padding: '7px 9px', borderBottom: '1px solid #f0f6ff' }}>{getInvestor(p) || '—'}</td>
