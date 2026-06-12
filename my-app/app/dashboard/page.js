@@ -116,6 +116,12 @@ export default function DashboardPage() {
   const [repDate, setRepDate] = useState('')
   const [upMsg, setUpMsg] = useState('')
   const [upBusy, setUpBusy] = useState(false)
+  const [ogData, setOgData] = useState([])
+  const [ogLoading, setOgLoading] = useState(false)
+  const [ogSearch, setOgSearch] = useState('')
+  const [ogFilterStatus, setOgFilterStatus] = useState('')
+  const [ogSort, setOgSort] = useState({ key: 'shortfall', dir: 'asc' })
+  const [ogSelected, setOgSelected] = useState(null)
   const chartsRef = useRef({})
 
   useEffect(() => {
@@ -167,10 +173,27 @@ export default function DashboardPage() {
   }, [])
 
   useEffect(() => {
-    if ((activePage === 'performance' || activePage === 'siteperf' || activePage === 'report') && perfData.length === 0) {
+    if ((activePage === 'performance' || activePage === 'siteperf' || activePage === 'report' || activePage === 'offtake') && perfData.length === 0) {
       loadPerformance()
     }
   }, [activePage])
+
+  useEffect(() => {
+    if (activePage === 'offtake' && ogData.length === 0) {
+      loadOfftake()
+    }
+  }, [activePage])
+
+  async function loadOfftake() {
+    setOgLoading(true)
+    const { data, error } = await supabase
+      .from('offtake_guarantees')
+      .select('*')
+      .order('site_name')
+    if (error) console.error('Failed to load offtake guarantees', error)
+    setOgData(data || [])
+    setOgLoading(false)
+  }
 
   async function loadPerformance() {
     setPerfLoading(true)
@@ -281,6 +304,80 @@ export default function DashboardPage() {
 
   const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
   function fmtDate(month, year) { return `${monthNames[parseInt(month)-1]}-${String(parseInt(year)).slice(2)}` }
+
+  // ── Offtake Guarantees derived values ──────────────────────────────────────
+  const filteredOG = ogData.filter(g => {
+    const q = ogSearch.toLowerCase()
+    const mQ = !q || g.site_name?.toLowerCase().includes(q)
+    const meeting = (g.shortfall_kwh ?? 0) >= 0
+    const mS = !ogFilterStatus || (ogFilterStatus === 'meeting' ? meeting : !meeting)
+    return mQ && mS
+  })
+
+  const sortedOG = [...filteredOG].sort((a, b) => {
+    const dir = ogSort.dir === 'asc' ? 1 : -1
+    const val = (g) => {
+      switch (ogSort.key) {
+        case 'site': return (g.site_name || '').toLowerCase()
+        case 'util': return g.expected_utilisation != null ? parseFloat(g.expected_utilisation) : null
+        case 'degradation': return g.degradation != null ? parseFloat(g.degradation) : null
+        case 'asbuilt': return g.as_built_kwh != null ? parseFloat(g.as_built_kwh) : null
+        case 'guaranteed': return g.correct_kwh != null ? parseFloat(g.correct_kwh) : null
+        case 'unavail': return g.unavailability_kwh != null ? parseFloat(g.unavailability_kwh) : null
+        case 'actual': return g.actual_kwh != null ? parseFloat(g.actual_kwh) : null
+        case 'achievement': return g.correct_kwh > 0 && g.actual_kwh != null ? g.actual_kwh / g.correct_kwh : null
+        case 'shortfall': return g.shortfall_kwh != null ? parseFloat(g.shortfall_kwh) : null
+        default: return 0
+      }
+    }
+    const va = val(a), vb = val(b)
+    if (va == null && vb == null) return 0
+    if (va == null) return 1
+    if (vb == null) return -1
+    if (va < vb) return -1 * dir
+    if (va > vb) return 1 * dir
+    return 0
+  })
+
+  function toggleOgSort(key) {
+    setOgSort(s => s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: key === 'site' ? 'asc' : key === 'shortfall' ? 'asc' : 'desc' })
+  }
+
+  const ogTotGuaranteed = filteredOG.reduce((s, g) => s + (g.correct_kwh || 0), 0)
+  const ogTotActual = filteredOG.reduce((s, g) => s + (g.actual_kwh || 0), 0)
+  const ogTotShortfall = filteredOG.reduce((s, g) => s + (g.shortfall_kwh || 0), 0)
+  const ogMeetingCount = filteredOG.filter(g => (g.shortfall_kwh ?? 0) >= 0).length
+  const ogAchievement = ogTotGuaranteed > 0 ? ((ogTotActual / ogTotGuaranteed) * 100).toFixed(1) : '—'
+
+  // Guarantee period: July 2025 – June 2026
+  const OG_PERIOD = Array.from({ length: 12 }, (_, i) => {
+    const m = ((6 + i) % 12) + 1
+    return { m, y: m >= 7 ? 2025 : 2026 }
+  })
+
+  function ogMonthlyRows(siteName) {
+    const key = (siteName || '').trim().toLowerCase()
+    return OG_PERIOD.map(({ m, y }) => {
+      const rec = perfData.find(p => p.site_name?.trim().toLowerCase() === key && parseInt(p.month) === m && parseInt(p.year) === y)
+      return { m, y, measured: rec?.kwh_produced ?? null, expected: rec?.expected_kwh ?? null, comment: rec?.comment ?? null }
+    })
+  }
+
+  const fmtMWh = (kwh) => kwh != null ? `${(kwh / 1000).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MWh` : '—'
+
+  function ogStatusBadge(g) {
+    const meeting = (g.shortfall_kwh ?? 0) >= 0
+    return (
+      <span style={{
+        display: 'inline-block', padding: '2px 9px', borderRadius: '20px', fontSize: '10px', fontWeight: 700,
+        background: meeting ? 'rgba(125,194,66,0.15)' : 'rgba(239,68,68,0.12)',
+        color: meeting ? T.green : T.red,
+        border: `1px solid ${meeting ? 'rgba(125,194,66,0.35)' : 'rgba(239,68,68,0.3)'}`,
+      }}>
+        {meeting ? 'Meeting' : 'Shortfall'}
+      </span>
+    )
+  }
 
   function buildCharts(sitesData) {
     if (typeof window === 'undefined') return
@@ -934,6 +1031,7 @@ export default function DashboardPage() {
             { id: 'sites',       icon: 'ti-map-pin',        label: 'All Sites' },
             { id: 'performance', icon: 'ti-activity',       label: 'Performance' },
             { id: 'siteperf',    icon: 'ti-chart-line',     label: 'Site Performance' },
+            { id: 'offtake',     icon: 'ti-shield-check',   label: 'Offtake Guarantees' },
             { id: 'report',      icon: 'ti-file-analytics', label: 'Reports' },
             { id: 'upload',      icon: 'ti-upload',         label: 'Data Upload' },
           ].map(item => (
@@ -1427,6 +1525,253 @@ export default function DashboardPage() {
           })()}
 
           {/* ── DATA UPLOAD ── */}
+          {/* ── OFFTAKE GUARANTEES ── */}
+          {activePage === 'offtake' && ogSelected && (() => {
+            const g = ogSelected
+            const site = sites.find(s => s.name?.trim().toLowerCase() === (g.site_name || '').trim().toLowerCase())
+            const months = ogMonthlyRows(g.site_name)
+            const totMeasured = months.reduce((s, r) => s + (r.measured || 0), 0)
+            const totExpected = months.reduce((s, r) => s + (r.expected || 0), 0)
+            const perfRate = g.performance_rate != null ? parseFloat(g.performance_rate)
+              : (g.correct_kwh > 0 && g.actual_kwh != null ? (g.actual_kwh / g.correct_kwh) * 100 : null)
+            const genDate = new Date().toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' })
+            const navy = '#1a2a4a', grey = '#8a9aae'
+            const sumBlock = (label, value, color) => (
+              <div key={label} style={{ padding: '12px 18px', borderLeft: `1px solid #dde5ee` }}>
+                <div style={{ fontSize: '10px', fontWeight: 700, color: grey, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '6px' }}>{label}</div>
+                <div style={{ fontSize: '21px', fontWeight: 800, color }}>{value}</div>
+              </div>
+            )
+            return (
+              <div>
+                {/* Controls */}
+                <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                  <button onClick={() => setOgSelected(null)} style={{ ...selectStyle, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <i className="ti ti-arrow-left" />Back to Offtake Guarantees
+                  </button>
+                  <span style={{ fontSize: '14px', fontWeight: 700, color: T.textWhite }}>{g.site_name}</span>
+                  <button onClick={() => window.print()} style={{ marginLeft: 'auto', padding: '8px 18px', background: T.blue, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>
+                    <i className="ti ti-printer" style={{ marginRight: '6px' }} />Print / Save PDF
+                  </button>
+                </div>
+
+                {/* Report document — stays white for print */}
+                <div className="print-area" style={{ background: '#fff', color: navy, border: `1px solid ${T.border}`, borderRadius: '12px', padding: '32px', maxWidth: '900px' }}>
+                  {/* Header */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '3px solid #2B7FD4', paddingBottom: '18px', marginBottom: '22px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <svg width="44" height="50" viewBox="0 0 46 52" fill="none">
+                        <ellipse cx="23" cy="16" rx="18" ry="16" fill="#F5D000"/>
+                        <ellipse cx="23" cy="36" rx="18" ry="16" fill="#2B7FD4"/>
+                        <rect x="14" y="20" width="14" height="12" rx="2" fill="#7DC242" transform="rotate(-8 14 20)"/>
+                      </svg>
+                      <div>
+                        <div style={{ fontSize: '22px', fontWeight: 800, color: '#2B7FD4' }}>Sosimple Energy</div>
+                        <div style={{ fontSize: '10px', color: '#7DC242', fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase' }}>Cheap energy. Clean business.</div>
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right', fontSize: '11px', color: '#7a9aba', lineHeight: 1.7 }}>
+                      Generated: {genDate}<br />
+                      Guarantee Period: <b style={{ color: navy }}>July 2025 – June 2026</b>
+                    </div>
+                  </div>
+
+                  <div style={{ fontSize: '20px', fontWeight: 700, color: navy, marginBottom: '18px' }}>Offtake Guarantee Report</div>
+
+                  {/* Site information */}
+                  <div style={{ fontSize: '13px', fontWeight: 800, color: navy, textTransform: 'uppercase', letterSpacing: '0.8px', borderTop: '2px solid #2B7FD4', paddingTop: '10px', marginBottom: '10px' }}>Site Information</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', marginBottom: '24px', border: '1px solid #dde5ee', borderRadius: '6px', overflow: 'hidden' }}>
+                    {sumBlock('Site Name', g.site_name, navy)}
+                    {sumBlock('Address', site?.location || '—', navy)}
+                    {sumBlock('System Size', site?.capacity_kw != null ? `${site.capacity_kw} kWp` : '—', navy)}
+                  </div>
+
+                  {/* Energy delivery summary */}
+                  <div style={{ fontSize: '13px', fontWeight: 800, color: navy, textTransform: 'uppercase', letterSpacing: '0.8px', borderTop: '2px solid #2B7FD4', paddingTop: '10px', marginBottom: '10px' }}>Energy Delivery Summary</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', marginBottom: '24px', border: '1px solid #dde5ee', borderRadius: '6px', overflow: 'hidden' }}>
+                    {sumBlock('Guaranteed Output', fmtMWh(g.correct_kwh), navy)}
+                    {sumBlock('Actual Generation', fmtMWh(g.actual_kwh), '#2B7FD4')}
+                    {sumBlock('Shortfall Volume', fmtMWh(g.shortfall_kwh != null ? Math.abs(g.shortfall_kwh) * ((g.shortfall_kwh ?? 0) < 0 ? 1 : 0) : null), '#d23b3b')}
+                    {sumBlock('Performance Rate', perfRate != null ? `${perfRate.toFixed(1)} %` : '—', '#f0820a')}
+                  </div>
+
+                  {/* Monthly generation table */}
+                  <div style={{ fontSize: '13px', fontWeight: 800, color: navy, textTransform: 'uppercase', letterSpacing: '0.8px', borderTop: '2px solid #2B7FD4', paddingTop: '10px', marginBottom: '10px' }}>Itemised Analysis — Monthly Generation</div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', marginBottom: '20px' }}>
+                    <thead>
+                      <tr style={{ background: '#f4f8fc', borderBottom: '2px solid #2B7FD4' }}>
+                        {['Month', 'Measured kWh', 'Expected kWh', 'Comment'].map(h => (
+                          <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontSize: '10px', color: '#5a7aaa', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.7px' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {months.map(r => (
+                        <tr key={`${r.y}-${r.m}`} style={{ borderBottom: '1px solid #e8eef6' }}>
+                          <td style={{ padding: '7px 10px', fontWeight: 600, color: navy, whiteSpace: 'nowrap' }}>{monthNames[r.m - 1]} {r.y}</td>
+                          <td style={{ padding: '7px 10px', color: navy, fontWeight: 700 }}>{r.measured != null ? Math.round(r.measured).toLocaleString() : '—'}</td>
+                          <td style={{ padding: '7px 10px', color: '#5a7aaa' }}>{r.expected != null ? Math.round(r.expected).toLocaleString() : '—'}</td>
+                          <td style={{ padding: '7px 10px', color: '#5a7aaa', fontSize: '11px', whiteSpace: 'pre-line' }}>{r.comment || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr style={{ background: '#f4f8fc', borderTop: '2px solid #2B7FD4' }}>
+                        <td style={{ padding: '8px 10px', fontSize: '11px', fontWeight: 800, color: navy }}>Total</td>
+                        <td style={{ padding: '8px 10px', fontSize: '11px', fontWeight: 800, color: navy }}>{Math.round(totMeasured).toLocaleString()}</td>
+                        <td style={{ padding: '8px 10px', fontSize: '11px', fontWeight: 700, color: '#5a7aaa' }}>{Math.round(totExpected).toLocaleString()}</td>
+                        <td></td>
+                      </tr>
+                    </tfoot>
+                  </table>
+
+                  <div style={{ fontSize: '10px', color: '#9ab0c8', borderTop: '1px solid #dde5ee', paddingTop: '12px', lineHeight: 1.7 }}>
+                    This report reflects the offtake guarantee position for {g.site_name} over the guarantee period July 2025 – June 2026.
+                    Guaranteed output is corrected for expected utilisation ({g.expected_utilisation != null ? `${parseFloat(g.expected_utilisation).toFixed(1)}%` : '—'}) and degradation ({g.degradation != null ? parseFloat(g.degradation).toFixed(4) : '—'}).
+                    {g.notes ? ` Notes: ${g.notes}` : ''}<br />
+                    © {new Date().getFullYear()} Sosimple Energy — Cheap energy. Clean business.
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
+
+          {activePage === 'offtake' && !ogSelected && (
+            <div>
+              <div style={{ fontSize: '20px', fontWeight: 800, color: T.textWhite, marginBottom: '2px' }}>Offtake Guarantees</div>
+              <div style={{ fontSize: '12px', color: T.textSecondary, marginBottom: '18px' }}>Guaranteed vs actual generation per site — shortfalls highlighted</div>
+
+              {/* Filter bar */}
+              <div style={{ ...cardStyle, padding: '12px 16px', marginBottom: '16px', display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+                  <i className="ti ti-filter" style={{ marginRight: '5px', color: T.blue }} />Filter
+                </span>
+                <input
+                  type="text" placeholder="Search site name..."
+                  value={ogSearch} onChange={e => setOgSearch(e.target.value)}
+                  style={{ ...selectStyle, minWidth: '200px' }}
+                />
+                <select style={selectStyle} value={ogFilterStatus} onChange={e => setOgFilterStatus(e.target.value)}>
+                  <option value="">All Statuses</option>
+                  <option value="meeting">Meeting Guarantee</option>
+                  <option value="shortfall">In Shortfall</option>
+                </select>
+                {(ogSearch || ogFilterStatus) && (
+                  <button onClick={() => { setOgSearch(''); setOgFilterStatus('') }}
+                    style={{ ...selectStyle, background: 'rgba(239,68,68,0.1)', border: `1px solid rgba(239,68,68,0.3)`, color: T.red, cursor: 'pointer' }}>
+                    Clear ×
+                  </button>
+                )}
+                <span style={{ fontSize: '11px', color: T.textMuted, marginLeft: 'auto' }}>{filteredOG.length} sites</span>
+              </div>
+
+              {ogLoading ? (
+                <div style={{ textAlign: 'center', padding: '60px', color: T.textSecondary }}>Loading offtake guarantee data...</div>
+              ) : ogData.length === 0 ? (
+                <div style={{ ...cardStyle, padding: '40px', textAlign: 'center', color: T.textMuted, fontSize: '13px' }}>
+                  No offtake guarantee data found. Run the <b style={{ color: T.textSecondary }}>offtake_guarantees</b> import in Supabase to load sites.
+                </div>
+              ) : (
+                <>
+                  {/* KPI cards */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: '10px', marginBottom: '18px' }}>
+                    {[
+                      { label: 'Sites with OG', val: filteredOG.length, accent: T.blue },
+                      { label: 'Meeting Guarantee', val: `${ogMeetingCount} / ${filteredOG.length}`, accent: ogMeetingCount === filteredOG.length ? T.green : T.yellow },
+                      { label: 'Guaranteed Gen', val: `${(ogTotGuaranteed / 1000).toFixed(0)}k kWh`, accent: T.blue },
+                      { label: 'Actual Gen', val: `${(ogTotActual / 1000).toFixed(0)}k kWh`, accent: T.green },
+                      { label: 'Net Shortfall', val: `${(ogTotShortfall / 1000).toFixed(0)}k kWh`, accent: ogTotShortfall >= 0 ? T.green : T.red },
+                      { label: 'Achievement', val: `${ogAchievement}%`, accent: parseFloat(ogAchievement) >= 100 ? T.green : parseFloat(ogAchievement) >= 90 ? T.yellow : T.red },
+                    ].map(k => (
+                      <div key={k.label} style={{ ...cardStyle, padding: '14px 16px', borderTop: `3px solid ${k.accent}` }}>
+                        <div style={{ fontSize: '10px', color: T.textMuted, marginBottom: '6px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{k.label}</div>
+                        <div style={{ fontSize: '24px', fontWeight: 800, color: k.accent }}>{k.val}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Table */}
+                  <div style={{ ...cardStyle, overflow: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                      <thead>
+                        <tr style={{ background: T.bgMuted, borderBottom: `2px solid ${T.border}` }}>
+                          {[
+                            { label: 'Site Name', key: 'site' },
+                            { label: 'Utilisation %', key: 'util' },
+                            { label: 'Degradation', key: 'degradation' },
+                            { label: 'As-Built (kWh)', key: 'asbuilt' },
+                            { label: 'Unavailability (kWh)', key: 'unavail' },
+                            { label: 'Guaranteed (kWh)', key: 'guaranteed' },
+                            { label: 'Actual (kWh)', key: 'actual' },
+                            { label: 'Achievement %', key: 'achievement' },
+                            { label: 'Shortfall (kWh)', key: 'shortfall' },
+                            { label: 'Status', key: null },
+                            { label: 'Notes', key: null },
+                            { label: 'Report', key: null },
+                          ].map((h, i) => (
+                            <th key={h.label}
+                              onClick={h.key ? () => toggleOgSort(h.key) : undefined}
+                              style={{ textAlign: 'left', padding: '9px 10px', fontSize: '10px', color: h.key && ogSort.key === h.key ? T.blue : T.textMuted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.7px', cursor: h.key ? 'pointer' : 'default', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                              {h.label} {h.key ? (ogSort.key === h.key ? (ogSort.dir === 'asc' ? '▲' : '▼') : <span style={{ opacity: 0.3 }}>⇅</span>) : ''}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredOG.length === 0 ? (
+                          <tr><td colSpan={12} style={{ padding: '32px', textAlign: 'center', color: T.textMuted }}>No sites match the selected filters</td></tr>
+                        ) : sortedOG.map((g) => {
+                          const ach = g.performance_rate != null ? parseFloat(g.performance_rate)
+                            : (g.correct_kwh > 0 && g.actual_kwh != null ? (g.actual_kwh / g.correct_kwh) * 100 : null)
+                          return (
+                            <tr key={g.id} className="tbl-row" style={{ borderBottom: `1px solid ${T.border}` }}>
+                              <td style={{ padding: '8px 10px', fontWeight: 600, color: T.blue, whiteSpace: 'nowrap', cursor: 'pointer', textDecoration: 'underline dotted' }}
+                                onClick={() => setOgSelected(g)}>
+                                {g.site_name}
+                              </td>
+                              <td style={{ padding: '8px 10px', color: T.textSecondary }}>{g.expected_utilisation != null ? `${parseFloat(g.expected_utilisation).toFixed(1)}%` : '—'}</td>
+                              <td style={{ padding: '8px 10px', color: T.textSecondary }}>{g.degradation != null ? parseFloat(g.degradation).toFixed(4) : '—'}</td>
+                              <td style={{ padding: '8px 10px', color: T.textSecondary }}>{g.as_built_kwh != null ? Math.round(g.as_built_kwh).toLocaleString() : '—'}</td>
+                              <td style={{ padding: '8px 10px', color: T.textSecondary }}>{g.unavailability_kwh != null ? Math.round(g.unavailability_kwh).toLocaleString() : '—'}</td>
+                              <td style={{ padding: '8px 10px', fontWeight: 700, color: T.textPrimary }}>{g.correct_kwh != null ? Math.round(g.correct_kwh).toLocaleString() : '—'}</td>
+                              <td style={{ padding: '8px 10px', fontWeight: 700, color: T.textPrimary }}>{g.actual_kwh != null ? Math.round(g.actual_kwh).toLocaleString() : '—'}</td>
+                              <td style={{ padding: '8px 10px', fontWeight: 700, color: ach == null ? T.textMuted : ach >= 100 ? T.green : ach >= 90 ? T.yellow : T.red }}>
+                                {ach != null ? `${ach.toFixed(1)}%` : '—'}
+                              </td>
+                              <td style={{ padding: '8px 10px', fontWeight: 700, color: (g.shortfall_kwh ?? 0) >= 0 ? T.green : T.red }}>
+                                {g.shortfall_kwh != null ? Math.round(g.shortfall_kwh).toLocaleString() : '—'}
+                              </td>
+                              <td style={{ padding: '8px 10px' }}>{ogStatusBadge(g)}</td>
+                              <td style={{ padding: '8px 10px', color: T.textMuted, maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={g.notes || ''}>{g.notes || '—'}</td>
+                              <td style={{ padding: '8px 10px' }}>
+                                <button onClick={() => setOgSelected(g)} title="Open printable report"
+                                  style={{ background: 'rgba(43,127,212,0.12)', border: `1px solid rgba(43,127,212,0.35)`, color: T.blue, borderRadius: '6px', padding: '4px 10px', fontSize: '11px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                  <i className="ti ti-file-text" style={{ marginRight: '4px' }} />PDF
+                                </button>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                      {filteredOG.length > 0 && (
+                        <tfoot>
+                          <tr style={{ background: T.bgMuted, borderTop: `2px solid ${T.border}` }}>
+                            <td colSpan={5} style={{ padding: '9px 10px', fontSize: '11px', color: T.textSecondary, fontWeight: 700 }}>Total</td>
+                            <td style={{ padding: '9px 10px', fontSize: '11px', color: T.blue, fontWeight: 700 }}>{Math.round(ogTotGuaranteed).toLocaleString()} kWh</td>
+                            <td style={{ padding: '9px 10px', fontSize: '11px', color: T.blue, fontWeight: 700 }}>{Math.round(ogTotActual).toLocaleString()} kWh</td>
+                            <td style={{ padding: '9px 10px', fontSize: '11px', fontWeight: 700, color: parseFloat(ogAchievement) >= 100 ? T.green : T.yellow }}>{ogAchievement}%</td>
+                            <td style={{ padding: '9px 10px', fontSize: '11px', fontWeight: 700, color: ogTotShortfall >= 0 ? T.green : T.red }}>{Math.round(ogTotShortfall).toLocaleString()} kWh</td>
+                            <td colSpan={3}></td>
+                          </tr>
+                        </tfoot>
+                      )}
+                    </table>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
           {activePage === 'upload' && (
             <div>
               <div style={{ fontSize: '20px', fontWeight: 800, color: T.textWhite, marginBottom: '2px' }}>Data Upload</div>
