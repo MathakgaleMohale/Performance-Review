@@ -236,6 +236,28 @@ export default function DashboardPage() {
 
   const investors = [...new Set(sites.map(s => s.investment_party).filter(Boolean))].sort()
   const installers = [...new Set(sites.map(s => s.installer_name).filter(Boolean))].sort()
+
+  // Site age in years: computed live from commissioned date, falling back to stored age_years
+  function siteAge(site) {
+    if (site?.commissioned_date) {
+      const c = new Date(site.commissioned_date)
+      if (!isNaN(c)) {
+        const yrs = (Date.now() - c.getTime()) / (1000 * 60 * 60 * 24 * 365.25)
+        if (yrs >= 0) return yrs
+      }
+    }
+    if (site?.age_years != null && !isNaN(parseFloat(site.age_years))) return parseFloat(site.age_years)
+    return null
+  }
+  function fmtAge(site) {
+    const a = siteAge(site)
+    if (a == null) return '—'
+    if (a < 1) {
+      const months = Math.max(0, Math.round(a * 12))
+      return months <= 0 ? '<1 mo' : `${months} mo`
+    }
+    return `${a.toFixed(1)} yr`
+  }
   const activeSites = sites.filter(s => s.status === 'active')
   const totalCap = activeSites.reduce((sum, s) => sum + (s.capacity_kw || 0), 0)
   const ppaCount = sites.filter(s => s.system_type === 'PPA').length
@@ -559,6 +581,7 @@ export default function DashboardPage() {
         status: find('operational'), battery_name: find('battery name'), contract: find('contract type'),
         business: find('business type'), investor: find('investment party'), battery_wh: find('battery size (wh)'),
         installer: find('installer name'), project: find('project number'), platform: headers.findIndex(h => h === 'platform'),
+        age: find('age'),
       }
       if (idx.name < 0) { setUpMsg('❌ Sites CSV must have a "Site Name" column'); return }
       const parsed = [], errors = []
@@ -581,11 +604,14 @@ export default function DashboardPage() {
           project_number: idx.project >= 0 ? cleanStr(r[idx.project]) : null,
           platform: idx.platform >= 0 ? cleanStr(r[idx.platform]) : null,
           inverter_brand: idx.battery_name >= 0 ? cleanStr(r[idx.battery_name]) : null,
+          age_years: idx.age >= 0 && parseNum(r[idx.age]) != null ? parseNum(r[idx.age]) : null,
         }
         if (idx.date >= 0) {
           const d = (r[idx.date] || '').trim()
           const p = d.split('/')
-          rec.install_date = p.length === 3 ? `${p[0]}-${p[1]}-${p[2]}` : null
+          // CSV is dd/mm/yyyy → store as yyyy-mm-dd
+          rec.commissioned_date = p.length === 3 ? `${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}` : null
+          rec.install_date = rec.commissioned_date
         }
         if (idx.status >= 0) {
           const s = (r[idx.status] || '').trim().toLowerCase()
@@ -1211,7 +1237,7 @@ export default function DashboardPage() {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                   <thead>
                     <tr style={{ background: T.bgMuted, borderBottom: `2px solid ${T.border}` }}>
-                      {['Site Name','Province','Capacity','BESS (kWh)','Type','Contract','Investor','Status'].map(h => (
+                      {['Site Name','Province','Capacity','BESS (kWh)','Type','Contract','Investor','Age','Status'].map(h => (
                         <th key={h} style={{ textAlign: 'left', padding: '9px 10px', fontSize: '10px', color: T.textMuted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.7px' }}>{h}</th>
                       ))}
                     </tr>
@@ -1226,6 +1252,7 @@ export default function DashboardPage() {
                         <td style={{ padding: '8px 10px' }}>{typeBadge(site.business_type)}</td>
                         <td style={{ padding: '8px 10px', color: T.textSecondary }}>{site.system_type || '--'}</td>
                         <td style={{ padding: '8px 10px', color: T.textSecondary }}>{site.investment_party || '--'}</td>
+                        <td style={{ padding: '8px 10px', color: T.textSecondary, whiteSpace: 'nowrap' }} title={site.commissioned_date ? `Commissioned ${site.commissioned_date}` : ''}>{fmtAge(site)}</td>
                         <td style={{ padding: '8px 10px' }}>{statusBadge(site.status)}</td>
                       </tr>
                     ))}
