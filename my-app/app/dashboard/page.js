@@ -8,6 +8,10 @@ function parseCSV(text) {
   const rows = []
   let row = [], field = '', inQuotes = false
   text = text.replace(/^\uFEFF/, '')
+  // Auto-detect delimiter from the first line: semicolon, comma or tab
+  const firstLine = text.slice(0, text.indexOf('\n') >= 0 ? text.indexOf('\n') : text.length)
+  const counts = { ';': (firstLine.match(/;/g) || []).length, ',': (firstLine.match(/,/g) || []).length, '\t': (firstLine.match(/\t/g) || []).length }
+  const delim = counts[';'] >= counts[','] && counts[';'] >= counts['\t'] ? ';' : (counts['\t'] > counts[','] ? '\t' : ',')
   for (let i = 0; i < text.length; i++) {
     const ch = text[i]
     if (inQuotes) {
@@ -17,7 +21,7 @@ function parseCSV(text) {
       } else field += ch
     } else {
       if (ch === '"') inQuotes = true
-      else if (ch === ';') { row.push(field); field = '' }
+      else if (ch === delim) { row.push(field); field = '' }
       else if (ch === '\n') { row.push(field); field = ''; if (row.some(f => f.trim())) rows.push(row); row = [] }
       else if (ch !== '\r') field += ch
     }
@@ -46,6 +50,13 @@ function parseNum(val) {
 function cleanStr(val) {
   const v = (val || '').trim()
   return !v || v.toLowerCase() === 'null' || v === 'N/A' ? null : v
+}
+
+// Verbatim passthrough — keeps text exactly as in the CSV (incl. "N/A", "None", "28 days"),
+// only trimming outer whitespace; truly empty cells become null.
+function rawStr(val) {
+  const v = (val ?? '').trim()
+  return v === '' ? null : v
 }
 
 // ── Design tokens (dark theme matching login page) ──────────────────────────
@@ -381,11 +392,26 @@ export default function DashboardPage() {
     const key = (siteName || '').trim().toLowerCase()
     return OG_PERIOD.map(({ m, y }) => {
       const rec = perfData.find(p => p.site_name?.trim().toLowerCase() === key && parseInt(p.month) === m && parseInt(p.year) === y)
-      return { m, y, measured: rec?.kwh_produced ?? null, expected: rec?.expected_kwh ?? null, comment: rec?.comment ?? null }
+      return { m, y, measured: rec?.kwh_produced ?? null, expected: rec?.expected_kwh ?? null,
+        availability: rec?.availability ?? null, downtime_days: rec?.downtime_days ?? null,
+        cause: rec?.cause_of_downtime ?? null, technical: rec?.technical_events ?? null,
+        energy_impact: rec?.energy_impact ?? null, other: rec?.other_comments ?? null,
+        comment: rec?.comment ?? null }
     })
   }
 
   const fmtMWh = (kwh) => kwh != null ? `${(kwh / 1000).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MWh` : '—'
+
+  // Does a performance record carry any structured comment data?
+  const hasCommentData = (p) => !!(p && (p.availability || p.downtime_days != null || p.cause_of_downtime || p.technical_events || p.energy_impact || p.other_comments || p.comment))
+  const COMMENT_FIELDS = [
+    { key: 'availability', label: 'Availability' },
+    { key: 'downtime_days', label: 'Downtime (days)' },
+    { key: 'cause_of_downtime', label: 'Cause of Downtime' },
+    { key: 'technical_events', label: 'Technical Events' },
+    { key: 'energy_impact', label: 'Energy Impact' },
+    { key: 'other_comments', label: 'Other Comments' },
+  ]
 
   function ogStatusBadge(g) {
     const meeting = (g.shortfall_kwh ?? 0) >= 0
@@ -673,18 +699,28 @@ export default function DashboardPage() {
       const idx = {
         name: headers.findIndex(h => h.includes('site name')),
         date: headers.findIndex(h => h === 'date'),
-        comment: headers.findIndex(h => h.includes('comment')),
+        availability: headers.findIndex(h => h.includes('availability')),
+        downtime: headers.findIndex(h => h.includes('downtime (days)') || (h.includes('downtime') && h.includes('day'))),
+        cause: headers.findIndex(h => h.includes('cause')),
+        tech: headers.findIndex(h => h.includes('technical')),
+        energy: headers.findIndex(h => h.includes('energy impact')),
+        other: headers.findIndex(h => h.includes('other comment')),
       }
-      if (idx.name < 0 || idx.date < 0 || idx.comment < 0) { setUpMsg('❌ Comments CSV must have "Site Name", "Date" and "Comment" columns'); return }
+      if (idx.name < 0 || idx.date < 0) { setUpMsg(`❌ Comments CSV must have "Site Name" and "Date" columns. Detected headers: ${headers.join(' | ') || '(none — check the file is semicolon or comma separated)'}`); return }
       const parsed = [], errors = []
       let emptySkipped = 0
       rows.slice(1).forEach((r, i) => {
         const name = (r[idx.name] || '').trim()
         const [month, year] = parseMonthYear(r[idx.date])
-        const comment = cleanStr(r[idx.comment])
         if (!name || !month) { errors.push(i + 2); return }
-        if (!comment) { emptySkipped++; return }
-        parsed.push({ site_name: name, month, year, comment })
+        const availability = idx.availability >= 0 ? rawStr(r[idx.availability]) : null
+        const downtime_days = idx.downtime >= 0 ? rawStr(r[idx.downtime]) : null
+        const cause_of_downtime = idx.cause >= 0 ? rawStr(r[idx.cause]) : null
+        const technical_events = idx.tech >= 0 ? rawStr(r[idx.tech]) : null
+        const energy_impact = idx.energy >= 0 ? rawStr(r[idx.energy]) : null
+        const other_comments = idx.other >= 0 ? rawStr(r[idx.other]) : null
+        if (!availability && !downtime_days && !cause_of_downtime && !technical_events && !energy_impact && !other_comments) { emptySkipped++; return }
+        parsed.push({ site_name: name, month, year, availability, downtime_days, cause_of_downtime, technical_events, energy_impact, other_comments, comment: null })
       })
       setUpComments({ rows: parsed, errors, emptySkipped, fileName: file.name })
       setUpMsg('')
@@ -1509,7 +1545,7 @@ export default function DashboardPage() {
 
                           {/* Technical Comments */}
                           {(() => {
-                            const commentRecs = spRecs.filter(p => p.comment).sort((a, b) => (b.year - a.year) || (b.month - a.month))
+                            const commentRecs = spRecs.filter(hasCommentData).sort((a, b) => (b.year - a.year) || (b.month - a.month))
                             const cDates = commentRecs.map(p => `${p.year}-${String(p.month).padStart(2, '0')}`)
                             const selDate = spCommentDate || cDates[0] || ''
                             const selRec = commentRecs.find(p => `${p.year}-${String(p.month).padStart(2, '0')}` === selDate)
@@ -1531,8 +1567,19 @@ export default function DashboardPage() {
                                   </div>
                                 </div>
                                 {selRec ? (
-                                  <div style={{ background: T.bgMuted, border: `1px solid ${T.border}`, borderRadius: '8px', padding: '14px 16px', fontSize: '13px', color: T.textPrimary, lineHeight: 1.7, whiteSpace: 'pre-line' }}>
-                                    {selRec.comment}
+                                  <div style={{ background: T.bgMuted, border: `1px solid ${T.border}`, borderRadius: '8px', padding: '14px 16px' }}>
+                                    {selRec.comment ? (
+                                      <div style={{ fontSize: '13px', color: T.textPrimary, lineHeight: 1.7, whiteSpace: 'pre-line' }}>{selRec.comment}</div>
+                                    ) : (
+                                      <div style={{ display: 'grid', gap: '12px' }}>
+                                        {COMMENT_FIELDS.filter(f => selRec[f.key] != null && selRec[f.key] !== '').map(f => (
+                                          <div key={f.key}>
+                                            <div style={{ fontSize: '10px', fontWeight: 700, color: f.key === 'downtime_days' && selRec.downtime_days && selRec.downtime_days !== '0' && !/^(none|n\/a|-+)$/i.test(String(selRec.downtime_days)) ? T.red : T.textMuted, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '3px' }}>{f.label}</div>
+                                            <div style={{ fontSize: '13px', color: T.textPrimary, lineHeight: 1.6, whiteSpace: 'pre-line' }}>{String(selRec[f.key])}</div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
                                   </div>
                                 ) : (
                                   <div style={{ padding: '24px', textAlign: 'center', color: T.textMuted, fontSize: '12px' }}>
@@ -1624,30 +1671,50 @@ export default function DashboardPage() {
 
                   {/* Monthly generation table */}
                   <div style={{ fontSize: '13px', fontWeight: 800, color: navy, textTransform: 'uppercase', letterSpacing: '0.8px', borderTop: '2px solid #2B7FD4', paddingTop: '10px', marginBottom: '10px' }}>Itemised Analysis — Monthly Generation</div>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', marginBottom: '20px' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', marginBottom: '20px', tableLayout: 'fixed' }}>
                     <thead>
                       <tr style={{ background: '#f4f8fc', borderBottom: '2px solid #2B7FD4' }}>
-                        {['Month', 'Measured kWh', 'Expected kWh', 'Comment'].map(h => (
-                          <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontSize: '10px', color: '#5a7aaa', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.7px' }}>{h}</th>
+                        {[
+                          { label: 'Month', w: '8%' },
+                          { label: 'Measured kWh', w: '9%' },
+                          { label: 'Expected kWh', w: '9%' },
+                          { label: 'Availability', w: '22%' },
+                          { label: 'Downtime (days)', w: '7%' },
+                          { label: 'Cause of Downtime', w: '13%' },
+                          { label: 'Technical Events', w: '13%' },
+                          { label: 'Energy Impact', w: '9%' },
+                          { label: 'Other Comments', w: '10%' },
+                        ].map(h => (
+                          <th key={h.label} style={{ width: h.w, textAlign: 'left', padding: '7px 8px', fontSize: '9px', color: '#5a7aaa', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{h.label}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {months.map(r => (
-                        <tr key={`${r.y}-${r.m}`} style={{ borderBottom: '1px solid #e8eef6' }}>
-                          <td style={{ padding: '7px 10px', fontWeight: 600, color: navy, whiteSpace: 'nowrap' }}>{monthNames[r.m - 1]} {r.y}</td>
-                          <td style={{ padding: '7px 10px', color: navy, fontWeight: 700 }}>{r.measured != null ? Math.round(r.measured).toLocaleString() : '—'}</td>
-                          <td style={{ padding: '7px 10px', color: '#5a7aaa' }}>{r.expected != null ? Math.round(r.expected).toLocaleString() : '—'}</td>
-                          <td style={{ padding: '7px 10px', color: '#5a7aaa', fontSize: '11px', whiteSpace: 'pre-line' }}>{r.comment || '—'}</td>
-                        </tr>
-                      ))}
+                      {months.map(r => {
+                        const cell = (v, opts = {}) => (
+                          <td style={{ padding: '7px 8px', color: opts.color || '#5a7aaa', fontWeight: opts.weight || 400, fontSize: '10px', whiteSpace: 'pre-line', verticalAlign: 'top', wordBreak: 'break-word', ...opts.style }}>{v != null && v !== '' ? v : '—'}</td>
+                        )
+                        return (
+                          <tr key={`${r.y}-${r.m}`} style={{ borderBottom: '1px solid #e8eef6' }}>
+                            <td style={{ padding: '7px 8px', fontWeight: 600, color: navy, whiteSpace: 'nowrap', verticalAlign: 'top', fontSize: '10px' }}>{monthNames[r.m - 1]} {r.y}</td>
+                            {cell(r.measured != null ? Math.round(r.measured).toLocaleString() : null, { color: navy, weight: 700 })}
+                            {cell(r.expected != null ? Math.round(r.expected).toLocaleString() : null)}
+                            {cell(r.availability)}
+                            {cell(r.downtime_days, { color: r.downtime_days && r.downtime_days !== '0' && !/^(none|n\/a|-+)$/i.test(r.downtime_days) ? '#d23b3b' : '#5a7aaa', weight: r.downtime_days && r.downtime_days !== '0' && !/^(none|n\/a|-+)$/i.test(r.downtime_days) ? 700 : 400 })}
+                            {cell(r.cause)}
+                            {cell(r.technical)}
+                            {cell(r.energy_impact)}
+                            {cell(r.other)}
+                          </tr>
+                        )
+                      })}
                     </tbody>
                     <tfoot>
                       <tr style={{ background: '#f4f8fc', borderTop: '2px solid #2B7FD4' }}>
-                        <td style={{ padding: '8px 10px', fontSize: '11px', fontWeight: 800, color: navy }}>Total</td>
-                        <td style={{ padding: '8px 10px', fontSize: '11px', fontWeight: 800, color: navy }}>{Math.round(totMeasured).toLocaleString()}</td>
-                        <td style={{ padding: '8px 10px', fontSize: '11px', fontWeight: 700, color: '#5a7aaa' }}>{Math.round(totExpected).toLocaleString()}</td>
-                        <td></td>
+                        <td style={{ padding: '8px 8px', fontSize: '10px', fontWeight: 800, color: navy }}>Total</td>
+                        <td style={{ padding: '8px 8px', fontSize: '10px', fontWeight: 800, color: navy }}>{Math.round(totMeasured).toLocaleString()}</td>
+                        <td style={{ padding: '8px 8px', fontSize: '10px', fontWeight: 700, color: '#5a7aaa' }}>{Math.round(totExpected).toLocaleString()}</td>
+                        <td colSpan={6}></td>
                       </tr>
                     </tfoot>
                   </table>
@@ -1924,8 +1991,8 @@ export default function DashboardPage() {
                     <i className="ti ti-message-2" style={{ marginRight: '7px' }} />Technical Comments
                   </div>
                   <div style={{ fontSize: '11px', color: T.textMuted, marginBottom: '14px', lineHeight: 1.7 }}>
-                    CSV with columns: <b style={{ color: T.textSecondary }}>Site Name; Date; Comment</b><br />
-                    Date format: Jan-25, Feb-25... Semicolon separated. Rows with empty comments are skipped.
+                    CSV with columns: <b style={{ color: T.textSecondary }}>Site Name; Date; Availability; Downtime (days); Cause of downtime; Technical Events; Energy Impact; Other Comments</b><br />
+                    Date format: Jan-25, Feb-25... Semicolon separated. Rows with no data in any field are skipped.
                   </div>
                   <label style={{ display: 'block', border: `2px dashed rgba(240,165,0,0.3)`, borderRadius: '10px', padding: '24px', textAlign: 'center', cursor: 'pointer', background: T.bgMuted, transition: 'border-color 0.2s' }}
                     onMouseEnter={e => e.currentTarget.style.borderColor = T.orange}
@@ -1944,7 +2011,7 @@ export default function DashboardPage() {
                       <div style={{ maxHeight: '160px', overflowY: 'auto', border: `1px solid ${T.border}`, borderRadius: '8px', marginBottom: '10px' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
                           <thead><tr style={{ background: T.bgMuted }}>
-                            {['Site','Month','Year','Comment'].map(h => <th key={h} style={{ padding: '5px 8px', textAlign: 'left', color: T.textMuted, fontSize: '9px', textTransform: 'uppercase' }}>{h}</th>)}
+                            {['Site','Month','Year','Availability','Downtime','Events'].map(h => <th key={h} style={{ padding: '5px 8px', textAlign: 'left', color: T.textMuted, fontSize: '9px', textTransform: 'uppercase' }}>{h}</th>)}
                           </tr></thead>
                           <tbody>
                             {upComments.rows.slice(0,8).map((r,i) => (
@@ -1952,7 +2019,9 @@ export default function DashboardPage() {
                                 <td style={{ padding: '4px 8px', color: T.textPrimary, whiteSpace: 'nowrap' }}>{r.site_name}</td>
                                 <td style={{ padding: '4px 8px', color: T.textSecondary }}>{r.month}</td>
                                 <td style={{ padding: '4px 8px', color: T.textSecondary }}>{r.year}</td>
-                                <td style={{ padding: '4px 8px', color: T.textSecondary, maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.comment}</td>
+                                <td style={{ padding: '4px 8px', color: T.textSecondary, maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.availability || '—'}</td>
+                                <td style={{ padding: '4px 8px', color: T.textSecondary }}>{r.downtime_days != null ? r.downtime_days : '—'}</td>
+                                <td style={{ padding: '4px 8px', color: T.textSecondary, maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{[r.cause_of_downtime, r.technical_events].filter(Boolean).join('; ') || '—'}</td>
                               </tr>
                             ))}
                           </tbody>
@@ -2140,7 +2209,7 @@ export default function DashboardPage() {
                                 <td style={{ padding: '6px 9px', borderBottom: '1px solid #f0f6ff' }}>{p.expected_kwh!=null?p.expected_kwh.toLocaleString():'—'}</td>
                                 <td style={{ padding: '6px 9px', borderBottom: '1px solid #f0f6ff', fontWeight: 600, color: d==null?'#9ab8d8':d>=0?'#3a7a00':'#9a1a1a' }}>{d!=null?`${d>0?'+':''}${d}%`:'—'}</td>
                                 <td style={{ padding: '6px 9px', borderBottom: '1px solid #f0f6ff' }}>{p.pf_band||'—'}</td>
-                                <td style={{ padding: '6px 9px', borderBottom: '1px solid #f0f6ff', fontSize: '10px', color: '#5a7aaa', whiteSpace: 'pre-line', maxWidth: '220px' }}>{p.comment||'—'}</td>
+                                <td style={{ padding: '6px 9px', borderBottom: '1px solid #f0f6ff', fontSize: '10px', color: '#5a7aaa', whiteSpace: 'pre-line', maxWidth: '220px' }}>{p.comment || [p.availability, p.cause_of_downtime, p.technical_events, p.energy_impact, p.other_comments].filter(Boolean).join('\n') || '—'}</td>
                               </tr>
                             )
                           })}
