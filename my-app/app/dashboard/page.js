@@ -122,6 +122,7 @@ export default function DashboardPage() {
   const [upPerf, setUpPerf] = useState(null)
   const [upSites, setUpSites] = useState(null)
   const [upComments, setUpComments] = useState(null)
+  const [upOg, setUpOg] = useState(null)
   const [repType, setRepType] = useState('install')
   const [repInvestor, setRepInvestor] = useState('')
   const [repDate, setRepDate] = useState('')
@@ -133,6 +134,7 @@ export default function DashboardPage() {
   const [ogFilterStatus, setOgFilterStatus] = useState('')
   const [ogSort, setOgSort] = useState({ key: 'shortfall', dir: 'asc' })
   const [ogSelected, setOgSelected] = useState(null)
+  const [ogOverview, setOgOverview] = useState(false)
   const chartsRef = useRef({})
 
   useEffect(() => {
@@ -353,7 +355,7 @@ export default function DashboardPage() {
       switch (ogSort.key) {
         case 'site': return (g.site_name || '').toLowerCase()
         case 'util': return g.expected_utilisation != null ? parseFloat(g.expected_utilisation) : null
-        case 'degradation': return g.degradation != null ? parseFloat(g.degradation) : null
+        case 'degradation': return g.og_age != null ? parseFloat(g.og_age) : (g.degradation != null ? parseFloat(g.degradation) : null)
         case 'asbuilt': return g.as_built_kwh != null ? parseFloat(g.as_built_kwh) : null
         case 'guaranteed': return g.correct_kwh != null ? parseFloat(g.correct_kwh) : null
         case 'unavail': return g.unavailability_kwh != null ? parseFloat(g.unavailability_kwh) : null
@@ -401,6 +403,7 @@ export default function DashboardPage() {
   }
 
   const fmtMWh = (kwh) => kwh != null ? `${(kwh / 1000).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MWh` : '—'
+  const fmtKWh = (kwh) => kwh != null ? `${Math.round(kwh).toLocaleString()} kWh` : '—'
 
   // Does a performance record carry any structured comment data?
   const hasCommentData = (p) => !!(p && (p.availability || p.downtime_days != null || p.cause_of_downtime || p.technical_events || p.energy_impact || p.other_comments || p.comment))
@@ -744,6 +747,65 @@ export default function DashboardPage() {
     setUpMsg(failed === 0 ? `✅ ${done} comments uploaded successfully` : `⚠️ ${done} uploaded, ${failed} failed — check console (F12)`)
     setUpComments(null)
     setPerfData([])
+    setUpBusy(false)
+  }
+
+  function handleOgFile(e) {
+    const file = e.target.files[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      const rows = parseCSV(reader.result)
+      const headers = rows[0].map(h => h.trim().toLowerCase())
+      const find = (s) => headers.findIndex(h => h.includes(s))
+      const idx = {
+        name: find('site name'), og: find('offtake guarantee'), util: find('expected utilisation'),
+        age: find('age'), asbuilt: find('as-built'), guaranteed: find('guaranteed generation'),
+        unavail: find('unavailability'), correct: find('correct'), actual: find('actual generation'),
+        shortfall: find('shortfall'), perf: find('performance rate'), notes: find('notes'),
+      }
+      if (idx.name < 0) { setUpMsg(`❌ Offtake CSV must have a "Site Name" column. Detected headers: ${headers.join(' | ')}`); return }
+      const parsed = [], errors = []
+      rows.slice(1).forEach((r, i) => {
+        const name = (r[idx.name] || '').trim()
+        if (!name) { errors.push(i + 2); return }
+        parsed.push({
+          site_name: name,
+          has_guarantee: idx.og >= 0 ? (r[idx.og] || '').trim().toUpperCase() === 'YES' : true,
+          expected_utilisation: idx.util >= 0 ? parseNum(r[idx.util]) : null,
+          og_age: idx.age >= 0 ? parseNum(r[idx.age]) : null,
+          as_built_kwh: idx.asbuilt >= 0 ? parseNum(r[idx.asbuilt]) : null,
+          guaranteed_kwh: idx.guaranteed >= 0 ? parseNum(r[idx.guaranteed]) : null,
+          unavailability_kwh: idx.unavail >= 0 ? parseNum(r[idx.unavail]) : null,
+          correct_kwh: idx.correct >= 0 ? parseNum(r[idx.correct]) : null,
+          actual_kwh: idx.actual >= 0 ? parseNum(r[idx.actual]) : null,
+          shortfall_kwh: idx.shortfall >= 0 ? parseNum(r[idx.shortfall]) : null,
+          performance_rate: idx.perf >= 0 ? parseNum(r[idx.perf]) : null,
+          notes: idx.notes >= 0 ? rawStr(r[idx.notes]) : null,
+        })
+      })
+      setUpOg({ rows: parsed, errors, fileName: file.name })
+      setUpMsg('')
+    }
+    reader.readAsText(file)
+    e.target.value = ''
+  }
+
+  async function uploadOg() {
+    if (!upOg?.rows?.length) return
+    setUpBusy(true)
+    setUpMsg('Uploading offtake guarantees...')
+    let done = 0, failed = 0
+    for (let i = 0; i < upOg.rows.length; i += 200) {
+      const batch = upOg.rows.slice(i, i + 200)
+      const { error } = await supabase.from('offtake_guarantees').upsert(batch, { onConflict: 'site_name' })
+      if (error) { failed += batch.length; console.error(error) }
+      else done += batch.length
+      setUpMsg(`Uploading... ${done + failed}/${upOg.rows.length}`)
+    }
+    setUpMsg(failed === 0 ? `✅ ${done} offtake guarantees uploaded successfully` : `⚠️ ${done} uploaded, ${failed} failed — check console (F12)`)
+    setUpOg(null)
+    setOgData([])
     setUpBusy(false)
   }
 
@@ -1600,6 +1662,123 @@ export default function DashboardPage() {
 
           {/* ── DATA UPLOAD ── */}
           {/* ── OFFTAKE GUARANTEES ── */}
+          {activePage === 'offtake' && ogOverview && (() => {
+            const all = [...ogData].sort((a, b) => (a.shortfall_kwh ?? 0) - (b.shortfall_kwh ?? 0))
+            const tG = ogData.reduce((s, g) => s + (g.correct_kwh || 0), 0)
+            const tA = ogData.reduce((s, g) => s + (g.actual_kwh || 0), 0)
+            const tS = ogData.reduce((s, g) => s + (g.shortfall_kwh || 0), 0)
+            const tU = ogData.reduce((s, g) => s + (g.unavailability_kwh || 0), 0)
+            const meeting = ogData.filter(g => (g.shortfall_kwh ?? 0) >= 0).length
+            const ach = tG > 0 ? ((tA / tG) * 100).toFixed(1) : '—'
+            const genDate = new Date().toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' })
+            const navy = '#1a2a4a', grey = '#8a9aae'
+            const kpi = (label, value, color) => (
+              <div style={{ padding: '12px 16px', borderLeft: '1px solid #dde5ee' }}>
+                <div style={{ fontSize: '8px', fontWeight: 700, color: grey, textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: '5px' }}>{label}</div>
+                <div style={{ fontSize: '17px', fontWeight: 800, color }}>{value}</div>
+              </div>
+            )
+            return (
+              <div>
+                <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                  <button onClick={() => setOgOverview(false)} style={{ ...selectStyle, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <i className="ti ti-arrow-left" />Back to Offtake Guarantees
+                  </button>
+                  <span style={{ fontSize: '14px', fontWeight: 700, color: T.textWhite }}>Portfolio Overview</span>
+                  <button onClick={() => window.print()} style={{ marginLeft: 'auto', padding: '8px 18px', background: T.blue, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>
+                    <i className="ti ti-printer" style={{ marginRight: '6px' }} />Print / Save PDF
+                  </button>
+                </div>
+
+                <div className="print-area" style={{ background: '#fff', color: navy, border: `1px solid ${T.border}`, borderRadius: '12px', padding: '32px', maxWidth: '1000px' }}>
+                  {/* Header */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '3px solid #2B7FD4', paddingBottom: '18px', marginBottom: '22px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <svg width="44" height="50" viewBox="0 0 46 52" fill="none">
+                        <ellipse cx="23" cy="16" rx="18" ry="16" fill="#F5D000"/>
+                        <ellipse cx="23" cy="36" rx="18" ry="16" fill="#2B7FD4"/>
+                        <rect x="14" y="20" width="14" height="12" rx="2" fill="#7DC242" transform="rotate(-8 14 20)"/>
+                      </svg>
+                      <div>
+                        <div style={{ fontSize: '18px', fontWeight: 800, color: '#2B7FD4' }}>Sosimple Energy</div>
+                        <div style={{ fontSize: '8px', color: '#7DC242', fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase' }}>Cheap energy. Clean business.</div>
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right', fontSize: '9px', color: '#7a9aba', lineHeight: 1.7 }}>
+                      Generated: {genDate}<br />
+                      Guarantee Period: <b style={{ color: navy }}>July 2025 – June 2026</b>
+                    </div>
+                  </div>
+
+                  <div style={{ fontSize: '16px', fontWeight: 700, color: navy, marginBottom: '18px' }}>Offtake Guarantee — Portfolio Overview</div>
+
+                  {/* Portfolio summary */}
+                  <div style={{ fontSize: '10px', fontWeight: 800, color: navy, textTransform: 'uppercase', letterSpacing: '0.8px', borderTop: '2px solid #2B7FD4', paddingTop: '10px', marginBottom: '10px' }}>Portfolio Summary</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', marginBottom: '24px', border: '1px solid #dde5ee', borderRadius: '6px', overflow: 'hidden' }}>
+                    {kpi('Sites', ogData.length, navy)}
+                    {kpi('Meeting Guarantee', `${meeting} / ${ogData.length}`, meeting === ogData.length ? '#3a9b3a' : '#f0820a')}
+                    {kpi('Guaranteed', fmtKWh(tG), navy)}
+                    {kpi('Actual', fmtKWh(tA), '#2B7FD4')}
+                    {kpi('Net Shortfall', fmtKWh(tS != null ? Math.abs(tS) : null), tS >= 0 ? '#3a9b3a' : '#d23b3b')}
+                    {kpi('Achievement', `${ach} %`, parseFloat(ach) >= 100 ? '#3a9b3a' : parseFloat(ach) >= 90 ? '#f0820a' : '#d23b3b')}
+                  </div>
+
+                  {/* Per-site table */}
+                  <div style={{ fontSize: '10px', fontWeight: 800, color: navy, textTransform: 'uppercase', letterSpacing: '0.8px', borderTop: '2px solid #2B7FD4', paddingTop: '10px', marginBottom: '10px' }}>Site Breakdown</div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+                    <thead>
+                      <tr style={{ background: '#f4f8fc', borderBottom: '2px solid #2B7FD4' }}>
+                        {['Site', 'Guaranteed kWh', 'Unavailability kWh', 'Corrected kWh', 'Actual kWh', 'Shortfall kWh', 'Perf %', 'Status'].map((h, i) => (
+                          <th key={h} style={{ textAlign: i === 0 ? 'left' : 'right', padding: '7px 9px', fontSize: '9px', color: '#5a7aaa', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {all.map(g => {
+                        const meet = (g.shortfall_kwh ?? 0) >= 0
+                        const pr = g.performance_rate != null ? parseFloat(g.performance_rate)
+                          : (g.correct_kwh > 0 && g.actual_kwh != null ? (g.actual_kwh / g.correct_kwh) * 100 : null)
+                        const rc = (v, opts = {}) => <td style={{ padding: '6px 9px', textAlign: 'right', color: opts.color || '#33475f', fontWeight: opts.weight || 400, whiteSpace: 'nowrap' }}>{v}</td>
+                        return (
+                          <tr key={g.id} style={{ borderBottom: '1px solid #e8eef6' }}>
+                            <td style={{ padding: '6px 9px', fontWeight: 600, color: navy, whiteSpace: 'nowrap' }}>{g.site_name}</td>
+                            {rc(g.guaranteed_kwh != null ? Math.round(g.guaranteed_kwh).toLocaleString() : '—')}
+                            {rc(g.unavailability_kwh ? Math.round(g.unavailability_kwh).toLocaleString() : '—', { color: g.unavailability_kwh ? '#f0820a' : '#9ab0c8' })}
+                            {rc(g.correct_kwh != null ? Math.round(g.correct_kwh).toLocaleString() : '—', { weight: 700, color: navy })}
+                            {rc(g.actual_kwh != null ? Math.round(g.actual_kwh).toLocaleString() : '—', { weight: 700, color: '#2B7FD4' })}
+                            {rc(g.shortfall_kwh != null ? Math.round(g.shortfall_kwh).toLocaleString() : '—', { weight: 700, color: meet ? '#3a9b3a' : '#d23b3b' })}
+                            {rc(pr != null ? pr.toFixed(0) : '—', { color: pr == null ? '#9ab0c8' : pr >= 100 ? '#3a9b3a' : pr >= 90 ? '#f0820a' : '#d23b3b', weight: 700 })}
+                            <td style={{ padding: '6px 9px', textAlign: 'right' }}>
+                              <span style={{ fontSize: '9px', fontWeight: 700, color: meet ? '#3a9b3a' : '#d23b3b' }}>{meet ? 'Meeting' : 'Shortfall'}</span>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                    <tfoot>
+                      <tr style={{ background: '#f4f8fc', borderTop: '2px solid #2B7FD4' }}>
+                        <td style={{ padding: '8px 9px', fontWeight: 800, color: navy }}>Total ({ogData.length})</td>
+                        <td style={{ padding: '8px 9px', textAlign: 'right', fontWeight: 700, color: navy }}>{Math.round(ogData.reduce((s,g)=>s+(g.guaranteed_kwh||0),0)).toLocaleString()}</td>
+                        <td style={{ padding: '8px 9px', textAlign: 'right', fontWeight: 700, color: '#f0820a' }}>{Math.round(tU).toLocaleString()}</td>
+                        <td style={{ padding: '8px 9px', textAlign: 'right', fontWeight: 800, color: navy }}>{Math.round(tG).toLocaleString()}</td>
+                        <td style={{ padding: '8px 9px', textAlign: 'right', fontWeight: 800, color: '#2B7FD4' }}>{Math.round(tA).toLocaleString()}</td>
+                        <td style={{ padding: '8px 9px', textAlign: 'right', fontWeight: 800, color: tS >= 0 ? '#3a9b3a' : '#d23b3b' }}>{Math.round(tS).toLocaleString()}</td>
+                        <td style={{ padding: '8px 9px', textAlign: 'right', fontWeight: 800, color: parseFloat(ach) >= 100 ? '#3a9b3a' : parseFloat(ach) >= 90 ? '#f0820a' : '#d23b3b' }}>{ach}</td>
+                        <td></td>
+                      </tr>
+                    </tfoot>
+                  </table>
+
+                  <div style={{ fontSize: '9px', color: '#9ab0c8', borderTop: '1px solid #dde5ee', paddingTop: '12px', marginTop: '16px', lineHeight: 1.7 }}>
+                    Sites are listed worst-shortfall first. The corrected guarantee is the contractual guarantee less grid/inverter unavailability outside Sosimple's control; shortfall is measured against the corrected guarantee. Portfolio achievement is total actual generation as a percentage of total corrected guarantee.<br />
+                    © {new Date().getFullYear()} Sosimple Energy — Cheap energy. Clean business.
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
+
+          {/* ── OFFTAKE GUARANTEES ── */}
           {activePage === 'offtake' && ogSelected && (() => {
             const g = ogSelected
             const site = sites.find(s => s.name?.trim().toLowerCase() === (g.site_name || '').trim().toLowerCase())
@@ -1612,8 +1791,8 @@ export default function DashboardPage() {
             const navy = '#1a2a4a', grey = '#8a9aae'
             const sumBlock = (label, value, color) => (
               <div key={label} style={{ padding: '12px 18px', borderLeft: `1px solid #dde5ee` }}>
-                <div style={{ fontSize: '10px', fontWeight: 700, color: grey, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '6px' }}>{label}</div>
-                <div style={{ fontSize: '21px', fontWeight: 800, color }}>{value}</div>
+                <div style={{ fontSize: '8px', fontWeight: 700, color: grey, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '6px' }}>{label}</div>
+                <div style={{ fontSize: '17px', fontWeight: 800, color }}>{value}</div>
               </div>
             )
             return (
@@ -1640,20 +1819,20 @@ export default function DashboardPage() {
                         <rect x="14" y="20" width="14" height="12" rx="2" fill="#7DC242" transform="rotate(-8 14 20)"/>
                       </svg>
                       <div>
-                        <div style={{ fontSize: '22px', fontWeight: 800, color: '#2B7FD4' }}>Sosimple Energy</div>
-                        <div style={{ fontSize: '10px', color: '#7DC242', fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase' }}>Cheap energy. Clean business.</div>
+                        <div style={{ fontSize: '18px', fontWeight: 800, color: '#2B7FD4' }}>Sosimple Energy</div>
+                        <div style={{ fontSize: '8px', color: '#7DC242', fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase' }}>Cheap energy. Clean business.</div>
                       </div>
                     </div>
-                    <div style={{ textAlign: 'right', fontSize: '11px', color: '#7a9aba', lineHeight: 1.7 }}>
+                    <div style={{ textAlign: 'right', fontSize: '9px', color: '#7a9aba', lineHeight: 1.7 }}>
                       Generated: {genDate}<br />
                       Guarantee Period: <b style={{ color: navy }}>July 2025 – June 2026</b>
                     </div>
                   </div>
 
-                  <div style={{ fontSize: '20px', fontWeight: 700, color: navy, marginBottom: '18px' }}>Offtake Guarantee Report</div>
+                  <div style={{ fontSize: '16px', fontWeight: 700, color: navy, marginBottom: '18px' }}>Offtake Guarantee Report</div>
 
                   {/* Site information */}
-                  <div style={{ fontSize: '13px', fontWeight: 800, color: navy, textTransform: 'uppercase', letterSpacing: '0.8px', borderTop: '2px solid #2B7FD4', paddingTop: '10px', marginBottom: '10px' }}>Site Information</div>
+                  <div style={{ fontSize: '10px', fontWeight: 800, color: navy, textTransform: 'uppercase', letterSpacing: '0.8px', borderTop: '2px solid #2B7FD4', paddingTop: '10px', marginBottom: '10px' }}>Site Information</div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', marginBottom: '24px', border: '1px solid #dde5ee', borderRadius: '6px', overflow: 'hidden' }}>
                     {sumBlock('Site Name', g.site_name, navy)}
                     {sumBlock('Address', site?.location || '—', navy)}
@@ -1661,16 +1840,49 @@ export default function DashboardPage() {
                   </div>
 
                   {/* Energy delivery summary */}
-                  <div style={{ fontSize: '13px', fontWeight: 800, color: navy, textTransform: 'uppercase', letterSpacing: '0.8px', borderTop: '2px solid #2B7FD4', paddingTop: '10px', marginBottom: '10px' }}>Energy Delivery Summary</div>
+                  <div style={{ fontSize: '10px', fontWeight: 800, color: navy, textTransform: 'uppercase', letterSpacing: '0.8px', borderTop: '2px solid #2B7FD4', paddingTop: '10px', marginBottom: '10px' }}>Energy Delivery Summary</div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', marginBottom: '24px', border: '1px solid #dde5ee', borderRadius: '6px', overflow: 'hidden' }}>
-                    {sumBlock('Guaranteed Output', fmtMWh(g.correct_kwh), navy)}
-                    {sumBlock('Actual Generation', fmtMWh(g.actual_kwh), '#2B7FD4')}
-                    {sumBlock('Shortfall Volume', fmtMWh(g.shortfall_kwh != null ? Math.abs(g.shortfall_kwh) * ((g.shortfall_kwh ?? 0) < 0 ? 1 : 0) : null), '#d23b3b')}
+                    {sumBlock('Guaranteed Output', fmtKWh(g.correct_kwh), navy)}
+                    {sumBlock('Actual Generation', fmtKWh(g.actual_kwh), '#2B7FD4')}
+                    {sumBlock('Shortfall Volume', fmtKWh(g.shortfall_kwh != null ? Math.abs(g.shortfall_kwh) * ((g.shortfall_kwh ?? 0) < 0 ? 1 : 0) : null), '#d23b3b')}
                     {sumBlock('Performance Rate', perfRate != null ? `${perfRate.toFixed(1)} %` : '—', '#f0820a')}
                   </div>
 
+                  {/* Guarantee adjustment breakdown */}
+                  <div style={{ fontSize: '10px', fontWeight: 800, color: navy, textTransform: 'uppercase', letterSpacing: '0.8px', borderTop: '2px solid #2B7FD4', paddingTop: '10px', marginBottom: '10px' }}>Guarantee Adjustment</div>
+                  {(() => {
+                    const asBuilt = g.as_built_kwh
+                    const guar = g.guaranteed_kwh
+                    const unavail = g.unavailability_kwh || 0
+                    const corrected = g.correct_kwh
+                    const actual = g.actual_kwh
+                    const shortfall = g.shortfall_kwh
+                    const step = (label, value, color, sign) => (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, minWidth: 0 }}>
+                        {sign && <div style={{ fontSize: '15px', fontWeight: 700, color: '#9ab0c8', marginBottom: '2px' }}>{sign}</div>}
+                        <div style={{ fontSize: '8px', fontWeight: 700, color: grey, textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'center', marginBottom: '4px', lineHeight: 1.3 }}>{label}</div>
+                        <div style={{ fontSize: '14px', fontWeight: 800, color, textAlign: 'center' }}>{fmtKWh(value)}</div>
+                      </div>
+                    )
+                    return (
+                      <div style={{ border: '1px solid #dde5ee', borderRadius: '6px', padding: '16px 14px', marginBottom: '10px' }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '4px', flexWrap: 'nowrap' }}>
+                          {step('Contractual Guarantee', guar != null ? guar : asBuilt, navy)}
+                          {step('Grid / Inverter Unavailability', unavail, '#f0820a', '−')}
+                          {step('Corrected Guarantee', corrected, '#2B7FD4', '=')}
+                          {step('Actual Generation', actual, '#2B7FD4', 'vs')}
+                          {step('Shortfall', shortfall != null ? Math.abs(shortfall) : null, (shortfall ?? 0) >= 0 ? '#3a9b3a' : '#d23b3b', (shortfall ?? 0) >= 0 ? '↑' : '↓')}
+                        </div>
+                      </div>
+                    )
+                  })()}
+                  <div style={{ fontSize: '9px', color: '#9ab0c8', lineHeight: 1.6, marginBottom: '24px' }}>
+                    The contractual guarantee is reduced by periods of grid or inverter unavailability (outside Sosimple's control) to give the corrected guarantee against which actual generation is measured. The shortfall is the difference between corrected guarantee and actual generation.
+                    {(g.shortfall_kwh ?? 0) >= 0 ? ' This site met or exceeded its corrected guarantee for the period.' : ''}
+                  </div>
+
                   {/* Monthly generation table */}
-                  <div style={{ fontSize: '13px', fontWeight: 800, color: navy, textTransform: 'uppercase', letterSpacing: '0.8px', borderTop: '2px solid #2B7FD4', paddingTop: '10px', marginBottom: '10px' }}>Itemised Analysis — Monthly Generation</div>
+                  <div style={{ fontSize: '10px', fontWeight: 800, color: navy, textTransform: 'uppercase', letterSpacing: '0.8px', borderTop: '2px solid #2B7FD4', paddingTop: '10px', marginBottom: '10px' }}>Itemised Analysis — Monthly Generation</div>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', marginBottom: '20px', tableLayout: 'fixed' }}>
                     <thead>
                       <tr style={{ background: '#f4f8fc', borderBottom: '2px solid #2B7FD4' }}>
@@ -1721,7 +1933,7 @@ export default function DashboardPage() {
 
                   <div style={{ fontSize: '10px', color: '#9ab0c8', borderTop: '1px solid #dde5ee', paddingTop: '12px', lineHeight: 1.7 }}>
                     This report reflects the offtake guarantee position for {g.site_name} over the guarantee period July 2025 – June 2026.
-                    Guaranteed output is corrected for expected utilisation ({g.expected_utilisation != null ? `${parseFloat(g.expected_utilisation).toFixed(1)}%` : '—'}) and degradation ({g.degradation != null ? parseFloat(g.degradation).toFixed(4) : '—'}).
+                    Guaranteed output is corrected for expected utilisation ({g.expected_utilisation != null ? `${parseFloat(g.expected_utilisation).toFixed(1)}%` : '—'}) and system age ({g.og_age != null ? `${parseFloat(g.og_age).toFixed(1)} yrs` : '—'}).
                     {g.notes ? ` Notes: ${g.notes}` : ''}<br />
                     © {new Date().getFullYear()} Sosimple Energy — Cheap energy. Clean business.
                   </div>
@@ -1730,10 +1942,20 @@ export default function DashboardPage() {
             )
           })()}
 
-          {activePage === 'offtake' && !ogSelected && (
+          {activePage === 'offtake' && !ogSelected && !ogOverview && (
             <div>
-              <div style={{ fontSize: '20px', fontWeight: 800, color: T.textWhite, marginBottom: '2px' }}>Offtake Guarantees</div>
-              <div style={{ fontSize: '12px', color: T.textSecondary, marginBottom: '18px' }}>Guaranteed vs actual generation per site — shortfalls highlighted</div>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '18px', gap: '12px' }}>
+                <div>
+                  <div style={{ fontSize: '20px', fontWeight: 800, color: T.textWhite, marginBottom: '2px' }}>Offtake Guarantees</div>
+                  <div style={{ fontSize: '12px', color: T.textSecondary }}>Guaranteed vs actual generation per site — shortfalls highlighted</div>
+                </div>
+                {ogData.length > 0 && (
+                  <button onClick={() => setOgOverview(true)}
+                    style={{ padding: '8px 16px', background: T.blue, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <i className="ti ti-file-text" />Portfolio Overview
+                  </button>
+                )}
+              </div>
 
               {/* Filter bar */}
               <div style={{ ...cardStyle, padding: '12px 16px', marginBottom: '16px', display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
@@ -1792,7 +2014,7 @@ export default function DashboardPage() {
                           {[
                             { label: 'Site Name', key: 'site' },
                             { label: 'Utilisation %', key: 'util' },
-                            { label: 'Degradation', key: 'degradation' },
+                            { label: 'Age (yrs)', key: 'degradation' },
                             { label: 'As-Built (kWh)', key: 'asbuilt' },
                             { label: 'Unavailability (kWh)', key: 'unavail' },
                             { label: 'Guaranteed (kWh)', key: 'guaranteed' },
@@ -1824,7 +2046,7 @@ export default function DashboardPage() {
                                 {g.site_name}
                               </td>
                               <td style={{ padding: '8px 10px', color: T.textSecondary }}>{g.expected_utilisation != null ? `${parseFloat(g.expected_utilisation).toFixed(1)}%` : '—'}</td>
-                              <td style={{ padding: '8px 10px', color: T.textSecondary }}>{g.degradation != null ? parseFloat(g.degradation).toFixed(4) : '—'}</td>
+                              <td style={{ padding: '8px 10px', color: T.textSecondary }}>{g.og_age != null ? parseFloat(g.og_age).toFixed(1) : (g.degradation != null ? parseFloat(g.degradation).toFixed(1) : '—')}</td>
                               <td style={{ padding: '8px 10px', color: T.textSecondary }}>{g.as_built_kwh != null ? Math.round(g.as_built_kwh).toLocaleString() : '—'}</td>
                               <td style={{ padding: '8px 10px', color: T.textSecondary }}>{g.unavailability_kwh != null ? Math.round(g.unavailability_kwh).toLocaleString() : '—'}</td>
                               <td style={{ padding: '8px 10px', fontWeight: 700, color: T.textPrimary }}>{g.correct_kwh != null ? Math.round(g.correct_kwh).toLocaleString() : '—'}</td>
@@ -2032,6 +2254,57 @@ export default function DashboardPage() {
                           {upBusy ? 'Uploading...' : `Upload ${upComments.rows.length} comments`}
                         </button>
                         <button onClick={() => setUpComments(null)} disabled={upBusy} style={{ padding: '10px 16px', background: 'rgba(239,68,68,0.1)', color: T.red, border: `1px solid rgba(239,68,68,0.3)`, borderRadius: '8px', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Offtake Guarantees upload */}
+                <div style={{ ...cardStyle, padding: '20px' }}>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: T.blue, marginBottom: '6px' }}>
+                    <i className="ti ti-shield-check" style={{ marginRight: '7px' }} />Offtake Guarantees
+                  </div>
+                  <div style={{ fontSize: '11px', color: T.textMuted, marginBottom: '14px', lineHeight: 1.7 }}>
+                    CSV with columns: <b style={{ color: T.textSecondary }}>Site Name; Offtake Guarantee; Expected Utilisation%; Age; As-Built kWh; Guaranteed Generation (kWh); Unavailability kWh; Correct kWh; Actual Generation (kWh); Shortfall (kWh); Performance Rate; Notes</b><br />
+                    Matched by Site Name. Semicolon or comma separated.
+                  </div>
+                  <label style={{ display: 'block', border: `2px dashed rgba(11,116,215,0.3)`, borderRadius: '10px', padding: '24px', textAlign: 'center', cursor: 'pointer', background: T.bgMuted, transition: 'border-color 0.2s' }}
+                    onMouseEnter={e => e.currentTarget.style.borderColor = T.blue}
+                    onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(11,116,215,0.3)'}>
+                    <i className="ti ti-file-upload" style={{ fontSize: '28px', color: T.blue, display: 'block', marginBottom: '8px' }} />
+                    <span style={{ fontSize: '12px', color: T.textSecondary }}>Click to select offtake CSV</span>
+                    <input type="file" accept=".csv" onChange={handleOgFile} style={{ display: 'none' }} disabled={upBusy} />
+                  </label>
+                  {upOg && (
+                    <div style={{ marginTop: '14px' }}>
+                      <div style={{ fontSize: '12px', color: T.textPrimary, marginBottom: '8px' }}>
+                        📄 <b>{upOg.fileName}</b> — {upOg.rows.length} sites
+                        {upOg.errors.length > 0 && <span style={{ color: T.red }}> · {upOg.errors.length} invalid rows</span>}
+                      </div>
+                      <div style={{ maxHeight: '160px', overflowY: 'auto', border: `1px solid ${T.border}`, borderRadius: '8px', marginBottom: '10px' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+                          <thead><tr style={{ background: T.bgMuted }}>
+                            {['Site','Util%','Guaranteed','Actual','Shortfall','Perf%'].map(h => <th key={h} style={{ padding: '5px 8px', textAlign: 'left', color: T.textMuted, fontSize: '9px', textTransform: 'uppercase' }}>{h}</th>)}
+                          </tr></thead>
+                          <tbody>
+                            {upOg.rows.slice(0,8).map((r,i) => (
+                              <tr key={i} style={{ borderTop: `1px solid ${T.border}` }}>
+                                <td style={{ padding: '4px 8px', color: T.textPrimary, whiteSpace: 'nowrap' }}>{r.site_name}</td>
+                                <td style={{ padding: '4px 8px', color: T.textSecondary }}>{r.expected_utilisation ?? '—'}</td>
+                                <td style={{ padding: '4px 8px', color: T.textSecondary }}>{r.correct_kwh != null ? Math.round(r.correct_kwh).toLocaleString() : '—'}</td>
+                                <td style={{ padding: '4px 8px', color: T.textSecondary }}>{r.actual_kwh != null ? Math.round(r.actual_kwh).toLocaleString() : '—'}</td>
+                                <td style={{ padding: '4px 8px', color: (r.shortfall_kwh ?? 0) >= 0 ? T.green : T.red }}>{r.shortfall_kwh != null ? Math.round(r.shortfall_kwh).toLocaleString() : '—'}</td>
+                                <td style={{ padding: '4px 8px', color: T.textSecondary }}>{r.performance_rate ?? '—'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button onClick={uploadOg} disabled={upBusy} style={{ flex: 1, padding: '10px', background: T.blue, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: upBusy ? 'not-allowed' : 'pointer', opacity: upBusy ? 0.6 : 1 }}>
+                          {upBusy ? 'Uploading...' : `Upload ${upOg.rows.length} guarantees`}
+                        </button>
+                        <button onClick={() => setUpOg(null)} disabled={upBusy} style={{ padding: '10px 16px', background: 'rgba(239,68,68,0.1)', color: T.red, border: `1px solid rgba(239,68,68,0.3)`, borderRadius: '8px', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
                       </div>
                     </div>
                   )}
