@@ -589,7 +589,13 @@ export default function DashboardPage() {
         if (idx.band >= 0) rec.pf_band = cleanStr(r[idx.band])
         parsed.push(rec)
       })
-      setUpPerf({ rows: parsed, errors, fileName: file.name })
+      // De-duplicate by site+month+year (last occurrence wins) so upsert batches don't
+      // hit "ON CONFLICT cannot affect row a second time"
+      const seen = new Map()
+      parsed.forEach(rec => seen.set(`${rec.site_name.toLowerCase()}|${rec.month}|${rec.year}`, rec))
+      const deduped = [...seen.values()]
+      const dupCount = parsed.length - deduped.length
+      setUpPerf({ rows: deduped, errors, fileName: file.name, dupCount })
       setUpMsg('')
     }
     reader.readAsText(file)
@@ -659,15 +665,26 @@ export default function DashboardPage() {
     if (!upPerf?.rows?.length) return
     setUpBusy(true)
     setUpMsg('Uploading performance data...')
-    let done = 0, failed = 0
+    let done = 0, failed = 0, lastErr = ''
     for (let i = 0; i < upPerf.rows.length; i += 500) {
       const batch = upPerf.rows.slice(i, i + 500)
       const { error } = await supabase.from('performance').upsert(batch, { onConflict: 'site_name,month,year' })
-      if (error) { failed += batch.length; console.error(error) }
-      else done += batch.length
-      setUpMsg(`Uploading... ${done + failed}/${upPerf.rows.length}`)
+      if (error) {
+        console.error('Batch failed, retrying row-by-row:', error)
+        lastErr = error.message || String(error)
+        // Retry individually so one bad row doesn't fail the whole batch
+        for (const row of batch) {
+          const { error: rowErr } = await supabase.from('performance').upsert([row], { onConflict: 'site_name,month,year' })
+          if (rowErr) { failed++; lastErr = rowErr.message || String(rowErr); console.error('Row failed:', row, rowErr) }
+          else done++
+          setUpMsg(`Uploading... ${done + failed}/${upPerf.rows.length}`)
+        }
+      } else {
+        done += batch.length
+        setUpMsg(`Uploading... ${done + failed}/${upPerf.rows.length}`)
+      }
     }
-    setUpMsg(failed === 0 ? `✅ ${done} performance records uploaded successfully` : `⚠️ ${done} uploaded, ${failed} failed — check console (F12)`)
+    setUpMsg(failed === 0 ? `✅ ${done} performance records uploaded successfully` : `⚠️ ${done} uploaded, ${failed} failed. Reason: ${lastErr || 'see console (F12)'}`)
     setUpPerf(null)
     setPerfData([])
     setUpBusy(false)
@@ -2125,6 +2142,7 @@ export default function DashboardPage() {
                     <div style={{ marginTop: '14px' }}>
                       <div style={{ fontSize: '12px', color: T.textPrimary, marginBottom: '8px' }}>
                         📄 <b>{upPerf.fileName}</b> — {upPerf.rows.length} valid records
+                        {upPerf.dupCount > 0 && <span style={{ color: T.textMuted }}> · {upPerf.dupCount} duplicates merged</span>}
                         {upPerf.errors.length > 0 && <span style={{ color: T.red }}> · {upPerf.errors.length} rows skipped</span>}
                       </div>
                       <div style={{ maxHeight: '160px', overflowY: 'auto', border: `1px solid ${T.border}`, borderRadius: '8px', marginBottom: '10px' }}>
