@@ -120,6 +120,7 @@ export default function DashboardPage() {
   const [pfSort, setPfSort] = useState({ key: 'date', dir: 'desc' })
   const [spSite, setSpSite] = useState('')
   const [spSearch, setSpSearch] = useState('')
+  const [spInvestor, setSpInvestor] = useState('')
   const [spYear, setSpYear] = useState('')
   const [spYearA, setSpYearA] = useState('')
   const [spYearB, setSpYearB] = useState('')
@@ -137,6 +138,7 @@ export default function DashboardPage() {
   const [ogLoading, setOgLoading] = useState(false)
   const [ogSearch, setOgSearch] = useState('')
   const [ogFilterStatus, setOgFilterStatus] = useState('')
+  const [ogInvestor, setOgInvestor] = useState('')
   const [ogSort, setOgSort] = useState({ key: 'shortfall', dir: 'asc' })
   const [ogSelected, setOgSelected] = useState(null)
   const [ogOverview, setOgOverview] = useState(false)
@@ -381,12 +383,15 @@ export default function DashboardPage() {
   function fmtDate(month, year) { return `${monthNames[parseInt(month)-1]}-${String(parseInt(year)).slice(2)}` }
 
   // ── Offtake Guarantees derived values ──────────────────────────────────────
+  const ogInvestorFor = (name) => sites.find(s => s.name?.trim().toLowerCase() === (name || '').trim().toLowerCase())?.investment_party || null
+  const ogInvestorList = [...new Set(sites.map(s => s.investment_party).filter(Boolean))].sort()
   const filteredOG = ogData.filter(g => {
     const q = ogSearch.toLowerCase()
     const mQ = !q || g.site_name?.toLowerCase().includes(q)
     const meeting = (g.shortfall_kwh ?? 0) >= 0
     const mS = !ogFilterStatus || (ogFilterStatus === 'meeting' ? meeting : !meeting)
-    return mQ && mS
+    const mI = !ogInvestor || ogInvestorFor(g.site_name) === ogInvestor
+    return mQ && mS && mI
   })
 
   const sortedOG = [...filteredOG].sort((a, b) => {
@@ -1578,6 +1583,8 @@ export default function DashboardPage() {
           {/* ── SITE PERFORMANCE ── */}
           {activePage === 'siteperf' && (() => {
             const spSiteNames = [...new Set(perfData.map(p => p.site_name?.trim()).filter(Boolean))].sort()
+            const investorFor = (name) => sites.find(s => s.name?.trim().toLowerCase() === (name || '').trim().toLowerCase())?.investment_party || null
+            const spInvestorList = [...new Set(sites.map(s => s.investment_party).filter(Boolean))].sort()
             const spRecs = perfData.filter(p => p.site_name?.trim() === spSite)
             const spYears = [...new Set(spRecs.map(p => p.year))].sort()
             const yrSel = parseInt(spYear) || spYears[spYears.length - 1]
@@ -1610,9 +1617,14 @@ export default function DashboardPage() {
                     <div style={{ ...cardStyle, padding: '14px' }}>
                       <div style={{ fontSize: '11px', fontWeight: 700, color: T.blue, marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Select Site</div>
                       <input type="text" placeholder="Search sites..." value={spSearch} onChange={e => setSpSearch(e.target.value)}
-                        style={{ width: '100%', padding: '7px 10px', border: `1px solid ${T.border}`, borderRadius: '8px', fontSize: '12px', color: T.textPrimary, background: T.bgInput, outline: 'none', marginBottom: '10px' }} />
-                      <div style={{ maxHeight: '500px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        {spSiteNames.filter(n => n.toLowerCase().includes(spSearch.toLowerCase())).map(n => (
+                        style={{ width: '100%', padding: '7px 10px', border: `1px solid ${T.border}`, borderRadius: '8px', fontSize: '12px', color: T.textPrimary, background: T.bgInput, outline: 'none', marginBottom: '8px' }} />
+                      <select value={spInvestor} onChange={e => setSpInvestor(e.target.value)}
+                        style={{ width: '100%', padding: '7px 10px', border: `1px solid ${T.border}`, borderRadius: '8px', fontSize: '12px', color: T.textPrimary, background: T.bgInput, outline: 'none', marginBottom: '10px' }}>
+                        <option value="">All Investors</option>
+                        {spInvestorList.map(inv => <option key={inv} value={inv}>{inv}</option>)}
+                      </select>
+                      <div style={{ maxHeight: '460px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        {spSiteNames.filter(n => n.toLowerCase().includes(spSearch.toLowerCase()) && (!spInvestor || investorFor(n) === spInvestor)).map(n => (
                           <div key={n} onClick={() => { setSpSite(n); setSpYear(''); setSpYearA(''); setSpYearB(''); setSpCommentDate('') }}
                             style={{ padding: '8px 10px', border: `1px solid ${spSite === n ? T.blue : T.border}`, borderRadius: '6px', fontSize: '12px', cursor: 'pointer', background: spSite === n ? 'rgba(43,127,212,0.15)' : T.bgInput, color: spSite === n ? T.textWhite : T.textSecondary, fontWeight: spSite === n ? 600 : 400, transition: 'all 0.1s', textAlign: 'center' }}>
                             {n}
@@ -2065,8 +2077,12 @@ export default function DashboardPage() {
                   <option value="meeting">Meeting Guarantee</option>
                   <option value="shortfall">In Shortfall</option>
                 </select>
-                {(ogSearch || ogFilterStatus) && (
-                  <button onClick={() => { setOgSearch(''); setOgFilterStatus('') }}
+                <select style={selectStyle} value={ogInvestor} onChange={e => setOgInvestor(e.target.value)}>
+                  <option value="">All Investors</option>
+                  {ogInvestorList.map(inv => <option key={inv} value={inv}>{inv}</option>)}
+                </select>
+                {(ogSearch || ogFilterStatus || ogInvestor) && (
+                  <button onClick={() => { setOgSearch(''); setOgFilterStatus(''); setOgInvestor('') }}
                     style={{ ...selectStyle, background: 'rgba(239,68,68,0.1)', border: `1px solid rgba(239,68,68,0.3)`, color: T.red, cursor: 'pointer' }}>
                     Clear ×
                   </button>
