@@ -101,6 +101,11 @@ export default function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [filterType, setFilterType] = useState('')
   const [filterContract, setFilterContract] = useState('')
+  const [filterProvince, setFilterProvince] = useState('')
+  const [siteInvestor, setSiteInvestor] = useState('')
+  const [filterPowerLimit, setFilterPowerLimit] = useState('')
+  const [filterStatus, setFilterStatus] = useState('')
+  const [siteSort, setSiteSort] = useState({ key: 'name', dir: 'asc' })
   const [activeInvTab, setActiveInvTab] = useState('all')
   const [chartReady, setChartReady] = useState(false)
   const [geoReady, setGeoReady] = useState(false)
@@ -290,8 +295,43 @@ export default function DashboardPage() {
     const matchQ = !q || s.name?.toLowerCase().includes(q) || s.location?.toLowerCase().includes(q)
     const matchType = !filterType || s.business_type === filterType
     const matchContract = !filterContract || s.system_type === filterContract
-    return matchQ && matchType && matchContract
+    const matchProvince = !filterProvince || s.province === filterProvince
+    const matchInvestor = !siteInvestor || s.investment_party === siteInvestor
+    const matchPower = !filterPowerLimit || s.power_limit === filterPowerLimit
+    const matchStatus = !filterStatus || s.status === filterStatus
+    return matchQ && matchType && matchContract && matchProvince && matchInvestor && matchPower && matchStatus
+  }).sort((a, b) => {
+    const dir = siteSort.dir === 'asc' ? 1 : -1
+    const val = (s) => {
+      switch (siteSort.key) {
+        case 'name': return (s.name || '').toLowerCase()
+        case 'province': return (s.province || '').toLowerCase()
+        case 'capacity': return s.capacity_kw != null ? parseFloat(s.capacity_kw) : null
+        case 'bess': return s.battery_size_wh != null ? parseFloat(s.battery_size_wh) : null
+        case 'type': return (s.business_type || '').toLowerCase()
+        case 'contract': return (s.system_type || '').toLowerCase()
+        case 'investor': return (s.investment_party || '').toLowerCase()
+        case 'age': return siteAge(s)
+        case 'power': return (s.power_limit || '').toLowerCase()
+        case 'status': return (s.status || '').toLowerCase()
+        default: return ''
+      }
+    }
+    const va = val(a), vb = val(b)
+    if (va == null && vb == null) return 0
+    if (va == null) return 1
+    if (vb == null) return -1
+    if (va < vb) return -1 * dir
+    if (va > vb) return 1 * dir
+    return 0
   })
+
+  function toggleSiteSort(key) {
+    setSiteSort(s => s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' })
+  }
+  const siteProvinces = [...new Set(sites.map(s => s.province).filter(Boolean))].sort()
+  const sitePowerLimits = [...new Set(sites.map(s => s.power_limit).filter(Boolean))].sort()
+  const sitesInvestorList = [...new Set(sites.map(s => s.investment_party).filter(Boolean))].sort()
 
   const invSites = activeInvTab === 'all' ? sites : sites.filter(s => s.investment_party === activeInvTab)
 
@@ -616,7 +656,7 @@ export default function DashboardPage() {
         status: find('operational'), battery_name: find('battery name'), contract: find('contract type'),
         business: find('business type'), investor: find('investment party'), battery_wh: find('battery size (wh)'),
         installer: find('installer name'), project: find('project number'), platform: headers.findIndex(h => h === 'platform'),
-        age: find('age'),
+        age: find('age'), power_limit: find('power limit'),
       }
       if (idx.name < 0) { setUpMsg('❌ Sites CSV must have a "Site Name" column'); return }
       const parsed = [], errors = []
@@ -640,6 +680,7 @@ export default function DashboardPage() {
           platform: idx.platform >= 0 ? cleanStr(r[idx.platform]) : null,
           inverter_brand: idx.battery_name >= 0 ? cleanStr(r[idx.battery_name]) : null,
           age_years: idx.age >= 0 && parseNum(r[idx.age]) != null ? parseNum(r[idx.age]) : null,
+          power_limit: idx.power_limit >= 0 ? cleanStr(r[idx.power_limit]) : null,
         }
         if (idx.date >= 0) {
           const d = (r[idx.date] || '').trim()
@@ -1346,14 +1387,48 @@ export default function DashboardPage() {
                   <option value="">All Contracts</option>
                   <option>PPA</option><option>RTO</option>
                 </select>
+                <select value={filterProvince} onChange={e => setFilterProvince(e.target.value)} style={selectStyle}>
+                  <option value="">All Provinces</option>
+                  {siteProvinces.map(p => <option key={p}>{p}</option>)}
+                </select>
+                <select value={siteInvestor} onChange={e => setSiteInvestor(e.target.value)} style={selectStyle}>
+                  <option value="">All Investors</option>
+                  {sitesInvestorList.map(p => <option key={p}>{p}</option>)}
+                </select>
+                <select value={filterPowerLimit} onChange={e => setFilterPowerLimit(e.target.value)} style={selectStyle}>
+                  <option value="">All Power Limits</option>
+                  {sitePowerLimits.map(p => <option key={p}>{p}</option>)}
+                </select>
+                <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={selectStyle}>
+                  <option value="">All Statuses</option>
+                  <option value="active">Active</option><option value="inactive">Inactive</option>
+                </select>
+                {(searchQuery || filterType || filterContract || filterProvince || siteInvestor || filterPowerLimit || filterStatus) && (
+                  <button onClick={() => { setSearchQuery(''); setFilterType(''); setFilterContract(''); setFilterProvince(''); setSiteInvestor(''); setFilterPowerLimit(''); setFilterStatus('') }}
+                    style={{ ...selectStyle, background: 'rgba(239,68,68,0.1)', border: `1px solid rgba(239,68,68,0.3)`, color: T.red, cursor: 'pointer' }}>Clear ×</button>
+                )}
               </div>
               <div style={{ fontSize: '11px', color: T.textMuted, marginBottom: '8px' }}>Showing {filteredSites.length} of {sites.length} sites</div>
               <div style={{ ...cardStyle, overflow: 'hidden' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                   <thead>
                     <tr style={{ background: T.bgMuted, borderBottom: `2px solid ${T.border}` }}>
-                      {['Site Name','Province','Capacity','BESS (kWh)','Type','Contract','Investor','Age','Status'].map(h => (
-                        <th key={h} style={{ textAlign: 'left', padding: '9px 10px', fontSize: '10px', color: T.textMuted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.7px' }}>{h}</th>
+                      {[
+                        { label: 'Site Name', key: 'name' },
+                        { label: 'Province', key: 'province' },
+                        { label: 'Capacity', key: 'capacity' },
+                        { label: 'BESS (kWh)', key: 'bess' },
+                        { label: 'Type', key: 'type' },
+                        { label: 'Contract', key: 'contract' },
+                        { label: 'Investor', key: 'investor' },
+                        { label: 'Age', key: 'age' },
+                        { label: 'Power Limit', key: 'power' },
+                        { label: 'Status', key: 'status' },
+                      ].map(h => (
+                        <th key={h.label} onClick={() => toggleSiteSort(h.key)}
+                          style={{ textAlign: 'left', padding: '9px 10px', fontSize: '10px', color: siteSort.key === h.key ? T.blue : T.textMuted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.7px', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                          {h.label} {siteSort.key === h.key ? (siteSort.dir === 'asc' ? '▲' : '▼') : <span style={{ opacity: 0.3 }}>⇅</span>}
+                        </th>
                       ))}
                     </tr>
                   </thead>
@@ -1368,6 +1443,7 @@ export default function DashboardPage() {
                         <td style={{ padding: '8px 10px', color: T.textSecondary }}>{site.system_type || '--'}</td>
                         <td style={{ padding: '8px 10px', color: T.textSecondary }}>{site.investment_party || '--'}</td>
                         <td style={{ padding: '8px 10px', color: T.textSecondary, whiteSpace: 'nowrap' }} title={site.commissioned_date ? `Commissioned ${site.commissioned_date}` : ''}>{fmtAge(site)}</td>
+                        <td style={{ padding: '8px 10px', color: T.textSecondary, whiteSpace: 'nowrap' }}>{site.power_limit || '--'}</td>
                         <td style={{ padding: '8px 10px' }}>{statusBadge(site.status)}</td>
                       </tr>
                     ))}
@@ -2481,26 +2557,47 @@ export default function DashboardPage() {
                           </div>
                         ))}
                       </div>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px', tableLayout: 'fixed' }}>
                         <thead><tr style={{ background: '#2B7FD4' }}>
-                          {['Site Name','Period','Measured (kWh)','Expected (kWh)','Δ %','PF Band','Comment'].map(h => (
-                            <th key={h} style={{ padding: '8px 9px', textAlign: 'left', color: '#fff', fontSize: '10px', fontWeight: 600 }}>{h}</th>
+                          {[
+                            { label: 'Site Name', w: '9%' },
+                            { label: 'Period', w: '5%' },
+                            { label: 'Measured kWh', w: '7%' },
+                            { label: 'Expected kWh', w: '7%' },
+                            { label: 'Δ %', w: '5%' },
+                            { label: 'Perf %', w: '5%' },
+                            { label: 'PF Band', w: '6%' },
+                            { label: 'Availability', w: '15%' },
+                            { label: 'Downtime', w: '6%' },
+                            { label: 'Cause of Downtime', w: '9%' },
+                            { label: 'Technical Events', w: '9%' },
+                            { label: 'Energy Impact', w: '6%' },
+                            { label: 'Other Comments', w: '9%' },
+                          ].map(h => (
+                            <th key={h.label} style={{ width: h.w, padding: '7px 7px', textAlign: 'left', color: '#fff', fontSize: '9px', fontWeight: 600 }}>{h.label}</th>
                           ))}
                         </tr></thead>
                         <tbody>
                           {repPerf.length===0 ? (
-                            <tr><td colSpan={7} style={{ padding: '20px', textAlign: 'center', color: '#9ab8d8' }}>No performance records for the selected filters</td></tr>
+                            <tr><td colSpan={13} style={{ padding: '20px', textAlign: 'center', color: '#9ab8d8' }}>No performance records for the selected filters</td></tr>
                           ) : repPerf.map((p,i) => {
                             const d = p.kwh_produced!=null&&p.expected_kwh>0?(((p.kwh_produced-p.expected_kwh)/p.expected_kwh)*100).toFixed(1):null
+                            const cc = (v, extra={}) => <td style={{ padding: '6px 7px', borderBottom: '1px solid #f0f6ff', fontSize: '9px', color: '#5a7aaa', whiteSpace: 'pre-line', wordBreak: 'break-word', verticalAlign: 'top', ...extra }}>{v!=null&&v!==''?v:'—'}</td>
                             return (
                               <tr key={p.id} style={{ background: i%2===0?'#fff':'#f8fbff' }}>
-                                <td style={{ padding: '6px 9px', borderBottom: '1px solid #f0f6ff', fontWeight: 500 }}>{p.site_name}</td>
-                                <td style={{ padding: '6px 9px', borderBottom: '1px solid #f0f6ff', whiteSpace: 'nowrap' }}>{monthNamesR[p.month-1]}-{String(p.year).slice(2)}</td>
-                                <td style={{ padding: '6px 9px', borderBottom: '1px solid #f0f6ff' }}>{p.kwh_produced!=null?p.kwh_produced.toLocaleString():'—'}</td>
-                                <td style={{ padding: '6px 9px', borderBottom: '1px solid #f0f6ff' }}>{p.expected_kwh!=null?p.expected_kwh.toLocaleString():'—'}</td>
-                                <td style={{ padding: '6px 9px', borderBottom: '1px solid #f0f6ff', fontWeight: 600, color: d==null?'#9ab8d8':d>=0?'#3a7a00':'#9a1a1a' }}>{d!=null?`${d>0?'+':''}${d}%`:'—'}</td>
-                                <td style={{ padding: '6px 9px', borderBottom: '1px solid #f0f6ff' }}>{p.pf_band||'—'}</td>
-                                <td style={{ padding: '6px 9px', borderBottom: '1px solid #f0f6ff', fontSize: '10px', color: '#5a7aaa', whiteSpace: 'pre-line', maxWidth: '220px' }}>{p.comment || [p.availability, p.cause_of_downtime, p.technical_events, p.energy_impact, p.other_comments].filter(Boolean).join('\n') || '—'}</td>
+                                <td style={{ padding: '6px 7px', borderBottom: '1px solid #f0f6ff', fontWeight: 500, verticalAlign: 'top', wordBreak: 'break-word' }}>{p.site_name}</td>
+                                <td style={{ padding: '6px 7px', borderBottom: '1px solid #f0f6ff', whiteSpace: 'nowrap', verticalAlign: 'top' }}>{monthNamesR[p.month-1]}-{String(p.year).slice(2)}</td>
+                                <td style={{ padding: '6px 7px', borderBottom: '1px solid #f0f6ff', verticalAlign: 'top' }}>{p.kwh_produced!=null?p.kwh_produced.toLocaleString():'—'}</td>
+                                <td style={{ padding: '6px 7px', borderBottom: '1px solid #f0f6ff', verticalAlign: 'top' }}>{p.expected_kwh!=null?p.expected_kwh.toLocaleString():'—'}</td>
+                                <td style={{ padding: '6px 7px', borderBottom: '1px solid #f0f6ff', fontWeight: 600, verticalAlign: 'top', color: d==null?'#9ab8d8':d>=0?'#3a7a00':'#9a1a1a' }}>{d!=null?`${d>0?'+':''}${d}%`:'—'}</td>
+                                <td style={{ padding: '6px 7px', borderBottom: '1px solid #f0f6ff', fontWeight: 600, verticalAlign: 'top', color: p.performance_pct==null?'#9ab8d8':p.performance_pct>=100?'#3a7a00':p.performance_pct>=90?'#b8860b':'#9a1a1a' }}>{p.performance_pct!=null?`${parseFloat(p.performance_pct).toFixed(1)}%`:'—'}</td>
+                                <td style={{ padding: '6px 7px', borderBottom: '1px solid #f0f6ff', verticalAlign: 'top' }}>{p.pf_band||'—'}</td>
+                                {cc(p.availability)}
+                                {cc(p.downtime_days, { color: p.downtime_days && p.downtime_days!=='0' && !/^(none|n\/a|-+)$/i.test(String(p.downtime_days)) ? '#9a1a1a' : '#5a7aaa' })}
+                                {cc(p.cause_of_downtime)}
+                                {cc(p.technical_events)}
+                                {cc(p.energy_impact)}
+                                {cc(p.other_comments)}
                               </tr>
                             )
                           })}
@@ -2508,11 +2605,11 @@ export default function DashboardPage() {
                         {repPerf.length>0&&(
                           <tfoot>
                             <tr style={{ background: '#f0f6ff', fontWeight: 700 }}>
-                              <td colSpan={2} style={{ padding: '8px 9px', fontSize: '10px' }}>TOTAL — {repPerf.length} records</td>
-                              <td style={{ padding: '8px 9px', fontSize: '10px' }}>{rMeas.toLocaleString()}</td>
-                              <td style={{ padding: '8px 9px', fontSize: '10px' }}>{rExp.toLocaleString()}</td>
-                              <td style={{ padding: '8px 9px', fontSize: '10px', color: rDelta>=0?'#3a7a00':'#9a1a1a' }}>{rDelta!=null?`${rDelta>0?'+':''}${rDelta}%`:'—'}</td>
-                              <td colSpan={2}></td>
+                              <td colSpan={2} style={{ padding: '8px 7px', fontSize: '9px' }}>TOTAL — {repPerf.length} records</td>
+                              <td style={{ padding: '8px 7px', fontSize: '9px' }}>{rMeas.toLocaleString()}</td>
+                              <td style={{ padding: '8px 7px', fontSize: '9px' }}>{rExp.toLocaleString()}</td>
+                              <td style={{ padding: '8px 7px', fontSize: '9px', color: rDelta>=0?'#3a7a00':'#9a1a1a' }}>{rDelta!=null?`${rDelta>0?'+':''}${rDelta}%`:'—'}</td>
+                              <td colSpan={8}></td>
                             </tr>
                           </tfoot>
                         )}

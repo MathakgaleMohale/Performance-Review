@@ -28,7 +28,7 @@
 21 Melrose;Mar-26;1237
 21 Melrose;Apr-26;830
 21 Melrose;May-26;1169,9
-21 Melrose;Jun-26;
+21 Melrose;Jun-26;1287
 21 Melrose;Jul-26;
 21 Melrose;Aug-26;
 21 Melrose;Sept-26;
@@ -64,7 +64,7 @@ African Global Plastics;Feb-26;12261
 African Global Plastics;Mar-26;10788
 African Global Plastics;Apr-26;9392,09
 African Global Plastics;May-26;11425,9
-African Global Plastics;Jun-26;
+African Global Plastics;Jun-26;10184,42
 African Global Plastics;Jul-26;
 African Global Plastics;Aug-26;
 African Global Plastics;Sept-26;
@@ -136,7 +136,7 @@ BP Parys ;Feb-26;6068
 BP Parys ;Mar-26;4800
 BP Parys ;Apr-26;4318
 BP Parys ;May-26;3727,7
-BP Parys ;Jun-26;
+BP Parys ;Jun-26;3149
 BP Parys ;Jul-26;
 BP Parys ;Aug-26;
 BP Parys ;Sept-26;
@@ -172,7 +172,7 @@ Bendstore Plaza Shops;Feb-26;11241,78046
 Bendstore Plaza Shops;Mar-26;10628
 Bendstore Plaza Shops;Apr-26;8541,19
 Bendstore Plaza Shops;May-26;9563,61
-Bendstore Plaza Shops;Jun-26;
+Bendstore Plaza Shops;Jun-26;7968,17
 Bendstore Plaza Shops;Jul-26;
 Bendstore Plaza Shops;Aug-26;
 Bendstore Plaza Shops;Sept-26;
@@ -208,7 +208,7 @@ Bendstore Spar;Feb-26;49608,85332
 Bendstore Spar;Mar-26;41208
 Bendstore Spar;Apr-26;36936,35
 Bendstore Spar;May-26;38743,02
-Bendstore Spar;Jun-26;
+Bendstore Spar;Jun-26;31578,49
 Bendstore Spar;Jul-26;
 Bendstore Spar;Aug-26;
 Bendstore Spar;Sept-26;
@@ -244,7 +244,7 @@ Beyerskloof;Feb-26;10034,177
 Beyerskloof;Mar-26;10400
 Beyerskloof;Apr-26;7344,6
 Beyerskloof;May-26;5508,9
-Beyerskloof;Jun-26;
+Beyerskloof;Jun-26;5030,25
 Beyerskloof;Jul-26;
 Beyerskloof;Aug-26;
 Beyerskloof;Sept-26;
@@ -316,7 +316,7 @@ Checkers De Aar;Feb-26;22084
 Checkers De Aar;Mar-26;22201
 Checkers De Aar;Apr-26;16660,7
 Checkers De Aar;May-26;13372,29
-Checkers De Aar;Jun-26;
+Checkers De Aar;Jun-26;9763,7
 Checkers De Aar;Jul-26;
 Checkers De Aar;Aug-26;
 Checkers De Aar;Sept-26;
@@ -352,7 +352,7 @@ Checkers Silverlakes Gen;Feb-26;16600
 Checkers Silverlakes Gen;Mar-26;17500
 Checkers Silverlakes Gen;Apr-26;15400
 Checkers Silverlakes Gen;May-26;15615
-Checkers Silverlakes Gen;Jun-26;
+Checkers Silverlakes Gen;Jun-26;12373,57
 Checkers Silverlakes Gen;Jul-26;
 Checkers Silverlakes Gen;Aug-26;
 Checkers Silverlakes Gen;Sept-26;
@@ -388,7 +388,7 @@ Checkers Silverlakes No Gen;Feb-26;19200
 Checkers Silverlakes No Gen;Mar-26;16030
 Checkers Silverlakes No Gen;Apr-26;13700
 Checkers Silverlakes No Gen;May-26;13287
-Checkers Silverlakes No Gen;Jun-26;
+Checkers Silverlakes No Gen;Jun-26;10602,24
 Checkers Silverlakes No Gen;Jul-26;
 Checkers Silverlakes No Gen;Aug-26;
 Checkers Silverlakes No Gen;Sept-26;
@@ -460,7 +460,7 @@ Club Houghton;Feb-26;1526
 Club Houghton;Mar-26;1909
 Club Houghton;Apr-26;2190,9
 Club Houghton;May-26;2313,3
-Club Houghton;Jun-26;
+Club Houghton;Jun-26;1184
 Club Houghton;Jul-26;
 Club Houghton;Aug-26;
 Club Houghton;Sept-26;
@@ -496,7 +496,7 @@ Coldstar International;Feb-26;5548
 Coldstar International;Mar-26;5036
 Coldstar International;Apr-26;4183,27
 Coldstar International;May-26;4320
-Coldstar International;Jun-26;
+Coldstar International;Jun-26;3510
 Coldstar International;Jul-26;
 Coldstar International;Aug-26;
 Coldstar International;Sept-26;
@@ -640,7 +640,7 @@ Giba Gorge Main;Feb-26;2172,67
 Giba Gorge Main;Mar-26;350
 Giba Gorge Main;Apr-26;194,99
 Giba Gorge Main;May-26;
-Giba Gorge Main;Jun-26;
+Giba Gorge Main;Jun-26;3521
 Giba Gorge Main;Jul-26;
 Giba Gorge Main;Aug-26;
 Giba Gorge Main;Sept-26;
@@ -676,7 +676,7 @@ Giba Gorge Storage;Feb-26;6347,07
 Giba Gorge Storage;Mar-26;7063
 Giba Gorge Storage;Apr-26;4736,87
 Giba Gorge Storage;May-26;4375,54
-Giba Gorge Storage;Jun-26;
+Giba Gorge Storage;Jun-26;3483
 Giba Gorge Storage;Jul-26;
 Giba Gorge Storage;Aug-26;
 Giba Gorge Storage;Sept-26;
@@ -757,76 +757,40 @@ Golden Spot Shops;Oct-26;
 Golden Spot Shops;Nov-26;
 Golden Spot Shops;Dec-26;
 Grootpan;Jan-24;
-Grootpan;Jan-24;
-Grootpan;Feb-24;
 Grootpan;Feb-24;
 Grootpan;Mar-24;
-Grootpan;Mar-24;
-Grootpan;Apr-24;
 Grootpan;Apr-24;
 Grootpan;May-24;
-Grootpan;May-24;
-Grootpan;Jun-24;
 Grootpan;Jun-24;
 Grootpan;Jul-24;
-Grootpan;Jul-24;
-Grootpan;Aug-24;
 Grootpan;Aug-24;
 Grootpan;Sept-24;
-Grootpan;Sept-24;
-Grootpan;Oct-24;
 Grootpan;Oct-24;
 Grootpan;Nov-24;
-Grootpan;Nov-24;
-Grootpan;Dec-24;
 Grootpan;Dec-24;
 Grootpan;Jan-25;
-Grootpan;Jan-25;
-Grootpan;Feb-25;
 Grootpan;Feb-25;
 Grootpan;Mar-25;
-Grootpan;Mar-25;
-Grootpan;Apr-25;
 Grootpan;Apr-25;
 Grootpan;May-25;
-Grootpan;May-25;
-Grootpan;Jun-25;
 Grootpan;Jun-25;
 Grootpan;Jul-25;
-Grootpan;Jul-25;
-Grootpan;Aug-25;
 Grootpan;Aug-25;
 Grootpan;Sept-25;
-Grootpan;Sept-25;
-Grootpan;Oct-25;
 Grootpan;Oct-25;
 Grootpan;Nov-25;
-Grootpan;Nov-25;
-Grootpan;Dec-25;
 Grootpan;Dec-25;
 Grootpan;Jan-26;
-Grootpan;Jan-26;
-Grootpan;Feb-26;
 Grootpan;Feb-26;
 Grootpan;Mar-26;2780
-Grootpan;Mar-26;2780
-Grootpan;Apr-26;14950
 Grootpan;Apr-26;14950
 Grootpan;May-26;6540
-Grootpan;May-26;6540
-Grootpan;Jun-26;
-Grootpan;Jun-26;
-Grootpan;Jul-26;
+Grootpan;Jun-26;7560
 Grootpan;Jul-26;
 Grootpan;Aug-26;
-Grootpan;Aug-26;
-Grootpan;Sept-26;
 Grootpan;Sept-26;
 Grootpan;Oct-26;
-Grootpan;Oct-26;
 Grootpan;Nov-26;
-Grootpan;Nov-26;
-Grootpan;Dec-26;
 Grootpan;Dec-26;
 HB Dunn;Jan-24;
 HB Dunn;Feb-24;
@@ -857,7 +821,7 @@ HB Dunn;Feb-26;3786
 HB Dunn;Mar-26;2926
 HB Dunn;Apr-26;1520
 HB Dunn;May-26;2675,6
-HB Dunn;Jun-26;
+HB Dunn;Jun-26;2896
 HB Dunn;Jul-26;
 HB Dunn;Aug-26;
 HB Dunn;Sept-26;
@@ -893,7 +857,7 @@ Helderberg Collage ;Feb-26;29862
 Helderberg Collage ;Mar-26;30793
 Helderberg Collage ;Apr-26;19657,41
 Helderberg Collage ;May-26;14538,69
-Helderberg Collage ;Jun-26;
+Helderberg Collage ;Jun-26;14538,69
 Helderberg Collage ;Jul-26;
 Helderberg Collage ;Aug-26;
 Helderberg Collage ;Sept-26;
@@ -1072,7 +1036,7 @@ Kool Village ;Feb-26;9365
 Kool Village ;Mar-26;7814
 Kool Village ;Apr-26;5599,56
 Kool Village ;May-26;5867,76
-Kool Village ;Jun-26;
+Kool Village ;Jun-26;4645,31
 Kool Village ;Jul-26;
 Kool Village ;Aug-26;
 Kool Village ;Sept-26;
@@ -1108,7 +1072,7 @@ Makalali;Feb-26;16065
 Makalali;Mar-26;733
 Makalali;Apr-26;4797,7
 Makalali;May-26;5970,07
-Makalali;Jun-26;
+Makalali;Jun-26;5060,4
 Makalali;Jul-26;
 Makalali;Aug-26;
 Makalali;Sept-26;
@@ -1144,7 +1108,7 @@ Mambha Cash & Carry;Feb-26;21266,5806
 Mambha Cash & Carry;Mar-26;18344
 Mambha Cash & Carry;Apr-26;14760,15
 Mambha Cash & Carry;May-26;14261,66
-Mambha Cash & Carry;Jun-26;
+Mambha Cash & Carry;Jun-26;12292,03
 Mambha Cash & Carry;Jul-26;
 Mambha Cash & Carry;Aug-26;
 Mambha Cash & Carry;Sept-26;
@@ -1180,7 +1144,7 @@ Mathe Group Company;Feb-26;58060,83388
 Mathe Group Company;Mar-26;50832
 Mathe Group Company;Apr-26;41412,22
 Mathe Group Company;May-26;46300,95
-Mathe Group Company;Jun-26;
+Mathe Group Company;Jun-26;37511,86
 Mathe Group Company;Jul-26;
 Mathe Group Company;Aug-26;
 Mathe Group Company;Sept-26;
@@ -1252,7 +1216,7 @@ Medipost;Feb-26;44384
 Medipost;Mar-26;42181
 Medipost;Apr-26;29438,84
 Medipost;May-26;20478,6
-Medipost;Jun-26;
+Medipost;Jun-26;18349,15
 Medipost;Jul-26;
 Medipost;Aug-26;
 Medipost;Sept-26;
@@ -1324,7 +1288,7 @@ Monument Park Checkers;Feb-26;39129
 Monument Park Checkers;Mar-26;31935
 Monument Park Checkers;Apr-26;26513,02
 Monument Park Checkers;May-26;29984,36
-Monument Park Checkers;Jun-26;
+Monument Park Checkers;Jun-26;23145,12
 Monument Park Checkers;Jul-26;
 Monument Park Checkers;Aug-26;
 Monument Park Checkers;Sept-26;
@@ -1504,7 +1468,7 @@ Orthochem Bethlehem;Feb-26;35289,59486
 Orthochem Bethlehem;Mar-26;33082
 Orthochem Bethlehem;Apr-26;26958,67
 Orthochem Bethlehem;May-26;28264,56
-Orthochem Bethlehem;Jun-26;
+Orthochem Bethlehem;Jun-26;20267,33
 Orthochem Bethlehem;Jul-26;
 Orthochem Bethlehem;Aug-26;
 Orthochem Bethlehem;Sept-26;
@@ -1540,7 +1504,7 @@ PNB Unlimited;Feb-26;8045
 PNB Unlimited;Mar-26;7035
 PNB Unlimited;Apr-26;3742,54
 PNB Unlimited;May-26;6041,14
-PNB Unlimited;Jun-26;
+PNB Unlimited;Jun-26;3334
 PNB Unlimited;Jul-26;
 PNB Unlimited;Aug-26;
 PNB Unlimited;Sept-26;
@@ -1648,7 +1612,7 @@ Quintondale;Feb-26;5201,23
 Quintondale;Mar-26;4579
 Quintondale;Apr-26;4134,11
 Quintondale;May-26;4665,67
-Quintondale;Jun-26;
+Quintondale;Jun-26;3785
 Quintondale;Jul-26;
 Quintondale;Aug-26;
 Quintondale;Sept-26;
@@ -1756,7 +1720,7 @@ SR Morula TF 1 - Shoprite;Feb-26;25500
 SR Morula TF 1 - Shoprite;Mar-26;20753
 SR Morula TF 1 - Shoprite;Apr-26;18061,39
 SR Morula TF 1 - Shoprite;May-26;18908,48
-SR Morula TF 1 - Shoprite;Jun-26;
+SR Morula TF 1 - Shoprite;Jun-26;14035,5
 SR Morula TF 1 - Shoprite;Jul-26;
 SR Morula TF 1 - Shoprite;Aug-26;
 SR Morula TF 1 - Shoprite;Sept-26;
@@ -1864,7 +1828,7 @@ SaveMore Alldays - Store;Feb-26;15901
 SaveMore Alldays - Store;Mar-26;13942
 SaveMore Alldays - Store;Apr-26;12240,56
 SaveMore Alldays - Store;May-26;12352,61
-SaveMore Alldays - Store;Jun-26;
+SaveMore Alldays - Store;Jun-26;11089
 SaveMore Alldays - Store;Jul-26;
 SaveMore Alldays - Store;Aug-26;
 SaveMore Alldays - Store;Sept-26;
@@ -1900,7 +1864,7 @@ Savemore Liquor Alldays ;Feb-26;1801
 Savemore Liquor Alldays ;Mar-26;1516
 Savemore Liquor Alldays ;Apr-26;1353,29
 Savemore Liquor Alldays ;May-26;1302,09
-Savemore Liquor Alldays ;Jun-26;
+Savemore Liquor Alldays ;Jun-26;1100
 Savemore Liquor Alldays ;Jul-26;
 Savemore Liquor Alldays ;Aug-26;
 Savemore Liquor Alldays ;Sept-26;
@@ -1936,7 +1900,7 @@ Saverite Durban;Feb-26;11691
 Saverite Durban;Mar-26;10159
 Saverite Durban;Apr-26;8032,01
 Saverite Durban;May-26;7738,42
-Saverite Durban;Jun-26;
+Saverite Durban;Jun-26;6442
 Saverite Durban;Jul-26;
 Saverite Durban;Aug-26;
 Saverite Durban;Sept-26;
@@ -1972,7 +1936,7 @@ Saverite PMB;Feb-26;5171,0647
 Saverite PMB;Mar-26;8153,5
 Saverite PMB;Apr-26;7873,17
 Saverite PMB;May-26;7767,8
-Saverite PMB;Jun-26;
+Saverite PMB;Jun-26;7190,68
 Saverite PMB;Jul-26;
 Saverite PMB;Aug-26;
 Saverite PMB;Sept-26;
@@ -2008,7 +1972,7 @@ Secunda Plaza Shops;Feb-26;4641,05
 Secunda Plaza Shops;Mar-26;3756
 Secunda Plaza Shops;Apr-26;3294,1
 Secunda Plaza Shops;May-26;3420,82
-Secunda Plaza Shops;Jun-26;
+Secunda Plaza Shops;Jun-26;2882
 Secunda Plaza Shops;Jul-26;
 Secunda Plaza Shops;Aug-26;
 Secunda Plaza Shops;Sept-26;
@@ -2080,7 +2044,7 @@ Shoprite Dube ;Feb-26;21742,1962
 Shoprite Dube ;Mar-26;18523
 Shoprite Dube ;Apr-26;15379,43
 Shoprite Dube ;May-26;15576,52
-Shoprite Dube ;Jun-26;
+Shoprite Dube ;Jun-26;12252,53
 Shoprite Dube ;Jul-26;
 Shoprite Dube ;Aug-26;
 Shoprite Dube ;Sept-26;
@@ -2116,7 +2080,7 @@ Shoprite Ekhaya;Feb-26;
 Shoprite Ekhaya;Mar-26;10022
 Shoprite Ekhaya;Apr-26;11511,86
 Shoprite Ekhaya;May-26;14709,43
-Shoprite Ekhaya;Jun-26;
+Shoprite Ekhaya;Jun-26;12264,7
 Shoprite Ekhaya;Jul-26;
 Shoprite Ekhaya;Aug-26;
 Shoprite Ekhaya;Sept-26;
@@ -2152,7 +2116,7 @@ Shoprite Hillbrow;Feb-26;15395,7162
 Shoprite Hillbrow;Mar-26;11700
 Shoprite Hillbrow;Apr-26;8798,96
 Shoprite Hillbrow;May-26;8378,25
-Shoprite Hillbrow;Jun-26;
+Shoprite Hillbrow;Jun-26;6213,16
 Shoprite Hillbrow;Jul-26;
 Shoprite Hillbrow;Aug-26;
 Shoprite Hillbrow;Sept-26;
@@ -2188,7 +2152,7 @@ Shoprite Ladybrand ;Feb-26;24602,8829
 Shoprite Ladybrand ;Mar-26;23540
 Shoprite Ladybrand ;Apr-26;18199,29
 Shoprite Ladybrand ;May-26;17860,55
-Shoprite Ladybrand ;Jun-26;
+Shoprite Ladybrand ;Jun-26;14774,05
 Shoprite Ladybrand ;Jul-26;
 Shoprite Ladybrand ;Aug-26;
 Shoprite Ladybrand ;Sept-26;
@@ -2224,7 +2188,7 @@ Shoprite Mini Ganyesa;Feb-26;23486,9398
 Shoprite Mini Ganyesa;Mar-26;22459
 Shoprite Mini Ganyesa;Apr-26;18207,86
 Shoprite Mini Ganyesa;May-26;17848,83
-Shoprite Mini Ganyesa;Jun-26;
+Shoprite Mini Ganyesa;Jun-26;14983,63
 Shoprite Mini Ganyesa;Jul-26;
 Shoprite Mini Ganyesa;Aug-26;
 Shoprite Mini Ganyesa;Sept-26;
@@ -2260,7 +2224,7 @@ Shoprite Naledi;Feb-26;18965
 Shoprite Naledi;Mar-26;15865
 Shoprite Naledi;Apr-26;13806,89
 Shoprite Naledi;May-26;13506,85
-Shoprite Naledi;Jun-26;
+Shoprite Naledi;Jun-26;10711,09
 Shoprite Naledi;Jul-26;
 Shoprite Naledi;Aug-26;
 Shoprite Naledi;Sept-26;
@@ -2296,7 +2260,7 @@ Shoprite Newlands;Feb-26;31107
 Shoprite Newlands;Mar-26;26454
 Shoprite Newlands;Apr-26;20930,87
 Shoprite Newlands;May-26;20539,96
-Shoprite Newlands;Jun-26;
+Shoprite Newlands;Jun-26;17006,73
 Shoprite Newlands;Jul-26;
 Shoprite Newlands;Aug-26;
 Shoprite Newlands;Sept-26;
@@ -2332,7 +2296,7 @@ Shoprite Thokoza;Feb-26;16780
 Shoprite Thokoza;Mar-26;14651
 Shoprite Thokoza;Apr-26;12498,2
 Shoprite Thokoza;May-26;11697,82
-Shoprite Thokoza;Jun-26;
+Shoprite Thokoza;Jun-26;9082,64
 Shoprite Thokoza;Jul-26;
 Shoprite Thokoza;Aug-26;
 Shoprite Thokoza;Sept-26;
@@ -2368,7 +2332,7 @@ Spring Glade;Feb-26;8451
 Spring Glade;Mar-26;8559
 Spring Glade;Apr-26;7937,13
 Spring Glade;May-26;10005,8
-Spring Glade;Jun-26;
+Spring Glade;Jun-26;9053
 Spring Glade;Jul-26;
 Spring Glade;Aug-26;
 Spring Glade;Sept-26;
@@ -2404,7 +2368,7 @@ TPF Foods ;Feb-26;3398
 TPF Foods ;Mar-26;2638
 TPF Foods ;Apr-26;2034,35
 TPF Foods ;May-26;2231,41
-TPF Foods ;Jun-26;
+TPF Foods ;Jun-26;1788
 TPF Foods ;Jul-26;
 TPF Foods ;Aug-26;
 TPF Foods ;Sept-26;
@@ -2512,7 +2476,7 @@ Three Peaks;Feb-26;3087
 Three Peaks;Mar-26;4035
 Three Peaks;Apr-26;3282,98
 Three Peaks;May-26;3208,4
-Three Peaks;Jun-26;
+Three Peaks;Jun-26;3015
 Three Peaks;Jul-26;
 Three Peaks;Aug-26;
 Three Peaks;Sept-26;
@@ -2548,7 +2512,7 @@ Trouw Nutrition;Feb-26;12261
 Trouw Nutrition;Mar-26;11049
 Trouw Nutrition;Apr-26;9364,19
 Trouw Nutrition;May-26;10132,34
-Trouw Nutrition;Jun-26;
+Trouw Nutrition;Jun-26;8126
 Trouw Nutrition;Jul-26;
 Trouw Nutrition;Aug-26;
 Trouw Nutrition;Sept-26;
@@ -2584,7 +2548,7 @@ U Save Botrivier ;Feb-26;4844
 U Save Botrivier ;Mar-26;5410
 U Save Botrivier ;Apr-26;2815,5
 U Save Botrivier ;May-26;2205,5
-U Save Botrivier ;Jun-26;
+U Save Botrivier ;Jun-26;1921,8
 U Save Botrivier ;Jul-26;
 U Save Botrivier ;Aug-26;
 U Save Botrivier ;Sept-26;
@@ -2656,7 +2620,7 @@ Zwartop Golf Course;Feb-26;
 Zwartop Golf Course;Mar-26;
 Zwartop Golf Course;Apr-26;
 Zwartop Golf Course;May-26;
-Zwartop Golf Course;Jun-26;
+Zwartop Golf Course;Jun-26;0
 Zwartop Golf Course;Jul-26;
 Zwartop Golf Course;Aug-26;
 Zwartop Golf Course;Sept-26;
