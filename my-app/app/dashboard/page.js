@@ -117,6 +117,7 @@ export default function DashboardPage() {
   const [pfFilterInvestor, setPfFilterInvestor] = useState('')
   const [pfFilterDate, setPfFilterDate] = useState('')
   const [pfFilterBand, setPfFilterBand] = useState('')
+  const [pfFilterDiscussion, setPfFilterDiscussion] = useState('')
   const [pfSort, setPfSort] = useState({ key: 'date', dir: 'desc' })
   const [spSite, setSpSite] = useState('')
   const [spSearch, setSpSearch] = useState('')
@@ -349,7 +350,8 @@ export default function DashboardPage() {
     const mI = !pfFilterInvestor || getInvestor(p) === pfFilterInvestor
     const mD = !pfFilterDate || dateKey(p) === pfFilterDate
     const mB = !pfFilterBand || (p.pf_band || '').trim() === pfFilterBand
-    return mI && mD && mB
+    const mDisc = !pfFilterDiscussion || (pfFilterDiscussion === 'yes' ? p.discussion === true : p.discussion !== true)
+    return mI && mD && mB && mDisc
   })
 
   const sortedPerf = [...filteredPerf].sort((a, b) => {
@@ -363,6 +365,7 @@ export default function DashboardPage() {
         case 'expected': return p.expected_kwh != null ? parseFloat(p.expected_kwh) : null
         case 'perf': return p.performance_pct != null ? parseFloat(p.performance_pct) : null
         case 'band': return (p.pf_band || '').toLowerCase()
+        case 'discussion': return p.discussion === true ? 1 : 0
         default: return 0
       }
     }
@@ -620,6 +623,7 @@ export default function DashboardPage() {
         expected: headers.findIndex(h => h.includes('expected')),
         perf: headers.findIndex(h => h === 'performance'),
         band: headers.findIndex(h => h.includes('pf band')),
+        discussion: headers.findIndex(h => h.includes('discussion')),
       }
       if (idx.name < 0 || idx.date < 0) { setUpMsg('❌ Performance CSV must have "Site Name" and "Date" columns'); return }
       const parsed = [], errors = []
@@ -632,6 +636,7 @@ export default function DashboardPage() {
         if (idx.expected >= 0) rec.expected_kwh = parseNum(r[idx.expected])
         if (idx.perf >= 0) rec.performance_pct = parseNum(r[idx.perf])
         if (idx.band >= 0) rec.pf_band = cleanStr(r[idx.band])
+        if (idx.discussion >= 0) rec.discussion = (r[idx.discussion] || '').trim().toUpperCase() === 'YES'
         parsed.push(rec)
       })
       // De-duplicate by site+month+year (last occurrence wins) so upsert batches don't
@@ -1483,8 +1488,13 @@ export default function DashboardPage() {
                   <option value="">All PF Bands</option>
                   <option>Expected</option><option>Moderate</option><option>Poor</option>
                 </select>
-                {(pfFilterInvestor || pfFilterDate || pfFilterBand) && (
-                  <button onClick={() => { setPfFilterInvestor(''); setPfFilterDate(''); setPfFilterBand('') }}
+                <select style={selectStyle} value={pfFilterDiscussion} onChange={e => setPfFilterDiscussion(e.target.value)}>
+                  <option value="">All Discussion</option>
+                  <option value="yes">Needs Discussion</option>
+                  <option value="no">No Discussion</option>
+                </select>
+                {(pfFilterInvestor || pfFilterDate || pfFilterBand || pfFilterDiscussion) && (
+                  <button onClick={() => { setPfFilterInvestor(''); setPfFilterDate(''); setPfFilterBand(''); setPfFilterDiscussion('') }}
                     style={{ ...selectStyle, background: 'rgba(239,68,68,0.1)', border: `1px solid rgba(239,68,68,0.3)`, color: T.red, cursor: 'pointer' }}>
                     Clear ×
                   </button>
@@ -1538,6 +1548,7 @@ export default function DashboardPage() {
                             { label: 'Expected (kWh)', key: 'expected' },
                             { label: 'Performance %', key: 'perf' },
                             { label: 'PF Band', key: 'band' },
+                            { label: 'Discussion', key: 'discussion' },
                           ].map(h => (
                             <th key={h.key} onClick={() => togglePfSort(h.key)} style={{ textAlign: 'left', padding: '9px 10px', fontSize: '10px', color: pfSort.key === h.key ? T.blue : T.textMuted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.7px', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
                               {h.label} {pfSort.key === h.key ? (pfSort.dir === 'asc' ? '▲' : '▼') : <span style={{ opacity: 0.3 }}>⇅</span>}
@@ -1547,7 +1558,7 @@ export default function DashboardPage() {
                       </thead>
                       <tbody>
                         {filteredPerf.length === 0 ? (
-                          <tr><td colSpan={7} style={{ padding: '32px', textAlign: 'center', color: T.textMuted }}>No records match the selected filters</td></tr>
+                          <tr><td colSpan={8} style={{ padding: '32px', textAlign: 'center', color: T.textMuted }}>No records match the selected filters</td></tr>
                         ) : sortedPerf.map((p) => (
                           <tr key={p.id} className="tbl-row" style={{ borderBottom: `1px solid ${T.border}` }}>
                             <td style={{ padding: '8px 10px', fontWeight: 600, color: T.blue }}>{p.site_name}</td>
@@ -1559,6 +1570,11 @@ export default function DashboardPage() {
                               {p.performance_pct != null ? `${p.performance_pct.toFixed(1)}%` : '—'}
                             </td>
                             <td style={{ padding: '8px 10px' }}>{pfBadge(p.pf_band)}</td>
+                            <td style={{ padding: '8px 10px' }}>
+                              {p.discussion === true
+                                ? <span style={{ display: 'inline-block', padding: '2px 9px', borderRadius: '20px', fontSize: '10px', fontWeight: 700, background: 'rgba(246,101,36,0.15)', color: T.orange, border: `1px solid rgba(246,101,36,0.35)` }}>Discuss</span>
+                                : <span style={{ color: T.textMuted }}>—</span>}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -1569,7 +1585,7 @@ export default function DashboardPage() {
                             <td style={{ padding: '9px 10px', fontSize: '11px', color: T.blue, fontWeight: 700 }}>{pfTotalMeasured.toLocaleString()} kWh</td>
                             <td style={{ padding: '9px 10px', fontSize: '11px', color: T.textSecondary }}>{pfTotalExpected.toLocaleString()} kWh</td>
                             <td style={{ padding: '9px 10px', fontSize: '11px', color: T.blue, fontWeight: 700 }}>{pfAvgPerf}%</td>
-                            <td></td>
+                            <td colSpan={2}></td>
                           </tr>
                         </tfoot>
                       )}
@@ -1712,10 +1728,14 @@ export default function DashboardPage() {
 
                           {/* Technical Comments */}
                           {(() => {
-                            const commentRecs = spRecs.filter(hasCommentData).sort((a, b) => (b.year - a.year) || (b.month - a.month))
-                            const cDates = commentRecs.map(p => `${p.year}-${String(p.month).padStart(2, '0')}`)
+                            // All months the site has any record for (sorted newest first), not just ones with comments
+                            const monthRecs = [...spRecs].sort((a, b) => (b.year - a.year) || (b.month - a.month))
+                            const seenMonths = new Map()
+                            monthRecs.forEach(p => { const k = `${p.year}-${String(p.month).padStart(2, '0')}`; if (!seenMonths.has(k)) seenMonths.set(k, p) })
+                            const cDates = [...seenMonths.keys()]
                             const selDate = spCommentDate || cDates[0] || ''
-                            const selRec = commentRecs.find(p => `${p.year}-${String(p.month).padStart(2, '0')}` === selDate)
+                            const selRec = seenMonths.get(selDate) || null
+                            const hasAny = selRec && (selRec.comment || COMMENT_FIELDS.some(f => selRec[f.key] != null && selRec[f.key] !== ''))
                             return (
                               <div style={{ ...cardStyle, padding: '18px', marginTop: '14px' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '14px' }}>
@@ -1725,7 +1745,7 @@ export default function DashboardPage() {
                                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                                     <span style={{ fontSize: '11px', color: T.textMuted, fontWeight: 600 }}>Date</span>
                                     <select style={selectStyle} value={selDate} onChange={e => setSpCommentDate(e.target.value)}>
-                                      {cDates.length === 0 && <option value="">No comments</option>}
+                                      {cDates.length === 0 && <option value="">No data</option>}
                                       {cDates.map(d => {
                                         const [y, m] = d.split('-')
                                         return <option key={d} value={d}>{monthNames[parseInt(m)-1]}-{y.slice(2)}</option>
@@ -1739,18 +1759,24 @@ export default function DashboardPage() {
                                       <div style={{ fontSize: '13px', color: T.textPrimary, lineHeight: 1.7, whiteSpace: 'pre-line' }}>{selRec.comment}</div>
                                     ) : (
                                       <div style={{ display: 'grid', gap: '12px' }}>
-                                        {COMMENT_FIELDS.filter(f => selRec[f.key] != null && selRec[f.key] !== '').map(f => (
-                                          <div key={f.key}>
-                                            <div style={{ fontSize: '10px', fontWeight: 700, color: f.key === 'downtime_days' && selRec.downtime_days && selRec.downtime_days !== '0' && !/^(none|n\/a|-+)$/i.test(String(selRec.downtime_days)) ? T.red : T.textMuted, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '3px' }}>{f.label}</div>
-                                            <div style={{ fontSize: '13px', color: T.textPrimary, lineHeight: 1.6, whiteSpace: 'pre-line' }}>{String(selRec[f.key])}</div>
-                                          </div>
-                                        ))}
+                                        {COMMENT_FIELDS.map(f => {
+                                          const val = selRec[f.key]
+                                          const filled = val != null && val !== ''
+                                          const dtRed = f.key === 'downtime_days' && filled && String(val) !== '0' && !/^(none|n\/a|-+)$/i.test(String(val))
+                                          return (
+                                            <div key={f.key}>
+                                              <div style={{ fontSize: '10px', fontWeight: 700, color: dtRed ? T.red : T.textMuted, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '3px' }}>{f.label}</div>
+                                              <div style={{ fontSize: '13px', color: filled ? T.textPrimary : T.textMuted, lineHeight: 1.6, whiteSpace: 'pre-line' }}>{filled ? String(val) : '—'}</div>
+                                            </div>
+                                          )
+                                        })}
+                                        {!hasAny && <div style={{ fontSize: '11px', color: T.textMuted, fontStyle: 'italic' }}>No technical comments recorded for this month.</div>}
                                       </div>
                                     )}
                                   </div>
                                 ) : (
                                   <div style={{ padding: '24px', textAlign: 'center', color: T.textMuted, fontSize: '12px' }}>
-                                    No technical comments recorded for this site yet
+                                    No data recorded for this site yet
                                   </div>
                                 )}
                               </div>
