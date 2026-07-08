@@ -60,40 +60,66 @@ function rawStr(val) {
 }
 
 // ── Design tokens (dark theme matching login page) ──────────────────────────
-const T = {
-  // Backgrounds — greyish blue, softer than pure dark navy
-  bgBase:    '#222e40',   // main background
-  bgPanel:   '#2a3950',   // card / panel
-  bgPanelAlt:'#253348',   // topbar / sidebar
-  bgRow:     '#2e3e57',   // table row hover
-  bgInput:   '#1f2c3e',   // input fields
-  bgMuted:   '#263448',   // subtle section bg
-
-  // Borders
-  border:    '#3c4f6a',   // standard border
-  borderBright: '#2B7FD4', // accent border
-
-  // Brand colours
-  blue:      '#2B7FD4',
-  blueBright:'#3d8fe0',
-  yellow:    '#F5D000',
-  green:     '#7DC242',
-  orange:    '#f0a500',
-  red:       '#ef4444',
-
-  // Text
-  textPrimary: '#e8f0fb',
-  textSecondary:'#9ab4cf',
-  textMuted:  '#6b87a5',
-  textWhite:  '#ffffff',
-
-  // Glow effects
-  glowBlue:  'rgba(43,127,212,0.15)',
-  glowGreen: 'rgba(125,194,66,0.08)',
-  glowYellow:'rgba(245,208,0,0.08)',
+const THEMES = {
+  dark: {
+    bgBase:    '#222e40',
+    bgPanel:   '#2a3950',
+    bgPanelAlt:'#253348',
+    bgRow:     '#2e3e57',
+    bgInput:   '#1f2c3e',
+    bgMuted:   '#263448',
+    border:    '#3c4f6a',
+    borderBright: '#2B7FD4',
+    blue:      '#2B7FD4',
+    blueBright:'#3d8fe0',
+    yellow:    '#F5D000',
+    green:     '#7DC242',
+    orange:    '#f0a500',
+    red:       '#ef4444',
+    textPrimary: '#e8f0fb',
+    textSecondary:'#9ab4cf',
+    textMuted:  '#6b87a5',
+    textWhite:  '#ffffff',
+    glowBlue:  'rgba(43,127,212,0.15)',
+    glowGreen: 'rgba(125,194,66,0.08)',
+    glowYellow:'rgba(245,208,0,0.08)',
+    isDark: true,
+  },
+  light: {
+    bgBase:    '#f4f7fb',   // page background
+    bgPanel:   '#ffffff',   // cards
+    bgPanelAlt:'#ffffff',   // sidebar / topbar
+    bgRow:     '#eef4fb',   // row hover
+    bgInput:   '#f4f7fb',   // input fields
+    bgMuted:   '#eef2f8',   // subtle section bg
+    border:    '#dbe3ee',
+    borderBright: '#2B7FD4',
+    blue:      '#1E6FC4',
+    blueBright:'#2B7FD4',
+    yellow:    '#E8B400',   // slightly deeper so it reads on white
+    green:     '#5FA82E',
+    orange:    '#e08600',
+    red:       '#d93a3a',
+    textPrimary: '#1a2a4a',
+    textSecondary:'#4a5f7a',
+    textMuted:  '#8698ad',
+    textWhite:  '#1a2a4a',  // "white" text becomes navy on light bg
+    glowBlue:  'rgba(43,127,212,0.10)',
+    glowGreen: 'rgba(125,194,66,0.06)',
+    glowYellow:'rgba(245,208,0,0.06)',
+    isDark: false,
+  },
 }
 
+// Active theme — a mutable object so the ~200 existing `T.xxx` references pick up
+// whichever palette is live. setTheme() copies the chosen palette into it.
+const T = { ...THEMES.light }
+function applyTheme(name) { Object.assign(T, THEMES[name] || THEMES.light) }
+
+
 export default function DashboardPage() {
+  const [theme, setTheme] = useState('light')
+  applyTheme(theme)  // keep T in sync on every render before children read it
   const [sites, setSites] = useState([])
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -241,7 +267,7 @@ export default function DashboardPage() {
     if (!loading && sites.length > 0 && chartReady && activePage === 'overview') {
       setTimeout(() => buildCharts(filteredOverview), 100)
     }
-  }, [loading, sites, activePage, chartReady, geoReady, filterInvestor, filterInstaller, filterOverviewContract])
+  }, [loading, sites, activePage, chartReady, geoReady, filterInvestor, filterInstaller, filterOverviewContract, theme])
 
   useEffect(() => {
     if (activePage === 'investor' && chartReady) setTimeout(() => buildCharts(invSites), 100)
@@ -251,7 +277,7 @@ export default function DashboardPage() {
     if (activePage === 'performance' && chartReady && perfData.length > 0) {
       setTimeout(() => buildPerfCharts(filteredPerf), 100)
     }
-  }, [activePage, chartReady, perfData, pfFilterInvestor, pfFilterDate, pfFilterBand])
+  }, [activePage, chartReady, perfData, pfFilterInvestor, pfFilterDate, pfFilterBand, theme])
 
   function signOut() { supabase.auth.signOut().then(() => { window.location.href = '/login' }) }
 
@@ -881,7 +907,7 @@ export default function DashboardPage() {
     if (activePage === 'siteperf' && chartReady && perfData.length > 0 && spSite) {
       setTimeout(() => buildSitePerfCharts(), 100)
     }
-  }, [activePage, chartReady, perfData, spSite, spYear, spYearA, spYearB])
+  }, [activePage, chartReady, perfData, spSite, spYear, spYearA, spYearB, theme])
 
   function buildSitePerfCharts() {
     if (typeof window === 'undefined') return
@@ -1150,9 +1176,43 @@ export default function DashboardPage() {
         }
       `}</style>
 
+      {/* ── SOLAR-RAY BACKGROUND (fixed, behind everything) ──────────────────── */}
+      <div className="no-print" aria-hidden="true" style={{
+        position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', overflow: 'hidden',
+        background: T.bgBase,
+      }}>
+        <svg width="100%" height="100%" viewBox="0 0 1000 700" preserveAspectRatio="xMidYMid slice" style={{ position: 'absolute', inset: 0 }}>
+          <defs>
+            <radialGradient id="sunBurst" cx="100%" cy="0%" r="95%">
+              <stop offset="0%" stopColor={T.yellow} stopOpacity={T.isDark ? '0.20' : '0.28'} />
+              <stop offset="26%" stopColor={T.yellow} stopOpacity={T.isDark ? '0.07' : '0.10'} />
+              <stop offset="58%" stopColor={T.blue} stopOpacity={T.isDark ? '0.06' : '0.05'} />
+              <stop offset="100%" stopColor={T.blue} stopOpacity="0" />
+            </radialGradient>
+            <linearGradient id="rayFade" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={T.yellow} stopOpacity={T.isDark ? '0.12' : '0.18'} />
+              <stop offset="100%" stopColor={T.yellow} stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          {/* Rays fanning out from the top-right corner (1000,0) */}
+          {Array.from({ length: 12 }).map((_, i) => {
+            const a1 = (i * 92) / 12
+            const a2 = a1 + 3.2
+            const L = 1300
+            const rad = (d) => (d * Math.PI) / 180
+            const p1x = 1000 - Math.sin(rad(a1)) * L, p1y = Math.cos(rad(a1)) * L
+            const p2x = 1000 - Math.sin(rad(a2)) * L, p2y = Math.cos(rad(a2)) * L
+            return <polygon key={i} points={`1000,0 ${p1x},${p1y} ${p2x},${p2y}`} fill="url(#rayFade)" opacity={i % 2 === 0 ? 1 : 0.55} />
+          })}
+          <rect width="1000" height="700" fill="url(#sunBurst)" />
+        </svg>
+      </div>
+      <div style={{ position: 'relative', zIndex: 1 }}>
+
       {/* ── TOPBAR ─────────────────────────────────────────────────────────── */}
       <div className="no-print" style={{
-        background: T.bgPanelAlt,
+        background: T.isDark ? 'rgba(37,51,72,0.85)' : 'rgba(255,255,255,0.85)',
+        backdropFilter: 'blur(8px)',
         borderBottom: `2px solid ${T.blue}`,
         padding: '0 24px',
         display: 'flex',
@@ -1162,7 +1222,7 @@ export default function DashboardPage() {
         position: 'sticky',
         top: 0,
         zIndex: 100,
-        boxShadow: `0 2px 20px rgba(43,127,212,0.2)`,
+        boxShadow: T.isDark ? `0 2px 20px rgba(43,127,212,0.2)` : `0 2px 16px rgba(26,42,74,0.08)`,
       }}>
         {/* Logo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -1191,6 +1251,10 @@ export default function DashboardPage() {
           <span style={{ fontSize: '12px', color: T.textSecondary, marginLeft: '4px' }}>
             {user?.full_name || 'Employee'}
           </span>
+          <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+            style={{ background: T.bgMuted, border: `1px solid ${T.border}`, borderRadius: '8px', padding: '6px 12px', color: T.textSecondary, fontSize: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+            <i className={theme === 'light' ? 'ti ti-moon' : 'ti ti-sun'} />
+          </button>
           <button onClick={signOut} style={{ background: 'rgba(43,127,212,0.12)', border: `1px solid rgba(43,127,212,0.3)`, borderRadius: '8px', padding: '6px 14px', color: T.blue, fontSize: '12px', fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s' }}
             onMouseEnter={e => { e.target.style.background = T.blue; e.target.style.color = '#fff' }}
             onMouseLeave={e => { e.target.style.background = 'rgba(43,127,212,0.12)'; e.target.style.color = T.blue }}>
@@ -1204,7 +1268,8 @@ export default function DashboardPage() {
         {/* ── SIDEBAR ──────────────────────────────────────────────────────── */}
         <nav className="no-print" style={{
           width: '220px',
-          background: T.bgPanelAlt,
+          background: T.isDark ? 'rgba(37,51,72,0.85)' : 'rgba(255,255,255,0.82)',
+          backdropFilter: 'blur(8px)',
           borderRight: `1px solid ${T.border}`,
           padding: '16px 0',
           flexShrink: 0,
@@ -1256,16 +1321,18 @@ export default function DashboardPage() {
         </nav>
 
         {/* ── MAIN CONTENT ─────────────────────────────────────────────────── */}
-        <main className="main-area" style={{ flex: 1, overflowY: 'auto', padding: '22px', background: T.bgBase }}>
+        <main className="main-area" style={{ flex: 1, overflowY: 'auto', padding: '22px', background: 'transparent' }}>
 
           {/* ── OVERVIEW ── */}
           {activePage === 'overview' && (
             <div>
               {/* Hero banner */}
               <div style={{
-                background: `linear-gradient(135deg, #0d1f35 0%, #112840 60%, #0a1828 100%)`,
-                border: `1px solid ${T.border}`,
-                borderTop: `3px solid ${T.blue}`,
+                background: T.isDark
+                  ? `linear-gradient(135deg, #0d1f35 0%, #112840 60%, #0a1828 100%)`
+                  : `linear-gradient(135deg, #2B7FD4 0%, #1E6FC4 55%, #175a9e 100%)`,
+                border: `1px solid ${T.isDark ? T.border : 'rgba(255,255,255,0.15)'}`,
+                borderTop: `3px solid ${T.isDark ? T.blue : T.yellow}`,
                 borderRadius: '14px',
                 padding: '22px 26px',
                 marginBottom: '18px',
@@ -1280,8 +1347,8 @@ export default function DashboardPage() {
                 {/* Decorative glow */}
                 <div style={{ position: 'absolute', top: '-60px', right: '-60px', width: '200px', height: '200px', background: 'rgba(43,127,212,0.08)', borderRadius: '50%', pointerEvents: 'none' }} />
                 <div>
-                  <h2 style={{ fontSize: '20px', fontWeight: 800, color: T.textWhite, marginBottom: '4px', letterSpacing: '-0.3px' }}>Portfolio Dashboard</h2>
-                  <p style={{ fontSize: '12px', color: T.textSecondary }}>{sites.length} solar installations across South Africa &amp; beyond</p>
+                  <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#ffffff', marginBottom: '4px', letterSpacing: '-0.3px' }}>Portfolio Dashboard</h2>
+                  <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.75)' }}>{sites.length} solar installations across South Africa &amp; beyond</p>
                 </div>
                 <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
                   {[
@@ -1292,8 +1359,8 @@ export default function DashboardPage() {
                     { val: rtoCount, label: 'RTO Sites' },
                   ].map(s => (
                     <div key={s.label} style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: '26px', fontWeight: 800, color: T.yellow, lineHeight: 1 }}>{s.val}</div>
-                      <div style={{ fontSize: '10px', color: T.textSecondary, marginTop: '3px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{s.label}</div>
+                      <div style={{ fontSize: '26px', fontWeight: 800, color: T.isDark ? T.yellow : '#ffffff', lineHeight: 1 }}>{s.val}</div>
+                      <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.7)', marginTop: '3px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{s.label}</div>
                     </div>
                   ))}
                 </div>
@@ -1641,7 +1708,7 @@ export default function DashboardPage() {
                       </select>
                       <div style={{ maxHeight: '460px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                         {spSiteNames.filter(n => n.toLowerCase().includes(spSearch.toLowerCase()) && (!spInvestor || investorFor(n) === spInvestor)).map(n => (
-                          <div key={n} onClick={() => { setSpSite(n); setSpYear(''); setSpYearA(''); setSpYearB(''); setSpCommentDate('') }}
+                          <div key={n} onClick={() => { setSpSite(n); setSpYear(''); setSpYearA(''); setSpYearB('') }}
                             style={{ padding: '8px 10px', border: `1px solid ${spSite === n ? T.blue : T.border}`, borderRadius: '6px', fontSize: '12px', cursor: 'pointer', background: spSite === n ? 'rgba(43,127,212,0.15)' : T.bgInput, color: spSite === n ? T.textWhite : T.textSecondary, fontWeight: spSite === n ? 600 : 400, transition: 'all 0.1s', textAlign: 'center' }}>
                             {n}
                           </div>
@@ -1733,7 +1800,8 @@ export default function DashboardPage() {
                             const seenMonths = new Map()
                             monthRecs.forEach(p => { const k = `${p.year}-${String(p.month).padStart(2, '0')}`; if (!seenMonths.has(k)) seenMonths.set(k, p) })
                             const cDates = [...seenMonths.keys()]
-                            const selDate = spCommentDate || cDates[0] || ''
+                            // Keep the user's chosen month if this site has it; otherwise fall back to latest
+                            const selDate = (spCommentDate && cDates.includes(spCommentDate)) ? spCommentDate : (cDates[0] || '')
                             const selRec = seenMonths.get(selDate) || null
                             const hasAny = selRec && (selRec.comment || COMMENT_FIELDS.some(f => selRec[f.key] != null && selRec[f.key] !== ''))
                             return (
@@ -2668,6 +2736,7 @@ export default function DashboardPage() {
           })()}
 
         </main>
+      </div>
       </div>
     </>
   )
