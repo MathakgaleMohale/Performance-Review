@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
+import { ZA_ZM_PROVINCES } from './za_zm_provinces'
 
 // Parses semicolon-delimited CSV with quoted multiline fields
 function parseCSV(text) {
@@ -178,20 +179,8 @@ export default function DashboardPage() {
       geoScript.src = 'https://cdn.jsdelivr.net/npm/chartjs-chart-geo@4.3.4/build/index.umd.min.js'
       geoScript.onload = async () => {
         try {
-          const urls = [
-            'https://cdn.jsdelivr.net/gh/deldersveld/topojson@master/countries/south-africa/south-africa-provinces.json',
-            'https://cdn.jsdelivr.net/gh/deldersveld/topojson@master/countries/zambia/zambia-provinces.json',
-          ]
-          const results = await Promise.allSettled(urls.map(u => fetch(u).then(r => r.json())))
-          let features = []
-          results.forEach(r => {
-            if (r.status === 'fulfilled') {
-              const topo = r.value
-              const key = Object.keys(topo.objects)[0]
-              features = features.concat(window.ChartGeo.topojson.feature(topo, topo.objects[key]).features)
-            }
-          })
-          if (features.length === 0) throw new Error('No geo data loaded')
+          const features = ZA_ZM_PROVINCES.features
+          if (!features || features.length === 0) throw new Error('No geo data available')
           window._zaFeatures = features
           setGeoReady(true)
         } catch (e) { console.error('Geo map data failed to load, falling back to bar chart', e) }
@@ -342,6 +331,8 @@ export default function DashboardPage() {
         case 'investor': return (s.investment_party || '').toLowerCase()
         case 'age': return siteAge(s)
         case 'power': return (s.power_limit || '').toLowerCase()
+        case 'soiling': return (s.soiling_intensity || '').toLowerCase()
+        case 'shading': return (s.shading || '').toLowerCase()
         case 'status': return (s.status || '').toLowerCase()
         default: return ''
       }
@@ -363,6 +354,23 @@ export default function DashboardPage() {
   const sitesInvestorList = [...new Set(sites.map(s => s.investment_party).filter(Boolean))].sort()
 
   const invSites = activeInvTab === 'all' ? sites : sites.filter(s => s.investment_party === activeInvTab)
+
+  // Rebuild charts on window resize (debounced). Chart.js resizes canvases automatically,
+  // but the geo choropleth projection must be recomputed to re-fit the country to the box.
+  useEffect(() => {
+    let t
+    const onResize = () => {
+      clearTimeout(t)
+      t = setTimeout(() => {
+        if (loading || !chartReady) return
+        if (activePage === 'overview') buildCharts(filteredOverview)
+        else if (activePage === 'investor') buildCharts(invSites)
+      }, 250)
+    }
+    window.addEventListener('resize', onResize)
+    return () => { window.removeEventListener('resize', onResize); clearTimeout(t) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, chartReady, activePage, sites, activeInvTab, filterInvestor, filterInstaller, filterOverviewContract])
 
   const dateKey = (p) => `${parseInt(p.year)}-${String(parseInt(p.month)).padStart(2, '0')}`
   const perfDates = [...new Set(perfData.map(p => dateKey(p)))].sort().reverse()
@@ -532,16 +540,20 @@ export default function DashboardPage() {
     const featName = f => f.properties.NAME_1 || f.properties.name || ''
     const lerp = (a, b, t) => Math.round(a + (b - a) * t)
     const blueRamp = (t) => {
-      if (t <= 0) return '#2a3950'
-      const from = [42, 57, 80], to = [43, 127, 212]
+      // Light, visible ramp: pale blue at low values → strong brand blue at high.
+      // Works on both themes because even t=0 stays distinguishable from the card bg.
+      const from = T.isDark ? [58, 78, 110] : [206, 226, 246]
+      const to = [43, 127, 212]
+      if (t <= 0) return T.isDark ? '#33445c' : '#e4eef9'
       return `rgb(${lerp(from[0], to[0], t)},${lerp(from[1], to[1], t)},${lerp(from[2], to[2], t)})`
     }
 
-    function buildGeoMap(canvasId, rawMap, { decimals = 1, unit = 'MWp' } = {}) {
+    function buildGeoMap(canvasId, rawMap, { decimals = 1, unit = 'MWp', country = null, showNames = false } = {}) {
       destroy(canvasId)
       const el = document.getElementById(canvasId)
       if (!el) return
-      const features = window._zaFeatures
+      let features = window._zaFeatures
+      if (country && features) features = features.filter(f => (f.properties.admin || f.properties.ADMIN) === country)
       const normMap = {}
       Object.entries(rawMap).forEach(([p, v]) => {
         const norm = alias[p.trim().toLowerCase()]
@@ -555,19 +567,31 @@ export default function DashboardPage() {
             const ds = chart.data.datasets[0]
             const { ctx } = chart
             const maxVal = Math.max(...ds.data.map(d => d.value), 0.001)
+            const shortName = { 'KwaZulu-Natal': 'KZN', 'Northern Cape': 'N. Cape', 'Western Cape': 'W. Cape', 'Eastern Cape': 'E. Cape', 'North West': 'North West', 'Free State': 'Free State' }
             ctx.save()
-            ctx.font = 'bold 11px Segoe UI'
             ctx.textAlign = 'center'
             ctx.textBaseline = 'middle'
             meta.data.forEach((elm, i) => {
               const v = ds.data[i].value
-              if (!v || v <= 0) return
               const cp = elm.getCenterPoint ? elm.getCenterPoint() : null
               if (!cp) return
               const t = v / maxVal
-              ctx.fillStyle = t > 0.4 ? '#ffffff' : T.textSecondary
-              ctx.fillText(decimals === 0 ? String(Math.round(v)) : v.toFixed(decimals), cp.x, cp.y)
+              const nm = featName(ds.data[i].feature)
+              const label = shortName[nm] || nm
+              const dark = t > 0.45
+              // value number
+              const valStr = v <= 0 ? '0' : (decimals === 0 ? String(Math.round(v)) : v.toFixed(decimals))
+              // name (small) above the value (big)
+              ctx.shadowColor = dark ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.6)'
+              ctx.shadowBlur = 3
+              ctx.fillStyle = dark ? '#ffffff' : (T.isDark ? '#c8d6e8' : '#33475f')
+              ctx.font = '600 9px Segoe UI'
+              if (showNames) ctx.fillText(label, cp.x, cp.y - 8)
+              ctx.font = 'bold 15px Segoe UI'
+              ctx.fillStyle = dark ? '#ffffff' : (v > 0 ? (T.isDark ? '#e8f0fb' : '#1a2a4a') : T.textMuted)
+              ctx.fillText(valStr, cp.x, cp.y + (showNames ? 5 : 0))
             })
+            ctx.shadowBlur = 0
             ctx.restore()
           }
         }
@@ -578,16 +602,17 @@ export default function DashboardPage() {
             datasets: [{
               outline: features,
               data: features.map(f => ({ feature: f, value: +((normMap[featName(f)] || 0)).toFixed(decimals) })),
-              borderColor: T.border,
+              borderColor: T.isDark ? '#1a2536' : '#ffffff',
               borderWidth: 1.5,
             }]
           },
           plugins: [labelPlugin],
           options: {
             responsive: true, maintainAspectRatio: false,
+            layout: { padding: 2 },
             plugins: {
               legend: { display: false },
-              tooltip: { callbacks: { label: ctx => `${featName(ctx.raw.feature)}: ${ctx.raw.value} ${unit}` } }
+              tooltip: { callbacks: { label: ctx => `${featName(ctx.raw.feature)}: ${ctx.raw.value} ${unit}` } },
             },
             scales: {
               projection: { axis: 'x', projection: 'mercator' },
@@ -603,11 +628,12 @@ export default function DashboardPage() {
 
     const provCapMap = {}
     sitesData.forEach(s => { const p = s.province || 'Unknown'; provCapMap[p] = (provCapMap[p] || 0) + (s.capacity_kw || 0) / 1000 })
-    buildGeoMap('provMwpChart', provCapMap, { decimals: 1, unit: 'MWp' })
+    buildGeoMap('provMwpChart', provCapMap, { decimals: 1, unit: 'MWp', country: 'South Africa', showNames: true })
 
     const provCountMap = {}
     sitesData.forEach(s => { const p = s.province || 'Unknown'; provCountMap[p] = (provCountMap[p] || 0) + 1 })
-    buildGeoMap('provSitesChart', provCountMap, { decimals: 0, unit: 'sites' })
+    buildGeoMap('provSitesChartZA', provCountMap, { decimals: 0, unit: 'sites', country: 'South Africa', showNames: true })
+    buildGeoMap('provSitesChartZM', provCountMap, { decimals: 0, unit: 'sites', country: 'Zambia', showNames: true })
 
     const provBessMap = {}
     sitesData.forEach(s => { const p = s.province || 'Unknown'; if (s.battery_size_wh > 0) provBessMap[p] = (provBessMap[p] || 0) + (s.battery_size_wh || 0) })
@@ -693,6 +719,7 @@ export default function DashboardPage() {
         business: find('business type'), investor: find('investment party'), battery_wh: find('battery size (wh)'),
         installer: find('installer name'), project: find('project number'), platform: headers.findIndex(h => h === 'platform'),
         age: find('age'), power_limit: find('power limit'),
+        soiling: find('soiling'), shading: find('shading'),
       }
       if (idx.name < 0) { setUpMsg('❌ Sites CSV must have a "Site Name" column'); return }
       const parsed = [], errors = []
@@ -717,6 +744,8 @@ export default function DashboardPage() {
           inverter_brand: idx.battery_name >= 0 ? cleanStr(r[idx.battery_name]) : null,
           age_years: idx.age >= 0 && parseNum(r[idx.age]) != null ? parseNum(r[idx.age]) : null,
           power_limit: idx.power_limit >= 0 ? cleanStr(r[idx.power_limit]) : null,
+          soiling_intensity: idx.soiling >= 0 ? cleanStr(r[idx.soiling]) : null,
+          shading: idx.shading >= 0 ? cleanStr(r[idx.shading]) : null,
         }
         if (idx.date >= 0) {
           const d = (r[idx.date] || '').trim()
@@ -1167,6 +1196,31 @@ export default function DashboardPage() {
         /* Glow on active nav */
         .nav-active { box-shadow: inset 3px 0 0 ${T.blue}; }
 
+        /* ── Responsive chart grids ─────────────────────────────────────────── */
+        .chart-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .map-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: stretch; }
+        .map-box { position: relative; height: 340px; }
+        .map-divider { border-left: 1px solid ${T.border}; padding-left: 20px; }
+
+        /* Tablet / small laptop: collapse the two-column chart rows to one column */
+        @media (max-width: 1100px) {
+          .chart-grid-2 { grid-template-columns: 1fr; }
+          .map-grid { grid-template-columns: 1fr; }
+          .map-divider { border-left: none; padding-left: 0; border-top: 1px solid ${T.border}; padding-top: 16px; }
+          .map-box { height: 320px; }
+        }
+        /* Narrow / phone */
+        @media (max-width: 640px) {
+          .main-area { padding: 12px !important; }
+          .map-box { height: 380px; }
+        }
+        /* Collapse sidebar on very small screens */
+        @media (max-width: 820px) {
+          .app-sidebar { width: 60px !important; }
+          .app-sidebar .nav-label { display: none !important; }
+          .app-sidebar .sidebar-heading { display: none !important; }
+        }
+
         @media print {
           .no-print { display: none !important; }
           body { background: #fff !important; color: #000 !important; }
@@ -1266,7 +1320,7 @@ export default function DashboardPage() {
       <div className="layout-flex" style={{ display: 'flex', height: 'calc(100vh - 64px)' }}>
 
         {/* ── SIDEBAR ──────────────────────────────────────────────────────── */}
-        <nav className="no-print" style={{
+        <nav className="no-print app-sidebar" style={{
           width: '220px',
           background: T.isDark ? 'rgba(37,51,72,0.85)' : 'rgba(255,255,255,0.82)',
           backdropFilter: 'blur(8px)',
@@ -1281,7 +1335,7 @@ export default function DashboardPage() {
           {/* Subtle glow */}
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '1px', background: `linear-gradient(90deg, transparent, ${T.blue}, transparent)`, opacity: 0.5 }} />
 
-          <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '1.5px', color: T.textMuted, padding: '8px 18px 6px', fontWeight: 700 }}>Portfolio</div>
+          <div className="sidebar-heading" style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '1.5px', color: T.textMuted, padding: '8px 18px 6px', fontWeight: 700 }}>Portfolio</div>
 
           {[
             { id: 'overview',    icon: 'ti-dashboard',      label: 'Installation Overview' },
@@ -1310,7 +1364,7 @@ export default function DashboardPage() {
                 transition: 'all 0.15s',
               }}>
               <i className={`ti ${item.icon}`} style={{ fontSize: '16px', color: activePage === item.id ? T.blue : T.textMuted }} />
-              <span>{item.label}</span>
+              <span className="nav-label">{item.label}</span>
             </div>
           ))}
 
@@ -1410,20 +1464,35 @@ export default function DashboardPage() {
                 ))}
               </div>
 
+              {/* Sites by province maps — headline visual */}
+              <div style={{ ...cardStyle, padding: '20px', marginBottom: '14px' }}>
+                <div style={{ ...cardTitleStyle }}><i className="ti ti-map-pin" style={{ color: T.blue }} />Sites by province</div>
+                <div className="map-grid" style={{ marginTop: '4px' }}>
+                  <div>
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: T.textSecondary, textAlign: 'center', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.6px' }}>🇿🇦 South Africa</div>
+                    <div className="map-box"><canvas id="provSitesChartZA" /></div>
+                  </div>
+                  <div className="map-divider">
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: T.textSecondary, textAlign: 'center', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.6px' }}>🇿🇲 Zambia</div>
+                    <div className="map-box"><canvas id="provSitesChartZM" /></div>
+                  </div>
+                </div>
+              </div>
+
               {/* Charts row 1 */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
+              <div className="chart-grid-2" style={{ marginBottom: '14px' }}>
                 <div style={{ ...cardStyle, padding: '18px' }}>
                   <div style={cardTitleStyle}><i className="ti ti-chart-donut" style={{ color: T.blue }} />By business type</div>
                   <div style={{ position: 'relative', height: '190px' }}><canvas id="bizChart" /></div>
                 </div>
                 <div style={{ ...cardStyle, padding: '18px' }}>
-                  <div style={cardTitleStyle}><i className="ti ti-map" style={{ color: T.blue }} />MWp by province — South Africa &amp; Zambia</div>
-                  <div style={{ position: 'relative', height: '300px' }}><canvas id="provMwpChart" /></div>
+                  <div style={cardTitleStyle}><i className="ti ti-map" style={{ color: T.blue }} />MWp by province — South Africa</div>
+                  <div style={{ position: 'relative', height: '340px' }}><canvas id="provMwpChart" /></div>
                 </div>
               </div>
 
               {/* Charts row 2 */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
+              <div className="chart-grid-2" style={{ marginBottom: '14px' }}>
                 <div style={{ ...cardStyle, padding: '18px' }}>
                   <div style={cardTitleStyle}><i className="ti ti-battery" style={{ color: T.green }} />MWh BESS by province</div>
                   <div style={{ position: 'relative', height: '190px' }}><canvas id="provBessChart" /></div>
@@ -1434,12 +1503,8 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Charts row 3 */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-                <div style={{ ...cardStyle, padding: '18px' }}>
-                  <div style={cardTitleStyle}><i className="ti ti-map-pin" style={{ color: T.blue }} />Sites by province — South Africa &amp; Zambia</div>
-                  <div style={{ position: 'relative', height: '300px' }}><canvas id="provSitesChart" /></div>
-                </div>
+              {/* Charts row 4 */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '14px' }}>
                 <div style={{ ...cardStyle, padding: '18px' }}>
                   <div style={cardTitleStyle}><i className="ti ti-users" style={{ color: T.green }} />By investor</div>
                   <div style={{ position: 'relative', height: '300px' }}><canvas id="investorChart" /></div>
@@ -1500,6 +1565,8 @@ export default function DashboardPage() {
                         { label: 'Investor', key: 'investor' },
                         { label: 'Age', key: 'age' },
                         { label: 'Power Limit', key: 'power' },
+                        { label: 'Soiling', key: 'soiling' },
+                        { label: 'Shading', key: 'shading' },
                         { label: 'Status', key: 'status' },
                       ].map(h => (
                         <th key={h.label} onClick={() => toggleSiteSort(h.key)}
@@ -1521,6 +1588,8 @@ export default function DashboardPage() {
                         <td style={{ padding: '8px 10px', color: T.textSecondary }}>{site.investment_party || '--'}</td>
                         <td style={{ padding: '8px 10px', color: T.textSecondary, whiteSpace: 'nowrap' }} title={site.commissioned_date ? `Commissioned ${site.commissioned_date}` : ''}>{fmtAge(site)}</td>
                         <td style={{ padding: '8px 10px', color: T.textSecondary, whiteSpace: 'nowrap' }}>{site.power_limit || '--'}</td>
+                        <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', fontWeight: 600, color: /high/i.test(site.soiling_intensity||'') ? T.red : /medium/i.test(site.soiling_intensity||'') ? T.orange : /low/i.test(site.soiling_intensity||'') ? T.green : T.textMuted }}>{site.soiling_intensity || '--'}</td>
+                        <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', fontWeight: 600, color: /high/i.test(site.shading||'') ? T.red : /medium/i.test(site.shading||'') ? T.orange : /low/i.test(site.shading||'') ? T.green : T.textMuted }}>{site.shading || '--'}</td>
                         <td style={{ padding: '8px 10px' }}>{statusBadge(site.status)}</td>
                       </tr>
                     ))}
@@ -1591,7 +1660,7 @@ export default function DashboardPage() {
                   </div>
 
                   {/* Charts */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
+                  <div className="chart-grid-2" style={{ marginBottom: '14px' }}>
                     <div style={{ ...cardStyle, padding: '18px' }}>
                       <div style={cardTitleStyle}><i className="ti ti-chart-donut" style={{ color: T.blue }} />PF Band breakdown</div>
                       <div style={{ position: 'relative', height: '200px' }}><canvas id="pfBandChart" /></div>
