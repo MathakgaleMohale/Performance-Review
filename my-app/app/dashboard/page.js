@@ -1091,7 +1091,7 @@ export default function DashboardPage() {
   const selectStyle = {
     padding: '7px 12px',
     border: `1px solid ${T.border}`,
-    borderRadius: '8px',
+    borderRadius: '6px',
     fontSize: '12px',
     color: T.textPrimary,
     background: T.bgInput,
@@ -1102,7 +1102,7 @@ export default function DashboardPage() {
   const cardStyle = {
     background: T.bgPanel,
     border: `1px solid ${T.border}`,
-    borderRadius: '12px',
+    borderRadius: '8px',
   }
 
   const cardTitleStyle = {
@@ -1118,11 +1118,7 @@ export default function DashboardPage() {
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', fontSize: '14px', color: T.textSecondary, background: T.bgBase, fontFamily: "'Segoe UI', sans-serif" }}>
       <div style={{ textAlign: 'center' }}>
-        <svg width="48" height="54" viewBox="0 0 46 52" fill="none" style={{ marginBottom: '16px', opacity: 0.8 }}>
-          <ellipse cx="23" cy="16" rx="18" ry="16" fill="#F5D000"/>
-          <ellipse cx="23" cy="36" rx="18" ry="16" fill="#2B7FD4"/>
-          <rect x="14" y="20" width="14" height="12" rx="2" fill="#7DC242" transform="rotate(-8 14 20)"/>
-        </svg>
+        <img src="/sosimple-icon.png" alt="Sosimple" width="46" height="54" style={{ height: '54px', width: 'auto', marginBottom: '16px', opacity: 0.85, display: 'inline-block' }} />
         <div style={{ color: T.textSecondary }}>Loading Sosimple Portal...</div>
       </div>
     </div>
@@ -1222,11 +1218,7 @@ export default function DashboardPage() {
         boxShadow: T.isDark ? `0 2px 20px rgba(43,127,212,0.2)` : `0 2px 16px rgba(26,42,74,0.08)`,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <svg width="40" height="46" viewBox="0 0 46 52" fill="none">
-            <ellipse cx="23" cy="16" rx="18" ry="16" fill="#F5D000"/>
-            <ellipse cx="23" cy="36" rx="18" ry="16" fill="#2B7FD4"/>
-            <rect x="14" y="20" width="14" height="12" rx="2" fill="#7DC242" transform="rotate(-8 14 20)"/>
-          </svg>
+          <img src="/sosimple-icon.png" alt="Sosimple" width="35" height="40" style={{ height: '40px', width: 'auto', display: 'block' }} />
           <div>
             <div style={{ fontSize: '20px', fontWeight: 800, color: T.textWhite, letterSpacing: '-0.5px' }}>Sosimple</div>
             <div style={{ fontSize: '10px', color: T.green, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase' }}>Cheap energy. Clean business.</div>
@@ -1318,38 +1310,33 @@ export default function DashboardPage() {
           {activePage === 'overview' && (
             <div>
               <div style={{
-                background: T.isDark
-                  ? `linear-gradient(135deg, #0d1f35 0%, #112840 60%, #0a1828 100%)`
-                  : `linear-gradient(135deg, #2B7FD4 0%, #1E6FC4 55%, #175a9e 100%)`,
-                border: `1px solid ${T.isDark ? T.border : 'rgba(255,255,255,0.15)'}`,
-                borderTop: `3px solid ${T.isDark ? T.blue : T.yellow}`,
-                borderRadius: '14px',
-                padding: '22px 26px',
-                marginBottom: '18px',
+                background: T.bgPanel,
+                border: `1px solid ${T.border}`,
+                borderLeft: `3px solid ${T.blue}`,
+                borderRadius: '8px',
+                padding: '16px 20px',
+                marginBottom: '16px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 flexWrap: 'wrap',
                 gap: '16px',
-                position: 'relative',
-                overflow: 'hidden',
               }}>
-                <div style={{ position: 'absolute', top: '-60px', right: '-60px', width: '200px', height: '200px', background: 'rgba(43,127,212,0.08)', borderRadius: '50%', pointerEvents: 'none' }} />
                 <div>
-                  <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#ffffff', marginBottom: '4px', letterSpacing: '-0.3px' }}>Portfolio Dashboard</h2>
-                  <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.75)' }}>{sites.length} solar installations across South Africa &amp; beyond</p>
+                  <h2 style={{ fontSize: '18px', fontWeight: 800, color: T.textPrimary, marginBottom: '2px', letterSpacing: '-0.2px' }}>Portfolio Dashboard</h2>
+                  <p style={{ fontSize: '12px', color: T.textSecondary }}>{sites.length} solar installations across South Africa &amp; beyond</p>
                 </div>
-                <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap' }}>
                   {[
                     { val: sites.length, label: 'Total Sites' },
                     { val: (totalCap/1000).toFixed(2), label: 'MWp Installed' },
                     { val: totalBessMwh, label: 'MWh BESS' },
                     { val: ppaCount, label: 'PPA Sites' },
                     { val: rtoCount, label: 'RTO Sites' },
-                  ].map(s => (
-                    <div key={s.label} style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: '26px', fontWeight: 800, color: T.isDark ? T.yellow : '#ffffff', lineHeight: 1 }}>{s.val}</div>
-                      <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.7)', marginTop: '3px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{s.label}</div>
+                  ].map((s, i) => (
+                    <div key={s.label} style={{ textAlign: 'right', padding: '0 16px', borderLeft: i === 0 ? 'none' : `1px solid ${T.border}` }}>
+                      <div style={{ fontSize: '18px', fontWeight: 800, color: T.textPrimary, lineHeight: 1.1 }}>{s.val}</div>
+                      <div style={{ fontSize: '9px', color: T.textMuted, marginTop: '3px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{s.label}</div>
                     </div>
                   ))}
                 </div>
@@ -1875,11 +1862,7 @@ export default function DashboardPage() {
                 <div className="print-area" style={{ background: '#fff', color: navy, border: `1px solid ${T.border}`, borderRadius: '12px', padding: '32px', maxWidth: '1000px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '3px solid #2B7FD4', paddingBottom: '18px', marginBottom: '22px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <svg width="44" height="50" viewBox="0 0 46 52" fill="none">
-                        <ellipse cx="23" cy="16" rx="18" ry="16" fill="#F5D000"/>
-                        <ellipse cx="23" cy="36" rx="18" ry="16" fill="#2B7FD4"/>
-                        <rect x="14" y="20" width="14" height="12" rx="2" fill="#7DC242" transform="rotate(-8 14 20)"/>
-                      </svg>
+                      <img src="/sosimple-icon.png" alt="Sosimple" width="44" height="50" style={{ height: '50px', width: 'auto', display: 'block' }} />
                       <div>
                         <div style={{ fontSize: '18px', fontWeight: 800, color: '#2B7FD4' }}>Sosimple Energy</div>
                         <div style={{ fontSize: '8px', color: '#7DC242', fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase' }}>Cheap energy. Clean business.</div>
@@ -1988,11 +1971,7 @@ export default function DashboardPage() {
                 <div className="print-area" style={{ background: '#fff', color: navy, border: `1px solid ${T.border}`, borderRadius: '12px', padding: '32px', maxWidth: '900px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '3px solid #2B7FD4', paddingBottom: '18px', marginBottom: '22px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <svg width="44" height="50" viewBox="0 0 46 52" fill="none">
-                        <ellipse cx="23" cy="16" rx="18" ry="16" fill="#F5D000"/>
-                        <ellipse cx="23" cy="36" rx="18" ry="16" fill="#2B7FD4"/>
-                        <rect x="14" y="20" width="14" height="12" rx="2" fill="#7DC242" transform="rotate(-8 14 20)"/>
-                      </svg>
+                      <img src="/sosimple-icon.png" alt="Sosimple" width="44" height="50" style={{ height: '50px', width: 'auto', display: 'block' }} />
                       <div>
                         <div style={{ fontSize: '18px', fontWeight: 800, color: '#2B7FD4' }}>Sosimple Energy</div>
                         <div style={{ fontSize: '8px', color: '#7DC242', fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase' }}>Cheap energy. Clean business.</div>
@@ -2414,11 +2393,7 @@ export default function DashboardPage() {
                 const Header = () => (
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '3px solid #2B7FD4', paddingBottom: '18px', marginBottom: '22px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <svg width="44" height="50" viewBox="0 0 46 52" fill="none">
-                        <ellipse cx="23" cy="16" rx="18" ry="16" fill="#F5D000"/>
-                        <ellipse cx="23" cy="36" rx="18" ry="16" fill="#2B7FD4"/>
-                        <rect x="14" y="20" width="14" height="12" rx="2" fill="#7DC242" transform="rotate(-8 14 20)"/>
-                      </svg>
+                      <img src="/sosimple-icon.png" alt="Sosimple" width="44" height="50" style={{ height: '50px', width: 'auto', display: 'block' }} />
                       <div>
                         <div style={{ fontSize: '18px', fontWeight: 800, color: '#2B7FD4' }}>Sosimple Energy</div>
                         <div style={{ fontSize: '8px', color: '#7DC242', fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase' }}>Cheap energy. Clean business.</div>
