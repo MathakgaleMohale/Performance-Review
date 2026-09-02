@@ -9,7 +9,6 @@ function parseCSV(text) {
   const rows = []
   let row = [], field = '', inQuotes = false
   text = text.replace(/^\uFEFF/, '')
-  // Auto-detect delimiter from the first line: semicolon, comma or tab
   const firstLine = text.slice(0, text.indexOf('\n') >= 0 ? text.indexOf('\n') : text.length)
   const counts = { ';': (firstLine.match(/;/g) || []).length, ',': (firstLine.match(/,/g) || []).length, '\t': (firstLine.match(/\t/g) || []).length }
   const delim = counts[';'] >= counts[','] && counts[';'] >= counts['\t'] ? ';' : (counts['\t'] > counts[','] ? '\t' : ',')
@@ -53,14 +52,11 @@ function cleanStr(val) {
   return !v || v.toLowerCase() === 'null' || v === 'N/A' ? null : v
 }
 
-// Verbatim passthrough — keeps text exactly as in the CSV (incl. "N/A", "None", "28 days"),
-// only trimming outer whitespace; truly empty cells become null.
 function rawStr(val) {
   const v = (val ?? '').trim()
   return v === '' ? null : v
 }
 
-// ── Design tokens (dark theme matching login page) ──────────────────────────
 const THEMES = {
   dark: {
     bgBase:    '#222e40',
@@ -87,24 +83,24 @@ const THEMES = {
     isDark: true,
   },
   light: {
-    bgBase:    '#f4f7fb',   // page background
-    bgPanel:   '#ffffff',   // cards
-    bgPanelAlt:'#ffffff',   // sidebar / topbar
-    bgRow:     '#eef4fb',   // row hover
-    bgInput:   '#f4f7fb',   // input fields
-    bgMuted:   '#eef2f8',   // subtle section bg
+    bgBase:    '#f4f7fb',
+    bgPanel:   '#ffffff',
+    bgPanelAlt:'#ffffff',
+    bgRow:     '#eef4fb',
+    bgInput:   '#f4f7fb',
+    bgMuted:   '#eef2f8',
     border:    '#dbe3ee',
     borderBright: '#2B7FD4',
     blue:      '#1E6FC4',
     blueBright:'#2B7FD4',
-    yellow:    '#E8B400',   // slightly deeper so it reads on white
+    yellow:    '#E8B400',
     green:     '#5FA82E',
     orange:    '#e08600',
     red:       '#d93a3a',
     textPrimary: '#1a2a4a',
     textSecondary:'#4a5f7a',
     textMuted:  '#8698ad',
-    textWhite:  '#1a2a4a',  // "white" text becomes navy on light bg
+    textWhite:  '#1a2a4a',
     glowBlue:  'rgba(43,127,212,0.10)',
     glowGreen: 'rgba(125,194,66,0.06)',
     glowYellow:'rgba(245,208,0,0.06)',
@@ -112,15 +108,12 @@ const THEMES = {
   },
 }
 
-// Active theme — a mutable object so the ~200 existing `T.xxx` references pick up
-// whichever palette is live. setTheme() copies the chosen palette into it.
 const T = { ...THEMES.light }
 function applyTheme(name) { Object.assign(T, THEMES[name] || THEMES.light) }
 
-
 export default function DashboardPage() {
   const [theme, setTheme] = useState('light')
-  applyTheme(theme)  // keep T in sync on every render before children read it
+  applyTheme(theme)
   const [sites, setSites] = useState([])
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -273,7 +266,6 @@ export default function DashboardPage() {
   const investors = [...new Set(sites.map(s => s.investment_party).filter(Boolean))].sort()
   const installers = [...new Set(sites.map(s => s.installer_name).filter(Boolean))].sort()
 
-  // Site age in years: computed live from commissioned date, falling back to stored age_years
   function siteAge(site) {
     if (site?.commissioned_date) {
       const c = new Date(site.commissioned_date)
@@ -355,8 +347,6 @@ export default function DashboardPage() {
 
   const invSites = activeInvTab === 'all' ? sites : sites.filter(s => s.investment_party === activeInvTab)
 
-  // Rebuild charts on window resize (debounced). Chart.js resizes canvases automatically,
-  // but the geo choropleth projection must be recomputed to re-fit the country to the box.
   useEffect(() => {
     let t
     const onResize = () => {
@@ -419,7 +409,6 @@ export default function DashboardPage() {
   const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
   function fmtDate(month, year) { return `${monthNames[parseInt(month)-1]}-${String(parseInt(year)).slice(2)}` }
 
-  // ── Offtake Guarantees derived values ──────────────────────────────────────
   const ogInvestorFor = (name) => sites.find(s => s.name?.trim().toLowerCase() === (name || '').trim().toLowerCase())?.investment_party || null
   const ogInvestorList = [...new Set(sites.map(s => s.investment_party).filter(Boolean))].sort()
   const filteredOG = ogData.filter(g => {
@@ -466,7 +455,6 @@ export default function DashboardPage() {
   const ogMeetingCount = filteredOG.filter(g => (g.shortfall_kwh ?? 0) >= 0).length
   const ogAchievement = ogTotGuaranteed > 0 ? ((ogTotActual / ogTotGuaranteed) * 100).toFixed(1) : '—'
 
-  // Guarantee period: July 2025 – June 2026
   const OG_PERIOD = Array.from({ length: 12 }, (_, i) => {
     const m = ((6 + i) % 12) + 1
     return { m, y: m >= 7 ? 2025 : 2026 }
@@ -487,7 +475,6 @@ export default function DashboardPage() {
   const fmtMWh = (kwh) => kwh != null ? `${(kwh / 1000).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MWh` : '—'
   const fmtKWh = (kwh) => kwh != null ? `${Math.round(kwh).toLocaleString()} kWh` : '—'
 
-  // Does a performance record carry any structured comment data?
   const hasCommentData = (p) => !!(p && (p.availability || p.downtime_days != null || p.cause_of_downtime || p.technical_events || p.energy_impact || p.other_comments || p.comment))
   const COMMENT_FIELDS = [
     { key: 'availability', label: 'Availability' },
@@ -502,10 +489,10 @@ export default function DashboardPage() {
     const meeting = (g.shortfall_kwh ?? 0) >= 0
     return (
       <span style={{
-        display: 'inline-block', padding: '2px 9px', borderRadius: '20px', fontSize: '10px', fontWeight: 700,
-        background: meeting ? 'rgba(125,194,66,0.15)' : 'rgba(239,68,68,0.12)',
-        color: meeting ? T.green : T.red,
-        border: `1px solid ${meeting ? 'rgba(125,194,66,0.35)' : 'rgba(239,68,68,0.3)'}`,
+        display: 'inline-block', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 700, letterSpacing: '0.3px', textTransform: 'uppercase',
+        background: 'transparent',
+        color: meeting ? '#3a7a2e' : '#a83a3a',
+        border: `1px solid ${meeting ? 'rgba(95,168,46,0.4)' : 'rgba(217,58,58,0.4)'}`,
       }}>
         {meeting ? 'Meeting' : 'Shortfall'}
       </span>
@@ -518,8 +505,8 @@ export default function DashboardPage() {
     if (!Chart) return
     const destroy = (id) => { if (chartsRef.current[id]) { chartsRef.current[id].destroy(); delete chartsRef.current[id] } }
     const C = { blue: T.blue, yellow: T.yellow, green: T.green, orange: T.orange, gray: '#2a4a6a', purple: '#8b5cf6', red: T.red }
-    const gridColor = '#3c4f6a'
-    const tickColor = '#9ab4cf'
+    const gridColor = T.isDark ? '#3c4f6a' : '#e6ecf4'
+    const tickColor = T.isDark ? '#9ab4cf' : '#5a7290'
     const commonOpts = {
       responsive: true, maintainAspectRatio: false,
       plugins: { legend: { labels: { color: T.textSecondary, font: { size: 11 }, boxWidth: 12 } } }
@@ -540,8 +527,6 @@ export default function DashboardPage() {
     const featName = f => f.properties.NAME_1 || f.properties.name || ''
     const lerp = (a, b, t) => Math.round(a + (b - a) * t)
     const blueRamp = (t) => {
-      // Light, visible ramp: pale blue at low values → strong brand blue at high.
-      // Works on both themes because even t=0 stays distinguishable from the card bg.
       const from = T.isDark ? [58, 78, 110] : [206, 226, 246]
       const to = [43, 127, 212]
       if (t <= 0) return T.isDark ? '#33445c' : '#e4eef9'
@@ -579,9 +564,7 @@ export default function DashboardPage() {
               const nm = featName(ds.data[i].feature)
               const label = shortName[nm] || nm
               const dark = t > 0.45
-              // value number
               const valStr = v <= 0 ? '0' : (decimals === 0 ? String(Math.round(v)) : v.toFixed(decimals))
-              // name (small) above the value (big)
               ctx.shadowColor = dark ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.6)'
               ctx.shadowBlur = 3
               ctx.fillStyle = dark ? '#ffffff' : (T.isDark ? '#c8d6e8' : '#33475f')
@@ -677,7 +660,7 @@ export default function DashboardPage() {
         band: headers.findIndex(h => h.includes('pf band')),
         discussion: headers.findIndex(h => h.includes('discussion')),
       }
-      if (idx.name < 0 || idx.date < 0) { setUpMsg('❌ Performance CSV must have "Site Name" and "Date" columns'); return }
+      if (idx.name < 0 || idx.date < 0) { setUpMsg('Performance CSV must have "Site Name" and "Date" columns'); return }
       const parsed = [], errors = []
       rows.slice(1).forEach((r, i) => {
         const name = (r[idx.name] || '').trim()
@@ -691,8 +674,6 @@ export default function DashboardPage() {
         if (idx.discussion >= 0) rec.discussion = (r[idx.discussion] || '').trim().toUpperCase() === 'YES'
         parsed.push(rec)
       })
-      // De-duplicate by site+month+year (last occurrence wins) so upsert batches don't
-      // hit "ON CONFLICT cannot affect row a second time"
       const seen = new Map()
       parsed.forEach(rec => seen.set(`${rec.site_name.toLowerCase()}|${rec.month}|${rec.year}`, rec))
       const deduped = [...seen.values()]
@@ -721,7 +702,7 @@ export default function DashboardPage() {
         age: find('age'), power_limit: find('power limit'),
         soiling: find('soiling'), shading: find('shading'),
       }
-      if (idx.name < 0) { setUpMsg('❌ Sites CSV must have a "Site Name" column'); return }
+      if (idx.name < 0) { setUpMsg('Sites CSV must have a "Site Name" column'); return }
       const parsed = [], errors = []
       rows.slice(1).forEach((r, i) => {
         const name = (r[idx.name] || '').trim()
@@ -750,7 +731,6 @@ export default function DashboardPage() {
         if (idx.date >= 0) {
           const d = (r[idx.date] || '').trim()
           const p = d.split('/')
-          // CSV is dd/mm/yyyy → store as yyyy-mm-dd
           rec.commissioned_date = p.length === 3 ? `${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}` : null
           rec.install_date = rec.commissioned_date
         }
@@ -778,7 +758,6 @@ export default function DashboardPage() {
       if (error) {
         console.error('Batch failed, retrying row-by-row:', error)
         lastErr = error.message || String(error)
-        // Retry individually so one bad row doesn't fail the whole batch
         for (const row of batch) {
           const { error: rowErr } = await supabase.from('performance').upsert([row], { onConflict: 'site_name,month,year' })
           if (rowErr) { failed++; lastErr = rowErr.message || String(rowErr); console.error('Row failed:', row, rowErr) }
@@ -790,7 +769,7 @@ export default function DashboardPage() {
         setUpMsg(`Uploading... ${done + failed}/${upPerf.rows.length}`)
       }
     }
-    setUpMsg(failed === 0 ? `✅ ${done} performance records uploaded successfully` : `⚠️ ${done} uploaded, ${failed} failed. Reason: ${lastErr || 'see console (F12)'}`)
+    setUpMsg(failed === 0 ? `${done} performance records uploaded successfully` : `${done} uploaded, ${failed} failed. Reason: ${lastErr || 'see console (F12)'}`)
     setUpPerf(null)
     setPerfData([])
     setUpBusy(false)
@@ -808,7 +787,7 @@ export default function DashboardPage() {
       else done += batch.length
       setUpMsg(`Uploading... ${done + failed}/${upSites.rows.length}`)
     }
-    setUpMsg(failed === 0 ? `✅ ${done} sites uploaded successfully` : `⚠️ ${done} uploaded, ${failed} failed — check console (F12)`)
+    setUpMsg(failed === 0 ? `${done} sites uploaded successfully` : `${done} uploaded, ${failed} failed — check console (F12)`)
     setUpSites(null)
     const { data: sitesData } = await supabase.from('sites').select('*').order('name')
     setSites(sitesData || [])
@@ -832,7 +811,7 @@ export default function DashboardPage() {
         energy: headers.findIndex(h => h.includes('energy impact')),
         other: headers.findIndex(h => h.includes('other comment')),
       }
-      if (idx.name < 0 || idx.date < 0) { setUpMsg(`❌ Comments CSV must have "Site Name" and "Date" columns. Detected headers: ${headers.join(' | ') || '(none — check the file is semicolon or comma separated)'}`); return }
+      if (idx.name < 0 || idx.date < 0) { setUpMsg(`Comments CSV must have "Site Name" and "Date" columns. Detected headers: ${headers.join(' | ') || '(none — check the file is semicolon or comma separated)'}`); return }
       const parsed = [], errors = []
       let emptySkipped = 0
       rows.slice(1).forEach((r, i) => {
@@ -867,7 +846,7 @@ export default function DashboardPage() {
       else done += batch.length
       setUpMsg(`Uploading... ${done + failed}/${upComments.rows.length}`)
     }
-    setUpMsg(failed === 0 ? `✅ ${done} comments uploaded successfully` : `⚠️ ${done} uploaded, ${failed} failed — check console (F12)`)
+    setUpMsg(failed === 0 ? `${done} comments uploaded successfully` : `${done} uploaded, ${failed} failed — check console (F12)`)
     setUpComments(null)
     setPerfData([])
     setUpBusy(false)
@@ -887,7 +866,7 @@ export default function DashboardPage() {
         unavail: find('unavailability'), correct: find('correct'), actual: find('actual generation'),
         shortfall: find('shortfall'), perf: find('performance rate'), notes: find('notes'),
       }
-      if (idx.name < 0) { setUpMsg(`❌ Offtake CSV must have a "Site Name" column. Detected headers: ${headers.join(' | ')}`); return }
+      if (idx.name < 0) { setUpMsg(`Offtake CSV must have a "Site Name" column. Detected headers: ${headers.join(' | ')}`); return }
       const parsed = [], errors = []
       rows.slice(1).forEach((r, i) => {
         const name = (r[idx.name] || '').trim()
@@ -926,7 +905,7 @@ export default function DashboardPage() {
       else done += batch.length
       setUpMsg(`Uploading... ${done + failed}/${upOg.rows.length}`)
     }
-    setUpMsg(failed === 0 ? `✅ ${done} offtake guarantees uploaded successfully` : `⚠️ ${done} uploaded, ${failed} failed — check console (F12)`)
+    setUpMsg(failed === 0 ? `${done} offtake guarantees uploaded successfully` : `${done} uploaded, ${failed} failed — check console (F12)`)
     setUpOg(null)
     setOgData([])
     setUpBusy(false)
@@ -943,8 +922,8 @@ export default function DashboardPage() {
     const Chart = window.Chart
     if (!Chart || !spSite) return
     const destroy = (id) => { if (chartsRef.current[id]) { chartsRef.current[id].destroy(); delete chartsRef.current[id] } }
-    const gridColor = '#3c4f6a'
-    const tickColor = '#9ab4cf'
+    const gridColor = T.isDark ? '#3c4f6a' : '#e6ecf4'
+    const tickColor = T.isDark ? '#9ab4cf' : '#5a7290'
     const C = { blue: T.blue, yellow: T.yellow, green: T.green, red: T.red, gray: '#2a4a6a', dark: T.textSecondary }
     const recs = perfData.filter(p => p.site_name?.trim().toLowerCase() === spSite.trim().toLowerCase())
     const years = [...new Set(recs.map(p => p.year))].sort()
@@ -1045,8 +1024,8 @@ export default function DashboardPage() {
     const Chart = window.Chart
     if (!Chart) return
     const destroy = (id) => { if (chartsRef.current[id]) { chartsRef.current[id].destroy(); delete chartsRef.current[id] } }
-    const gridColor = '#3c4f6a'
-    const tickColor = '#9ab4cf'
+    const gridColor = T.isDark ? '#3c4f6a' : '#e6ecf4'
+    const tickColor = T.isDark ? '#9ab4cf' : '#5a7290'
     const C = { blue: T.blue, yellow: T.yellow, green: T.green, red: T.red, gray: '#2a4a6a' }
 
     const exp = data.filter(p => p.pf_band === 'Expected').length
@@ -1078,39 +1057,37 @@ export default function DashboardPage() {
     })
   }
 
-  // ── Badge helpers (dark theme) ──────────────────────────────────────────────
   function statusBadge(status) {
     const map = {
-      active:   { bg: 'rgba(125,194,66,0.12)',  color: '#7DC242', border: 'rgba(125,194,66,0.3)' },
-      inactive: { bg: 'rgba(239,68,68,0.12)',   color: '#ef4444', border: 'rgba(239,68,68,0.3)' },
+      active:   { color: '#3a7a2e', border: 'rgba(95,168,46,0.4)' },
+      inactive: { color: '#a83a3a', border: 'rgba(217,58,58,0.4)' },
     }
-    const s = map[status] || { bg: 'rgba(74,122,170,0.12)', color: T.textSecondary, border: T.border }
-    return <span style={{ background: s.bg, color: s.color, border: `1px solid ${s.border}`, borderRadius: '20px', padding: '2px 9px', fontSize: '10px', fontWeight: 600, letterSpacing: '0.5px' }}>{status || 'active'}</span>
+    const s = map[status] || { color: T.textSecondary, border: T.border }
+    return <span style={{ background: 'transparent', color: s.color, border: `1px solid ${s.border}`, borderRadius: '4px', padding: '2px 8px', fontSize: '10px', fontWeight: 600, letterSpacing: '0.3px', textTransform: 'uppercase' }}>{status || 'active'}</span>
   }
 
   function typeBadge(type) {
     const map = {
-      Retail:       `rgba(245,208,0,0.12)|#F5D000|rgba(245,208,0,0.3)`,
-      Manufacture:  `rgba(139,92,246,0.12)|#a78bfa|rgba(139,92,246,0.3)`,
-      Residential:  `rgba(125,194,66,0.12)|#7DC242|rgba(125,194,66,0.3)`,
-      Commercial:   `rgba(43,127,212,0.12)|#2B7FD4|rgba(43,127,212,0.3)`,
-      Agricultural: `rgba(240,165,0,0.12)|#f0a500|rgba(240,165,0,0.3)`,
+      Retail:       '#8a6f00',
+      Manufacture:  '#5b3fa8',
+      Residential:  '#3a7a2e',
+      Commercial:   T.blue,
+      Agricultural: '#8a5200',
     }
-    const parts = (map[type] || `rgba(74,122,170,0.12)|${T.textSecondary}|${T.border}`).split('|')
-    return <span style={{ background: parts[0], color: parts[1], border: `1px solid ${parts[2]}`, borderRadius: '20px', padding: '2px 9px', fontSize: '10px', fontWeight: 600 }}>{type || '--'}</span>
+    const color = map[type] || T.textSecondary
+    return <span style={{ background: 'transparent', color, border: `1px solid ${T.border}`, borderRadius: '4px', padding: '2px 8px', fontSize: '10px', fontWeight: 600 }}>{type || '--'}</span>
   }
 
   function pfBadge(band) {
     const map = {
-      Expected: `rgba(43,127,212,0.15)|#3d8fe0|rgba(43,127,212,0.35)`,
-      Moderate: `rgba(245,208,0,0.12)|#F5D000|rgba(245,208,0,0.3)`,
-      Poor:     `rgba(239,68,68,0.12)|#ef4444|rgba(239,68,68,0.3)`,
+      Expected: T.blue,
+      Moderate: '#8a6f00',
+      Poor:     '#a83a3a',
     }
-    const parts = (map[band] || `rgba(74,122,170,0.12)|${T.textSecondary}|${T.border}`).split('|')
-    return <span style={{ background: parts[0], color: parts[1], border: `1px solid ${parts[2]}`, borderRadius: '20px', padding: '2px 9px', fontSize: '10px', fontWeight: 600 }}>{band || '--'}</span>
+    const color = map[band] || T.textSecondary
+    return <span style={{ background: 'transparent', color, border: `1px solid ${T.border}`, borderRadius: '4px', padding: '2px 8px', fontSize: '10px', fontWeight: 600 }}>{band || '--'}</span>
   }
 
-  // ── Shared style helpers ────────────────────────────────────────────────────
   const selectStyle = {
     padding: '7px 12px',
     border: `1px solid ${T.border}`,
@@ -1172,49 +1149,39 @@ export default function DashboardPage() {
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', sans-serif; background: ${T.bgBase}; color: ${T.textPrimary}; }
 
-        /* Scrollbars */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: ${T.bgBase}; }
         ::-webkit-scrollbar-thumb { background: ${T.border}; border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: ${T.blue}; }
 
-        /* Nav hover */
         .nav-item { transition: all 0.15s ease; }
         .nav-item:hover { background: rgba(43,127,212,0.12) !important; color: ${T.blue} !important; }
 
-        /* Table row hover */
         .tbl-row:hover td { background: rgba(43,127,212,0.06) !important; }
 
-        /* Tab hover */
         .tab:hover { background: rgba(43,127,212,0.12) !important; }
 
-        /* Input focus */
         input:focus { border-color: ${T.blue} !important; box-shadow: 0 0 0 3px rgba(43,127,212,0.15) !important; outline: none; }
         select:focus { border-color: ${T.blue} !important; outline: none; }
         select option { background: ${T.bgPanel}; color: ${T.textPrimary}; }
 
-        /* Glow on active nav */
         .nav-active { box-shadow: inset 3px 0 0 ${T.blue}; }
 
-        /* ── Responsive chart grids ─────────────────────────────────────────── */
         .chart-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
         .map-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: stretch; }
         .map-box { position: relative; height: 340px; }
         .map-divider { border-left: 1px solid ${T.border}; padding-left: 20px; }
 
-        /* Tablet / small laptop: collapse the two-column chart rows to one column */
         @media (max-width: 1100px) {
           .chart-grid-2 { grid-template-columns: 1fr; }
           .map-grid { grid-template-columns: 1fr; }
           .map-divider { border-left: none; padding-left: 0; border-top: 1px solid ${T.border}; padding-top: 16px; }
           .map-box { height: 320px; }
         }
-        /* Narrow / phone */
         @media (max-width: 640px) {
           .main-area { padding: 12px !important; }
           .map-box { height: 380px; }
         }
-        /* Collapse sidebar on very small screens */
         @media (max-width: 820px) {
           .app-sidebar { width: 60px !important; }
           .app-sidebar .nav-label { display: none !important; }
@@ -1230,37 +1197,13 @@ export default function DashboardPage() {
         }
       `}</style>
 
-      {/* ── SOLAR-RAY BACKGROUND (fixed, behind everything) ──────────────────── */}
+      {/* ── BACKGROUND (fixed, behind everything) ─────────────────────────────── */}
       <div className="no-print" aria-hidden="true" style={{
         position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', overflow: 'hidden',
-        background: T.bgBase,
-      }}>
-        <svg width="100%" height="100%" viewBox="0 0 1000 700" preserveAspectRatio="xMidYMid slice" style={{ position: 'absolute', inset: 0 }}>
-          <defs>
-            <radialGradient id="sunBurst" cx="100%" cy="0%" r="95%">
-              <stop offset="0%" stopColor={T.yellow} stopOpacity={T.isDark ? '0.20' : '0.28'} />
-              <stop offset="26%" stopColor={T.yellow} stopOpacity={T.isDark ? '0.07' : '0.10'} />
-              <stop offset="58%" stopColor={T.blue} stopOpacity={T.isDark ? '0.06' : '0.05'} />
-              <stop offset="100%" stopColor={T.blue} stopOpacity="0" />
-            </radialGradient>
-            <linearGradient id="rayFade" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={T.yellow} stopOpacity={T.isDark ? '0.12' : '0.18'} />
-              <stop offset="100%" stopColor={T.yellow} stopOpacity="0" />
-            </linearGradient>
-          </defs>
-          {/* Rays fanning out from the top-right corner (1000,0) */}
-          {Array.from({ length: 12 }).map((_, i) => {
-            const a1 = (i * 92) / 12
-            const a2 = a1 + 3.2
-            const L = 1300
-            const rad = (d) => (d * Math.PI) / 180
-            const p1x = 1000 - Math.sin(rad(a1)) * L, p1y = Math.cos(rad(a1)) * L
-            const p2x = 1000 - Math.sin(rad(a2)) * L, p2y = Math.cos(rad(a2)) * L
-            return <polygon key={i} points={`1000,0 ${p1x},${p1y} ${p2x},${p2y}`} fill="url(#rayFade)" opacity={i % 2 === 0 ? 1 : 0.55} />
-          })}
-          <rect width="1000" height="700" fill="url(#sunBurst)" />
-        </svg>
-      </div>
+        background: T.isDark
+          ? `radial-gradient(ellipse 900px 500px at 100% 0%, rgba(43,127,212,0.10), transparent 65%), ${T.bgBase}`
+          : `radial-gradient(ellipse 900px 500px at 100% 0%, rgba(43,127,212,0.05), transparent 65%), ${T.bgBase}`,
+      }} />
       <div style={{ position: 'relative', zIndex: 1 }}>
 
       {/* ── TOPBAR ─────────────────────────────────────────────────────────── */}
@@ -1278,7 +1221,6 @@ export default function DashboardPage() {
         zIndex: 100,
         boxShadow: T.isDark ? `0 2px 20px rgba(43,127,212,0.2)` : `0 2px 16px rgba(26,42,74,0.08)`,
       }}>
-        {/* Logo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <svg width="40" height="46" viewBox="0 0 46 52" fill="none">
             <ellipse cx="23" cy="16" rx="18" ry="16" fill="#F5D000"/>
@@ -1291,14 +1233,13 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Topbar pills */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           {[
             { val: sites.length, label: 'Sites', color: T.blue, bg: 'rgba(43,127,212,0.12)', border: 'rgba(43,127,212,0.3)' },
             { val: `${(totalCap/1000).toFixed(2)} MWp`, label: null, color: T.yellow, bg: 'rgba(245,208,0,0.1)', border: 'rgba(245,208,0,0.25)' },
             { val: `${totalBessMwh} MWh`, label: 'BESS', color: T.green, bg: 'rgba(125,194,66,0.1)', border: 'rgba(125,194,66,0.25)' },
           ].map((p, i) => (
-            <span key={i} style={{ background: p.bg, border: `1px solid ${p.border}`, borderRadius: '20px', padding: '4px 13px', fontSize: '11px', color: p.color, fontWeight: 600 }}>
+            <span key={i} style={{ background: p.bg, border: `1px solid ${p.border}`, borderRadius: '6px', padding: '4px 13px', fontSize: '11px', color: p.color, fontWeight: 600 }}>
               {p.val}{p.label ? ` ${p.label}` : ''}
             </span>
           ))}
@@ -1319,7 +1260,6 @@ export default function DashboardPage() {
 
       <div className="layout-flex" style={{ display: 'flex', height: 'calc(100vh - 64px)' }}>
 
-        {/* ── SIDEBAR ──────────────────────────────────────────────────────── */}
         <nav className="no-print app-sidebar" style={{
           width: '220px',
           background: T.isDark ? 'rgba(37,51,72,0.85)' : 'rgba(255,255,255,0.82)',
@@ -1332,7 +1272,6 @@ export default function DashboardPage() {
           flexDirection: 'column',
           position: 'relative',
         }}>
-          {/* Subtle glow */}
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '1px', background: `linear-gradient(90deg, transparent, ${T.blue}, transparent)`, opacity: 0.5 }} />
 
           <div className="sidebar-heading" style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '1.5px', color: T.textMuted, padding: '8px 18px 6px', fontWeight: 700 }}>Portfolio</div>
@@ -1374,13 +1313,10 @@ export default function DashboardPage() {
           </div>
         </nav>
 
-        {/* ── MAIN CONTENT ─────────────────────────────────────────────────── */}
         <main className="main-area" style={{ flex: 1, overflowY: 'auto', padding: '22px', background: 'transparent' }}>
 
-          {/* ── OVERVIEW ── */}
           {activePage === 'overview' && (
             <div>
-              {/* Hero banner */}
               <div style={{
                 background: T.isDark
                   ? `linear-gradient(135deg, #0d1f35 0%, #112840 60%, #0a1828 100%)`
@@ -1398,7 +1334,6 @@ export default function DashboardPage() {
                 position: 'relative',
                 overflow: 'hidden',
               }}>
-                {/* Decorative glow */}
                 <div style={{ position: 'absolute', top: '-60px', right: '-60px', width: '200px', height: '200px', background: 'rgba(43,127,212,0.08)', borderRadius: '50%', pointerEvents: 'none' }} />
                 <div>
                   <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#ffffff', marginBottom: '4px', letterSpacing: '-0.3px' }}>Portfolio Dashboard</h2>
@@ -1420,7 +1355,6 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Filter bar */}
               <div style={{ ...cardStyle, padding: '12px 16px', marginBottom: '16px', display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
                 <span style={{ fontSize: '11px', fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.8px' }}>
                   <i className="ti ti-filter" style={{ marginRight: '5px', color: T.blue }} />Filter
@@ -1446,7 +1380,6 @@ export default function DashboardPage() {
                 <span style={{ fontSize: '11px', color: T.textMuted, marginLeft: 'auto' }}>Showing {filteredOverview.length} of {sites.length} sites</span>
               </div>
 
-              {/* KPI cards */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: '10px', marginBottom: '18px' }}>
                 {[
                   { label: 'Total Sites', val: filteredOverview.length, sub: `${filteredOverview.filter(s=>s.status==='active').length} active`, accent: T.yellow },
@@ -1464,22 +1397,20 @@ export default function DashboardPage() {
                 ))}
               </div>
 
-              {/* Sites by province maps — headline visual */}
               <div style={{ ...cardStyle, padding: '20px', marginBottom: '14px' }}>
                 <div style={{ ...cardTitleStyle }}><i className="ti ti-map-pin" style={{ color: T.blue }} />Sites by province</div>
                 <div className="map-grid" style={{ marginTop: '4px' }}>
                   <div>
-                    <div style={{ fontSize: '12px', fontWeight: 700, color: T.textSecondary, textAlign: 'center', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.6px' }}>🇿🇦 South Africa</div>
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: T.textSecondary, textAlign: 'center', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.6px' }}>South Africa</div>
                     <div className="map-box"><canvas id="provSitesChartZA" /></div>
                   </div>
                   <div className="map-divider">
-                    <div style={{ fontSize: '12px', fontWeight: 700, color: T.textSecondary, textAlign: 'center', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.6px' }}>🇿🇲 Zambia</div>
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: T.textSecondary, textAlign: 'center', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Zambia</div>
                     <div className="map-box"><canvas id="provSitesChartZM" /></div>
                   </div>
                 </div>
               </div>
 
-              {/* Charts row 1 */}
               <div className="chart-grid-2" style={{ marginBottom: '14px' }}>
                 <div style={{ ...cardStyle, padding: '18px' }}>
                   <div style={cardTitleStyle}><i className="ti ti-chart-donut" style={{ color: T.blue }} />By business type</div>
@@ -1491,7 +1422,6 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Charts row 2 */}
               <div className="chart-grid-2" style={{ marginBottom: '14px' }}>
                 <div style={{ ...cardStyle, padding: '18px' }}>
                   <div style={cardTitleStyle}><i className="ti ti-battery" style={{ color: T.green }} />MWh BESS by province</div>
@@ -1503,7 +1433,6 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Charts row 4 */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '14px' }}>
                 <div style={{ ...cardStyle, padding: '18px' }}>
                   <div style={cardTitleStyle}><i className="ti ti-users" style={{ color: T.green }} />By investor</div>
@@ -1513,7 +1442,6 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* ── ALL SITES ── */}
           {activePage === 'sites' && (
             <div>
               <div style={{ fontSize: '20px', fontWeight: 800, color: T.textWhite, marginBottom: '2px' }}>All Sites</div>
@@ -1599,7 +1527,6 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* ── PERFORMANCE ── */}
           {activePage === 'performance' && (
             <div>
               <div style={{ fontSize: '20px', fontWeight: 800, color: T.textWhite, marginBottom: '2px' }}>Performance Overview</div>
@@ -1642,7 +1569,6 @@ export default function DashboardPage() {
                 <div style={{ textAlign: 'center', padding: '60px', color: T.textSecondary }}>Loading performance data...</div>
               ) : (
                 <>
-                  {/* KPI cards */}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: '10px', marginBottom: '18px' }}>
                     {[
                       { label: 'Total Records', val: filteredPerf.length, accent: T.blue },
@@ -1659,7 +1585,6 @@ export default function DashboardPage() {
                     ))}
                   </div>
 
-                  {/* Charts */}
                   <div className="chart-grid-2" style={{ marginBottom: '14px' }}>
                     <div style={{ ...cardStyle, padding: '18px' }}>
                       <div style={cardTitleStyle}><i className="ti ti-chart-donut" style={{ color: T.blue }} />PF Band breakdown</div>
@@ -1671,7 +1596,6 @@ export default function DashboardPage() {
                     </div>
                   </div>
 
-                  {/* Performance table */}
                   <div style={{ ...cardStyle, overflow: 'hidden' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                       <thead>
@@ -1708,7 +1632,7 @@ export default function DashboardPage() {
                             <td style={{ padding: '8px 10px' }}>{pfBadge(p.pf_band)}</td>
                             <td style={{ padding: '8px 10px' }}>
                               {p.discussion === true
-                                ? <span style={{ display: 'inline-block', padding: '2px 9px', borderRadius: '20px', fontSize: '10px', fontWeight: 700, background: 'rgba(246,101,36,0.15)', color: T.orange, border: `1px solid rgba(246,101,36,0.35)` }}>Discuss</span>
+                                ? <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 700, background: 'transparent', color: '#a86a1a', border: `1px solid rgba(240,130,10,0.4)` }}>Discuss</span>
                                 : <span style={{ color: T.textMuted }}>—</span>}
                             </td>
                           </tr>
@@ -1732,7 +1656,6 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* ── SITE PERFORMANCE ── */}
           {activePage === 'siteperf' && (() => {
             const spSiteNames = [...new Set(perfData.map(p => p.site_name?.trim()).filter(Boolean))].sort()
             const investorFor = (name) => sites.find(s => s.name?.trim().toLowerCase() === (name || '').trim().toLowerCase())?.investment_party || null
@@ -1765,7 +1688,6 @@ export default function DashboardPage() {
                 ) : (
                   <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: '14px', alignItems: 'start' }}>
 
-                    {/* Site selector */}
                     <div style={{ ...cardStyle, padding: '14px' }}>
                       <div style={{ fontSize: '11px', fontWeight: 700, color: T.blue, marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Select Site</div>
                       <input type="text" placeholder="Search sites..." value={spSearch} onChange={e => setSpSearch(e.target.value)}
@@ -1785,7 +1707,6 @@ export default function DashboardPage() {
                       </div>
                     </div>
 
-                    {/* Charts panel */}
                     <div>
                       {!spSite ? (
                         <div style={{ ...cardStyle, padding: '60px', textAlign: 'center', color: T.textMuted }}>
@@ -1794,7 +1715,6 @@ export default function DashboardPage() {
                         </div>
                       ) : (
                         <>
-                          {/* Expected vs Measured */}
                           <div style={{ ...cardStyle, padding: '18px', marginBottom: '14px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '14px' }}>
                               <div style={{ ...cardTitleStyle, marginBottom: 0 }}>
@@ -1826,7 +1746,6 @@ export default function DashboardPage() {
                             <div style={{ position: 'relative', height: '260px' }}><canvas id="spExpMeasChart" /></div>
                           </div>
 
-                          {/* Year to Year */}
                           <div style={{ ...cardStyle, padding: '18px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '14px' }}>
                               <div style={{ ...cardTitleStyle, marginBottom: 0 }}>
@@ -1862,14 +1781,11 @@ export default function DashboardPage() {
                             <div style={{ position: 'relative', height: '260px' }}><canvas id="spYoYChart" /></div>
                           </div>
 
-                          {/* Technical Comments */}
                           {(() => {
-                            // All months the site has any record for (sorted newest first), not just ones with comments
                             const monthRecs = [...spRecs].sort((a, b) => (b.year - a.year) || (b.month - a.month))
                             const seenMonths = new Map()
                             monthRecs.forEach(p => { const k = `${p.year}-${String(p.month).padStart(2, '0')}`; if (!seenMonths.has(k)) seenMonths.set(k, p) })
                             const cDates = [...seenMonths.keys()]
-                            // Keep the user's chosen month if this site has it; otherwise fall back to latest
                             const selDate = (spCommentDate && cDates.includes(spCommentDate)) ? spCommentDate : (cDates[0] || '')
                             const selRec = seenMonths.get(selDate) || null
                             const hasAny = selRec && (selRec.comment || COMMENT_FIELDS.some(f => selRec[f.key] != null && selRec[f.key] !== ''))
@@ -1928,8 +1844,6 @@ export default function DashboardPage() {
             )
           })()}
 
-          {/* ── DATA UPLOAD ── */}
-          {/* ── OFFTAKE GUARANTEES ── */}
           {activePage === 'offtake' && ogOverview && (() => {
             const all = [...ogData].sort((a, b) => (a.shortfall_kwh ?? 0) - (b.shortfall_kwh ?? 0))
             const tG = ogData.reduce((s, g) => s + (g.correct_kwh || 0), 0)
@@ -1959,7 +1873,6 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="print-area" style={{ background: '#fff', color: navy, border: `1px solid ${T.border}`, borderRadius: '12px', padding: '32px', maxWidth: '1000px' }}>
-                  {/* Header */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '3px solid #2B7FD4', paddingBottom: '18px', marginBottom: '22px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                       <svg width="44" height="50" viewBox="0 0 46 52" fill="none">
@@ -1980,7 +1893,6 @@ export default function DashboardPage() {
 
                   <div style={{ fontSize: '16px', fontWeight: 700, color: navy, marginBottom: '18px' }}>Offtake Guarantee — Portfolio Overview</div>
 
-                  {/* Portfolio summary */}
                   <div style={{ fontSize: '10px', fontWeight: 800, color: navy, textTransform: 'uppercase', letterSpacing: '0.8px', borderTop: '2px solid #2B7FD4', paddingTop: '10px', marginBottom: '10px' }}>Portfolio Summary</div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', marginBottom: '24px', border: '1px solid #dde5ee', borderRadius: '6px', overflow: 'hidden' }}>
                     {kpi('Sites', ogData.length, navy)}
@@ -1991,7 +1903,6 @@ export default function DashboardPage() {
                     {kpi('Achievement', `${ach} %`, parseFloat(ach) >= 100 ? '#3a9b3a' : parseFloat(ach) >= 90 ? '#f0820a' : '#d23b3b')}
                   </div>
 
-                  {/* Per-site table */}
                   <div style={{ fontSize: '10px', fontWeight: 800, color: navy, textTransform: 'uppercase', letterSpacing: '0.8px', borderTop: '2px solid #2B7FD4', paddingTop: '10px', marginBottom: '10px' }}>Site Breakdown</div>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
                     <thead>
@@ -2046,7 +1957,6 @@ export default function DashboardPage() {
             )
           })()}
 
-          {/* ── OFFTAKE GUARANTEES ── */}
           {activePage === 'offtake' && ogSelected && (() => {
             const g = ogSelected
             const site = sites.find(s => s.name?.trim().toLowerCase() === (g.site_name || '').trim().toLowerCase())
@@ -2065,7 +1975,6 @@ export default function DashboardPage() {
             )
             return (
               <div>
-                {/* Controls */}
                 <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
                   <button onClick={() => setOgSelected(null)} style={{ ...selectStyle, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <i className="ti ti-arrow-left" />Back to Offtake Guarantees
@@ -2076,9 +1985,7 @@ export default function DashboardPage() {
                   </button>
                 </div>
 
-                {/* Report document — stays white for print */}
                 <div className="print-area" style={{ background: '#fff', color: navy, border: `1px solid ${T.border}`, borderRadius: '12px', padding: '32px', maxWidth: '900px' }}>
-                  {/* Header */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '3px solid #2B7FD4', paddingBottom: '18px', marginBottom: '22px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                       <svg width="44" height="50" viewBox="0 0 46 52" fill="none">
@@ -2099,7 +2006,6 @@ export default function DashboardPage() {
 
                   <div style={{ fontSize: '16px', fontWeight: 700, color: navy, marginBottom: '18px' }}>Offtake Guarantee Report</div>
 
-                  {/* Site information */}
                   <div style={{ fontSize: '10px', fontWeight: 800, color: navy, textTransform: 'uppercase', letterSpacing: '0.8px', borderTop: '2px solid #2B7FD4', paddingTop: '10px', marginBottom: '10px' }}>Site Information</div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', marginBottom: '24px', border: '1px solid #dde5ee', borderRadius: '6px', overflow: 'hidden' }}>
                     {sumBlock('Site Name', g.site_name, navy)}
@@ -2107,7 +2013,6 @@ export default function DashboardPage() {
                     {sumBlock('System Size', site?.capacity_kw != null ? `${site.capacity_kw} kWp` : '—', navy)}
                   </div>
 
-                  {/* Energy delivery summary */}
                   <div style={{ fontSize: '10px', fontWeight: 800, color: navy, textTransform: 'uppercase', letterSpacing: '0.8px', borderTop: '2px solid #2B7FD4', paddingTop: '10px', marginBottom: '10px' }}>Energy Delivery Summary</div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', marginBottom: '24px', border: '1px solid #dde5ee', borderRadius: '6px', overflow: 'hidden' }}>
                     {sumBlock('Guaranteed Output', fmtKWh(g.correct_kwh), navy)}
@@ -2116,7 +2021,6 @@ export default function DashboardPage() {
                     {sumBlock('Performance Rate', perfRate != null ? `${perfRate.toFixed(1)} %` : '—', '#f0820a')}
                   </div>
 
-                  {/* Guarantee adjustment breakdown */}
                   <div style={{ fontSize: '10px', fontWeight: 800, color: navy, textTransform: 'uppercase', letterSpacing: '0.8px', borderTop: '2px solid #2B7FD4', paddingTop: '10px', marginBottom: '10px' }}>Guarantee Adjustment</div>
                   {(() => {
                     const asBuilt = g.as_built_kwh
@@ -2149,7 +2053,6 @@ export default function DashboardPage() {
                     {(g.shortfall_kwh ?? 0) >= 0 ? ' This site met or exceeded its corrected guarantee for the period.' : ''}
                   </div>
 
-                  {/* Monthly generation table */}
                   <div style={{ fontSize: '10px', fontWeight: 800, color: navy, textTransform: 'uppercase', letterSpacing: '0.8px', borderTop: '2px solid #2B7FD4', paddingTop: '10px', marginBottom: '10px' }}>Itemised Analysis — Monthly Generation</div>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', marginBottom: '20px', tableLayout: 'fixed' }}>
                     <thead>
@@ -2225,7 +2128,6 @@ export default function DashboardPage() {
                 )}
               </div>
 
-              {/* Filter bar */}
               <div style={{ ...cardStyle, padding: '12px 16px', marginBottom: '16px', display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
                 <span style={{ fontSize: '11px', fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.8px' }}>
                   <i className="ti ti-filter" style={{ marginRight: '5px', color: T.blue }} />Filter
@@ -2261,7 +2163,6 @@ export default function DashboardPage() {
                 </div>
               ) : (
                 <>
-                  {/* KPI cards */}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: '10px', marginBottom: '18px' }}>
                     {[
                       { label: 'Sites with OG', val: filteredOG.length, accent: T.blue },
@@ -2278,7 +2179,6 @@ export default function DashboardPage() {
                     ))}
                   </div>
 
-                  {/* Table */}
                   <div style={{ ...cardStyle, overflow: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                       <thead>
@@ -2361,295 +2261,157 @@ export default function DashboardPage() {
           )}
 
           {activePage === 'upload' && (
-            <div>
+            <div style={{ maxWidth: '900px' }}>
               <div style={{ fontSize: '20px', fontWeight: 800, color: T.textWhite, marginBottom: '2px' }}>Data Upload</div>
-              <div style={{ fontSize: '12px', color: T.textSecondary, marginBottom: '18px' }}>Upload monthly performance data and site information — existing records are updated, new ones are added</div>
+              <div style={{ fontSize: '12px', color: T.textSecondary, marginBottom: '18px' }}>Import CSV files — performance, sites, technical comments and offtake guarantees</div>
 
-              {upMsg && (
-                <div style={{
-                  background: upMsg.startsWith('✅') ? 'rgba(125,194,66,0.1)' : upMsg.startsWith('❌') || upMsg.startsWith('⚠️') ? 'rgba(239,68,68,0.1)' : 'rgba(43,127,212,0.1)',
-                  border: `1px solid ${upMsg.startsWith('✅') ? 'rgba(125,194,66,0.3)' : upMsg.startsWith('❌') || upMsg.startsWith('⚠️') ? 'rgba(239,68,68,0.3)' : 'rgba(43,127,212,0.3)'}`,
-                  borderRadius: '8px', padding: '12px 16px', fontSize: '13px', color: T.textPrimary, marginBottom: '16px'
-                }}>
-                  {upMsg}
-                </div>
-              )}
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '14px' }}>
-
-                {/* Performance upload */}
-                <div style={{ ...cardStyle, padding: '20px' }}>
-                  <div style={{ fontSize: '14px', fontWeight: 700, color: T.blue, marginBottom: '6px' }}>
-                    <i className="ti ti-activity" style={{ marginRight: '7px' }} />Performance Data
+              {upMsg && (() => {
+                const low = upMsg.toLowerCase()
+                const isFail = low.includes('fail')
+                const isDone = low.includes('success') || low.includes('uploaded successfully')
+                const tone = isFail ? { c: T.red, b: 'rgba(239,68,68,0.3)', bg: 'rgba(239,68,68,0.08)', icon: 'ti-alert-triangle' }
+                  : isDone ? { c: T.green, b: 'rgba(125,194,66,0.3)', bg: 'rgba(125,194,66,0.08)', icon: 'ti-circle-check' }
+                  : { c: T.blue, b: 'rgba(43,127,212,0.3)', bg: 'rgba(43,127,212,0.08)', icon: 'ti-loader' }
+                return (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', borderRadius: '8px', background: tone.bg, border: `1px solid ${tone.b}`, color: tone.c, fontSize: '12px', fontWeight: 600, marginBottom: '16px' }}>
+                    <i className={`ti ${tone.icon}`} style={{ fontSize: '15px' }} />{upMsg}
                   </div>
-                  <div style={{ fontSize: '11px', color: T.textMuted, marginBottom: '14px', lineHeight: 1.7 }}>
-                    CSV with columns: <b style={{ color: T.textSecondary }}>Site Name; Date; Measured (kWh); Expected (kWh); Performance; PF Band</b><br />
-                    Date format: Jan-25, Feb-25... Semicolon separated.
-                  </div>
-                  <label style={{ display: 'block', border: `2px dashed ${T.border}`, borderRadius: '10px', padding: '24px', textAlign: 'center', cursor: 'pointer', background: T.bgMuted, transition: 'border-color 0.2s' }}
-                    onMouseEnter={e => e.currentTarget.style.borderColor = T.blue}
-                    onMouseLeave={e => e.currentTarget.style.borderColor = T.border}>
-                    <i className="ti ti-file-upload" style={{ fontSize: '28px', color: T.blue, display: 'block', marginBottom: '8px' }} />
-                    <span style={{ fontSize: '12px', color: T.textSecondary }}>Click to select performance CSV</span>
-                    <input type="file" accept=".csv" onChange={handlePerfFile} style={{ display: 'none' }} disabled={upBusy} />
+                )
+              })()}
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(380px,1fr))', gap: '14px' }}>
+
+                {/* Performance */}
+                <div style={{ ...cardStyle, padding: '18px' }}>
+                  <div style={cardTitleStyle}><i className="ti ti-activity" style={{ color: T.blue }} />Performance Data</div>
+                  <div style={{ fontSize: '11px', color: T.textMuted, marginBottom: '12px', lineHeight: 1.6 }}>Columns: Site Name, Date (Mon-YY), Measured, Expected, Performance, PF Band, Discussion.</div>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 14px', background: 'rgba(43,127,212,0.12)', border: `1px solid rgba(43,127,212,0.35)`, borderRadius: '8px', color: T.blue, fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>
+                    <i className="ti ti-upload" />Choose CSV
+                    <input type="file" accept=".csv" onChange={handlePerfFile} style={{ display: 'none' }} />
                   </label>
                   {upPerf && (
-                    <div style={{ marginTop: '14px' }}>
-                      <div style={{ fontSize: '12px', color: T.textPrimary, marginBottom: '8px' }}>
-                        📄 <b>{upPerf.fileName}</b> — {upPerf.rows.length} valid records
-                        {upPerf.dupCount > 0 && <span style={{ color: T.textMuted }}> · {upPerf.dupCount} duplicates merged</span>}
-                        {upPerf.errors.length > 0 && <span style={{ color: T.red }}> · {upPerf.errors.length} rows skipped</span>}
+                    <div style={{ marginTop: '12px', padding: '12px', background: T.bgMuted, border: `1px solid ${T.border}`, borderRadius: '8px' }}>
+                      <div style={{ fontSize: '12px', color: T.textSecondary, marginBottom: '8px' }}>
+                        <i className="ti ti-file-text" style={{ color: T.blue, marginRight: '4px' }} /><b>{upPerf.fileName}</b>
                       </div>
-                      <div style={{ maxHeight: '160px', overflowY: 'auto', border: `1px solid ${T.border}`, borderRadius: '8px', marginBottom: '10px' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
-                          <thead><tr style={{ background: T.bgMuted }}>
-                            {['Site','Month','Year','Measured','Expected','Band'].map(h => <th key={h} style={{ padding: '5px 8px', textAlign: 'left', color: T.textMuted, fontSize: '9px', textTransform: 'uppercase' }}>{h}</th>)}
-                          </tr></thead>
-                          <tbody>
-                            {upPerf.rows.slice(0,8).map((r,i) => (
-                              <tr key={i} style={{ borderTop: `1px solid ${T.border}` }}>
-                                <td style={{ padding: '4px 8px', color: T.textPrimary }}>{r.site_name}</td>
-                                <td style={{ padding: '4px 8px', color: T.textSecondary }}>{r.month}</td>
-                                <td style={{ padding: '4px 8px', color: T.textSecondary }}>{r.year}</td>
-                                <td style={{ padding: '4px 8px', color: T.textSecondary }}>{r.kwh_produced ?? '—'}</td>
-                                <td style={{ padding: '4px 8px', color: T.textSecondary }}>{r.expected_kwh ?? '—'}</td>
-                                <td style={{ padding: '4px 8px', color: T.textSecondary }}>{r.pf_band ?? '—'}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button onClick={uploadPerf} disabled={upBusy} style={{ flex: 1, padding: '10px', background: T.blue, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: upBusy ? 'not-allowed' : 'pointer', opacity: upBusy ? 0.6 : 1 }}>
-                          {upBusy ? 'Uploading...' : `Upload ${upPerf.rows.length} records`}
-                        </button>
-                        <button onClick={() => setUpPerf(null)} disabled={upBusy} style={{ padding: '10px 16px', background: 'rgba(239,68,68,0.1)', color: T.red, border: `1px solid rgba(239,68,68,0.3)`, borderRadius: '8px', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
+                      <div style={{ fontSize: '11px', color: T.textMuted, marginBottom: '4px' }}>{upPerf.rows.length} valid rows{upPerf.dupCount > 0 ? ` · ${upPerf.dupCount} duplicates merged` : ''}{upPerf.errors.length > 0 ? ` · ${upPerf.errors.length} skipped` : ''}</div>
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                        <button disabled={upBusy} onClick={uploadPerf} style={{ padding: '7px 16px', background: T.blue, color: '#fff', border: 'none', borderRadius: '7px', fontSize: '12px', fontWeight: 700, cursor: upBusy ? 'default' : 'pointer', opacity: upBusy ? 0.6 : 1 }}>Upload</button>
+                        <button disabled={upBusy} onClick={() => setUpPerf(null)} style={{ padding: '7px 16px', background: 'transparent', color: T.textSecondary, border: `1px solid ${T.border}`, borderRadius: '7px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
                       </div>
                     </div>
                   )}
                 </div>
 
-                {/* Sites upload */}
-                <div style={{ ...cardStyle, padding: '20px' }}>
-                  <div style={{ fontSize: '14px', fontWeight: 700, color: T.green, marginBottom: '6px' }}>
-                    <i className="ti ti-map-pin" style={{ marginRight: '7px' }} />Site / Installation Info
-                  </div>
-                  <div style={{ fontSize: '11px', color: T.textMuted, marginBottom: '14px', lineHeight: 1.7 }}>
-                    CSV with columns: <b style={{ color: T.textSecondary }}>Site Name; Location; Province; Country; PV Capacity (W); Commisioned Date; Operational Satus; Contract Type; Business Type; Investment Party; Battery Size (Wh); Installer Name...</b><br />
-                    Same format as your site_tech_info file. Matched by Site Name.
-                  </div>
-                  <label style={{ display: 'block', border: `2px dashed rgba(125,194,66,0.3)`, borderRadius: '10px', padding: '24px', textAlign: 'center', cursor: 'pointer', background: T.bgMuted, transition: 'border-color 0.2s' }}
-                    onMouseEnter={e => e.currentTarget.style.borderColor = T.green}
-                    onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(125,194,66,0.3)'}>
-                    <i className="ti ti-file-upload" style={{ fontSize: '28px', color: T.green, display: 'block', marginBottom: '8px' }} />
-                    <span style={{ fontSize: '12px', color: T.textSecondary }}>Click to select sites CSV</span>
-                    <input type="file" accept=".csv" onChange={handleSitesFile} style={{ display: 'none' }} disabled={upBusy} />
+                {/* Sites */}
+                <div style={{ ...cardStyle, padding: '18px' }}>
+                  <div style={cardTitleStyle}><i className="ti ti-map-pin" style={{ color: T.green }} />Site Data</div>
+                  <div style={{ fontSize: '11px', color: T.textMuted, marginBottom: '12px', lineHeight: 1.6 }}>Columns: Site Name, Location, Province, PV Capacity, Contract Type, Business Type, Investment Party, Battery Size, etc.</div>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 14px', background: 'rgba(125,194,66,0.12)', border: `1px solid rgba(125,194,66,0.35)`, borderRadius: '8px', color: T.green, fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>
+                    <i className="ti ti-upload" />Choose CSV
+                    <input type="file" accept=".csv" onChange={handleSitesFile} style={{ display: 'none' }} />
                   </label>
                   {upSites && (
-                    <div style={{ marginTop: '14px' }}>
-                      <div style={{ fontSize: '12px', color: T.textPrimary, marginBottom: '8px' }}>
-                        📄 <b>{upSites.fileName}</b> — {upSites.rows.length} valid sites
-                        {upSites.errors.length > 0 && <span style={{ color: T.red }}> · {upSites.errors.length} rows skipped</span>}
+                    <div style={{ marginTop: '12px', padding: '12px', background: T.bgMuted, border: `1px solid ${T.border}`, borderRadius: '8px' }}>
+                      <div style={{ fontSize: '12px', color: T.textSecondary, marginBottom: '8px' }}>
+                        <i className="ti ti-file-text" style={{ color: T.green, marginRight: '4px' }} /><b>{upSites.fileName}</b>
                       </div>
-                      <div style={{ maxHeight: '160px', overflowY: 'auto', border: `1px solid ${T.border}`, borderRadius: '8px', marginBottom: '10px' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
-                          <thead><tr style={{ background: T.bgMuted }}>
-                            {['Site','Province','kWp','Contract','Investor','Status'].map(h => <th key={h} style={{ padding: '5px 8px', textAlign: 'left', color: T.textMuted, fontSize: '9px', textTransform: 'uppercase' }}>{h}</th>)}
-                          </tr></thead>
-                          <tbody>
-                            {upSites.rows.slice(0,8).map((r,i) => (
-                              <tr key={i} style={{ borderTop: `1px solid ${T.border}` }}>
-                                <td style={{ padding: '4px 8px', color: T.textPrimary }}>{r.name}</td>
-                                <td style={{ padding: '4px 8px', color: T.textSecondary }}>{r.province ?? '—'}</td>
-                                <td style={{ padding: '4px 8px', color: T.textSecondary }}>{r.capacity_kw ?? '—'}</td>
-                                <td style={{ padding: '4px 8px', color: T.textSecondary }}>{r.system_type ?? '—'}</td>
-                                <td style={{ padding: '4px 8px', color: T.textSecondary }}>{r.investment_party ?? '—'}</td>
-                                <td style={{ padding: '4px 8px', color: T.textSecondary }}>{r.status ?? '—'}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button onClick={uploadSites} disabled={upBusy} style={{ flex: 1, padding: '10px', background: T.green, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: upBusy ? 'not-allowed' : 'pointer', opacity: upBusy ? 0.6 : 1 }}>
-                          {upBusy ? 'Uploading...' : `Upload ${upSites.rows.length} sites`}
-                        </button>
-                        <button onClick={() => setUpSites(null)} disabled={upBusy} style={{ padding: '10px 16px', background: 'rgba(239,68,68,0.1)', color: T.red, border: `1px solid rgba(239,68,68,0.3)`, borderRadius: '8px', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
+                      <div style={{ fontSize: '11px', color: T.textMuted, marginBottom: '4px' }}>{upSites.rows.length} valid rows{upSites.errors.length > 0 ? ` · ${upSites.errors.length} skipped` : ''}</div>
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                        <button disabled={upBusy} onClick={uploadSites} style={{ padding: '7px 16px', background: T.green, color: '#fff', border: 'none', borderRadius: '7px', fontSize: '12px', fontWeight: 700, cursor: upBusy ? 'default' : 'pointer', opacity: upBusy ? 0.6 : 1 }}>Upload</button>
+                        <button disabled={upBusy} onClick={() => setUpSites(null)} style={{ padding: '7px 16px', background: 'transparent', color: T.textSecondary, border: `1px solid ${T.border}`, borderRadius: '7px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
                       </div>
                     </div>
                   )}
                 </div>
 
-                {/* Comments upload */}
-                <div style={{ ...cardStyle, padding: '20px' }}>
-                  <div style={{ fontSize: '14px', fontWeight: 700, color: T.orange, marginBottom: '6px' }}>
-                    <i className="ti ti-message-2" style={{ marginRight: '7px' }} />Technical Comments
-                  </div>
-                  <div style={{ fontSize: '11px', color: T.textMuted, marginBottom: '14px', lineHeight: 1.7 }}>
-                    CSV with columns: <b style={{ color: T.textSecondary }}>Site Name; Date; Availability; Downtime (days); Cause of downtime; Technical Events; Energy Impact; Other Comments</b><br />
-                    Date format: Jan-25, Feb-25... Semicolon separated. Rows with no data in any field are skipped.
-                  </div>
-                  <label style={{ display: 'block', border: `2px dashed rgba(240,165,0,0.3)`, borderRadius: '10px', padding: '24px', textAlign: 'center', cursor: 'pointer', background: T.bgMuted, transition: 'border-color 0.2s' }}
-                    onMouseEnter={e => e.currentTarget.style.borderColor = T.orange}
-                    onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(240,165,0,0.3)'}>
-                    <i className="ti ti-file-upload" style={{ fontSize: '28px', color: T.orange, display: 'block', marginBottom: '8px' }} />
-                    <span style={{ fontSize: '12px', color: T.textSecondary }}>Click to select comments CSV</span>
-                    <input type="file" accept=".csv" onChange={handleCommentsFile} style={{ display: 'none' }} disabled={upBusy} />
+                {/* Comments */}
+                <div style={{ ...cardStyle, padding: '18px' }}>
+                  <div style={cardTitleStyle}><i className="ti ti-message-2" style={{ color: T.yellow }} />Technical Comments</div>
+                  <div style={{ fontSize: '11px', color: T.textMuted, marginBottom: '12px', lineHeight: 1.6 }}>Columns: Site Name, Date, Availability, Downtime (days), Cause of Downtime, Technical Events, Energy Impact, Other Comments.</div>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 14px', background: 'rgba(245,208,0,0.12)', border: `1px solid rgba(245,208,0,0.35)`, borderRadius: '8px', color: T.yellow, fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>
+                    <i className="ti ti-upload" />Choose CSV
+                    <input type="file" accept=".csv" onChange={handleCommentsFile} style={{ display: 'none' }} />
                   </label>
                   {upComments && (
-                    <div style={{ marginTop: '14px' }}>
-                      <div style={{ fontSize: '12px', color: T.textPrimary, marginBottom: '8px' }}>
-                        📄 <b>{upComments.fileName}</b> — {upComments.rows.length} comments
-                        {upComments.emptySkipped > 0 && <span style={{ color: T.textMuted }}> · {upComments.emptySkipped} empty skipped</span>}
-                        {upComments.errors.length > 0 && <span style={{ color: T.red }}> · {upComments.errors.length} invalid rows</span>}
+                    <div style={{ marginTop: '12px', padding: '12px', background: T.bgMuted, border: `1px solid ${T.border}`, borderRadius: '8px' }}>
+                      <div style={{ fontSize: '12px', color: T.textSecondary, marginBottom: '8px' }}>
+                        <i className="ti ti-file-text" style={{ color: T.yellow, marginRight: '4px' }} /><b>{upComments.fileName}</b>
                       </div>
-                      <div style={{ maxHeight: '160px', overflowY: 'auto', border: `1px solid ${T.border}`, borderRadius: '8px', marginBottom: '10px' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
-                          <thead><tr style={{ background: T.bgMuted }}>
-                            {['Site','Month','Year','Availability','Downtime','Events'].map(h => <th key={h} style={{ padding: '5px 8px', textAlign: 'left', color: T.textMuted, fontSize: '9px', textTransform: 'uppercase' }}>{h}</th>)}
-                          </tr></thead>
-                          <tbody>
-                            {upComments.rows.slice(0,8).map((r,i) => (
-                              <tr key={i} style={{ borderTop: `1px solid ${T.border}` }}>
-                                <td style={{ padding: '4px 8px', color: T.textPrimary, whiteSpace: 'nowrap' }}>{r.site_name}</td>
-                                <td style={{ padding: '4px 8px', color: T.textSecondary }}>{r.month}</td>
-                                <td style={{ padding: '4px 8px', color: T.textSecondary }}>{r.year}</td>
-                                <td style={{ padding: '4px 8px', color: T.textSecondary, maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.availability || '—'}</td>
-                                <td style={{ padding: '4px 8px', color: T.textSecondary }}>{r.downtime_days != null ? r.downtime_days : '—'}</td>
-                                <td style={{ padding: '4px 8px', color: T.textSecondary, maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{[r.cause_of_downtime, r.technical_events].filter(Boolean).join('; ') || '—'}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button onClick={uploadComments} disabled={upBusy} style={{ flex: 1, padding: '10px', background: T.orange, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: upBusy ? 'not-allowed' : 'pointer', opacity: upBusy ? 0.6 : 1 }}>
-                          {upBusy ? 'Uploading...' : `Upload ${upComments.rows.length} comments`}
-                        </button>
-                        <button onClick={() => setUpComments(null)} disabled={upBusy} style={{ padding: '10px 16px', background: 'rgba(239,68,68,0.1)', color: T.red, border: `1px solid rgba(239,68,68,0.3)`, borderRadius: '8px', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
+                      <div style={{ fontSize: '11px', color: T.textMuted, marginBottom: '4px' }}>{upComments.rows.length} rows with comments{upComments.emptySkipped > 0 ? ` · ${upComments.emptySkipped} empty skipped` : ''}{upComments.errors.length > 0 ? ` · ${upComments.errors.length} invalid` : ''}</div>
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                        <button disabled={upBusy} onClick={uploadComments} style={{ padding: '7px 16px', background: T.yellow, color: '#1a2a4a', border: 'none', borderRadius: '7px', fontSize: '12px', fontWeight: 700, cursor: upBusy ? 'default' : 'pointer', opacity: upBusy ? 0.6 : 1 }}>Upload</button>
+                        <button disabled={upBusy} onClick={() => setUpComments(null)} style={{ padding: '7px 16px', background: 'transparent', color: T.textSecondary, border: `1px solid ${T.border}`, borderRadius: '7px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
                       </div>
                     </div>
                   )}
                 </div>
 
-                {/* Offtake Guarantees upload */}
-                <div style={{ ...cardStyle, padding: '20px' }}>
-                  <div style={{ fontSize: '14px', fontWeight: 700, color: T.blue, marginBottom: '6px' }}>
-                    <i className="ti ti-shield-check" style={{ marginRight: '7px' }} />Offtake Guarantees
-                  </div>
-                  <div style={{ fontSize: '11px', color: T.textMuted, marginBottom: '14px', lineHeight: 1.7 }}>
-                    CSV with columns: <b style={{ color: T.textSecondary }}>Site Name; Offtake Guarantee; Expected Utilisation%; Age; As-Built kWh; Guaranteed Generation (kWh); Unavailability kWh; Correct kWh; Actual Generation (kWh); Shortfall (kWh); Performance Rate; Notes</b><br />
-                    Matched by Site Name. Semicolon or comma separated.
-                  </div>
-                  <label style={{ display: 'block', border: `2px dashed rgba(11,116,215,0.3)`, borderRadius: '10px', padding: '24px', textAlign: 'center', cursor: 'pointer', background: T.bgMuted, transition: 'border-color 0.2s' }}
-                    onMouseEnter={e => e.currentTarget.style.borderColor = T.blue}
-                    onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(11,116,215,0.3)'}>
-                    <i className="ti ti-file-upload" style={{ fontSize: '28px', color: T.blue, display: 'block', marginBottom: '8px' }} />
-                    <span style={{ fontSize: '12px', color: T.textSecondary }}>Click to select offtake CSV</span>
-                    <input type="file" accept=".csv" onChange={handleOgFile} style={{ display: 'none' }} disabled={upBusy} />
+                {/* Offtake Guarantees */}
+                <div style={{ ...cardStyle, padding: '18px' }}>
+                  <div style={cardTitleStyle}><i className="ti ti-shield-check" style={{ color: T.blue }} />Offtake Guarantees</div>
+                  <div style={{ fontSize: '11px', color: T.textMuted, marginBottom: '12px', lineHeight: 1.6 }}>Columns: Site Name, Expected Utilisation, Age, As-Built, Guaranteed Generation, Unavailability, Correct, Actual Generation, Shortfall, Performance Rate, Notes.</div>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 14px', background: 'rgba(43,127,212,0.12)', border: `1px solid rgba(43,127,212,0.35)`, borderRadius: '8px', color: T.blue, fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>
+                    <i className="ti ti-upload" />Choose CSV
+                    <input type="file" accept=".csv" onChange={handleOgFile} style={{ display: 'none' }} />
                   </label>
                   {upOg && (
-                    <div style={{ marginTop: '14px' }}>
-                      <div style={{ fontSize: '12px', color: T.textPrimary, marginBottom: '8px' }}>
-                        📄 <b>{upOg.fileName}</b> — {upOg.rows.length} sites
-                        {upOg.errors.length > 0 && <span style={{ color: T.red }}> · {upOg.errors.length} invalid rows</span>}
+                    <div style={{ marginTop: '12px', padding: '12px', background: T.bgMuted, border: `1px solid ${T.border}`, borderRadius: '8px' }}>
+                      <div style={{ fontSize: '12px', color: T.textSecondary, marginBottom: '8px' }}>
+                        <i className="ti ti-file-text" style={{ color: T.blue, marginRight: '4px' }} /><b>{upOg.fileName}</b>
                       </div>
-                      <div style={{ maxHeight: '160px', overflowY: 'auto', border: `1px solid ${T.border}`, borderRadius: '8px', marginBottom: '10px' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
-                          <thead><tr style={{ background: T.bgMuted }}>
-                            {['Site','Util%','Guaranteed','Actual','Shortfall','Perf%'].map(h => <th key={h} style={{ padding: '5px 8px', textAlign: 'left', color: T.textMuted, fontSize: '9px', textTransform: 'uppercase' }}>{h}</th>)}
-                          </tr></thead>
-                          <tbody>
-                            {upOg.rows.slice(0,8).map((r,i) => (
-                              <tr key={i} style={{ borderTop: `1px solid ${T.border}` }}>
-                                <td style={{ padding: '4px 8px', color: T.textPrimary, whiteSpace: 'nowrap' }}>{r.site_name}</td>
-                                <td style={{ padding: '4px 8px', color: T.textSecondary }}>{r.expected_utilisation ?? '—'}</td>
-                                <td style={{ padding: '4px 8px', color: T.textSecondary }}>{r.correct_kwh != null ? Math.round(r.correct_kwh).toLocaleString() : '—'}</td>
-                                <td style={{ padding: '4px 8px', color: T.textSecondary }}>{r.actual_kwh != null ? Math.round(r.actual_kwh).toLocaleString() : '—'}</td>
-                                <td style={{ padding: '4px 8px', color: (r.shortfall_kwh ?? 0) >= 0 ? T.green : T.red }}>{r.shortfall_kwh != null ? Math.round(r.shortfall_kwh).toLocaleString() : '—'}</td>
-                                <td style={{ padding: '4px 8px', color: T.textSecondary }}>{r.performance_rate ?? '—'}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button onClick={uploadOg} disabled={upBusy} style={{ flex: 1, padding: '10px', background: T.blue, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: upBusy ? 'not-allowed' : 'pointer', opacity: upBusy ? 0.6 : 1 }}>
-                          {upBusy ? 'Uploading...' : `Upload ${upOg.rows.length} guarantees`}
-                        </button>
-                        <button onClick={() => setUpOg(null)} disabled={upBusy} style={{ padding: '10px 16px', background: 'rgba(239,68,68,0.1)', color: T.red, border: `1px solid rgba(239,68,68,0.3)`, borderRadius: '8px', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
+                      <div style={{ fontSize: '11px', color: T.textMuted, marginBottom: '4px' }}>{upOg.rows.length} valid rows{upOg.errors.length > 0 ? ` · ${upOg.errors.length} skipped` : ''}</div>
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                        <button disabled={upBusy} onClick={uploadOg} style={{ padding: '7px 16px', background: T.blue, color: '#fff', border: 'none', borderRadius: '7px', fontSize: '12px', fontWeight: 700, cursor: upBusy ? 'default' : 'pointer', opacity: upBusy ? 0.6 : 1 }}>Upload</button>
+                        <button disabled={upBusy} onClick={() => setUpOg(null)} style={{ padding: '7px 16px', background: 'transparent', color: T.textSecondary, border: `1px solid ${T.border}`, borderRadius: '7px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
                       </div>
                     </div>
                   )}
                 </div>
               </div>
 
-              <div style={{ background: 'rgba(245,208,0,0.06)', border: `1px solid rgba(245,208,0,0.2)`, borderRadius: '10px', padding: '14px 18px', marginTop: '16px', fontSize: '12px', color: T.yellow, lineHeight: 1.7, opacity: 0.9 }}>
-                <b>💡 How it works:</b> <span style={{ color: T.textSecondary }}>Records are matched by Site Name + Month + Year (performance &amp; comments) or Site Name (sites). If a match exists it gets <b style={{ color: T.textPrimary }}>updated</b>, otherwise a <b style={{ color: T.textPrimary }}>new record is added</b>. You can safely re-upload the same file — no duplicates will be created. Export your Excel sheet as CSV (semicolon separated) before uploading.</span>
+              <div style={{ marginTop: '16px', padding: '14px 16px', background: 'rgba(245,208,0,0.06)', border: `1px solid rgba(245,208,0,0.2)`, borderRadius: '10px', fontSize: '11px', color: T.textSecondary, lineHeight: 1.7 }}>
+                <i className="ti ti-info-circle" style={{ color: T.yellow, marginRight: '4px' }} /><b style={{ color: T.textPrimary }}>How it works:</b> Files are matched to existing records by site name and date, so re-uploading a corrected file updates the affected rows rather than creating duplicates. CSVs may be semicolon-, comma- or tab-separated — the delimiter is detected automatically. Rows missing a site name or a valid date are skipped and reported above.
               </div>
             </div>
           )}
 
-          {/* ── REPORTS ── */}
-          {activePage === 'report' && (() => {
-            const monthNamesR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-            const repSites = (repInvestor ? sites.filter(s => s.investment_party === repInvestor) : sites)
-            const [ry, rm] = repDate ? repDate.split('-').map(Number) : [null, null]
-            const repPerf = perfData.filter(p => {
-              const site = sites.find(s => s.name?.trim().toLowerCase() === p.site_name?.trim().toLowerCase())
-              const mI = !repInvestor || site?.investment_party === repInvestor
-              const mD = !repDate || (p.year === ry && p.month === rm)
-              return mI && mD
-            }).filter(p => p.kwh_produced != null || p.expected_kwh != null)
+          {activePage === 'report' && (
+            <div style={{ maxWidth: '900px' }}>
+              <div style={{ fontSize: '20px', fontWeight: 800, color: T.textWhite, marginBottom: '2px' }}>Reports</div>
+              <div style={{ fontSize: '12px', color: T.textSecondary, marginBottom: '18px' }}>Generate printable installation and performance reports by investor</div>
 
-            const rCap = repSites.reduce((s, x) => s + (x.capacity_kw || 0), 0)
-            const rBess = repSites.reduce((s, x) => s + (x.battery_size_wh || 0), 0)
-            const rMeas = repPerf.reduce((s, p) => s + (p.kwh_produced || 0), 0)
-            const rExp = repPerf.reduce((s, p) => s + (p.expected_kwh || 0), 0)
-            const rDelta = rExp > 0 ? (((rMeas - rExp) / rExp) * 100).toFixed(1) : null
-            const rExpC = repPerf.filter(p => p.pf_band === 'Expected').length
-            const rModC = repPerf.filter(p => p.pf_band === 'Moderate').length
-            const rPoorC = repPerf.filter(p => p.pf_band === 'Poor').length
-            const genDate = new Date().toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' })
-            const periodLabel = repDate ? `${monthNamesR[rm - 1]} ${ry}` : 'All periods'
-            const invLabel = repInvestor || 'All investment parties'
-
-            return (
-              <div>
-                {/* Controls */}
-                <div className="no-print">
-                  <div style={{ fontSize: '20px', fontWeight: 800, color: T.textWhite, marginBottom: '2px' }}>Reports</div>
-                  <div style={{ fontSize: '12px', color: T.textSecondary, marginBottom: '18px' }}>Generate filtered reports — use Print / Save as PDF to export</div>
-
-                  <div style={{ ...cardStyle, padding: '12px 16px', marginBottom: '16px', display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', gap: '5px' }}>
-                      {[{ id: 'install', label: 'Installation Overview' }, { id: 'perf', label: 'Site Performance' }].map(t => (
-                        <div key={t.id} className="tab" onClick={() => setRepType(t.id)} style={{ padding: '7px 15px', borderRadius: '20px', fontSize: '12px', border: `1px solid ${repType === t.id ? T.blue : T.border}`, cursor: 'pointer', background: repType === t.id ? T.blue : 'transparent', color: repType === t.id ? '#fff' : T.textSecondary, fontWeight: repType === t.id ? 700 : 400, transition: 'all 0.15s' }}>
-                          {t.label}
-                        </div>
-                      ))}
-                    </div>
-                    <select style={selectStyle} value={repInvestor} onChange={e => setRepInvestor(e.target.value)}>
-                      <option value="">All Investment Parties</option>
-                      {investors.map(i => <option key={i}>{i}</option>)}
+              <div style={{ ...cardStyle, padding: '18px', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.8px' }}>Report</span>
+                  <select style={selectStyle} value={repType} onChange={e => setRepType(e.target.value)}>
+                    <option value="install">Installation Summary</option>
+                    <option value="perf">Performance Summary</option>
+                  </select>
+                  <select style={selectStyle} value={repInvestor} onChange={e => setRepInvestor(e.target.value)}>
+                    <option value="">All Investors</option>
+                    {investors.map(i => <option key={i}>{i}</option>)}
+                  </select>
+                  {repType === 'perf' && (
+                    <select style={selectStyle} value={repDate} onChange={e => setRepDate(e.target.value)}>
+                      <option value="">All Dates</option>
+                      {perfDates.map(d => {
+                        const [y, m] = d.split('-')
+                        return <option key={d} value={d}>{monthNames[parseInt(m)-1]}-{y.slice(2)}</option>
+                      })}
                     </select>
-                    {repType === 'perf' && (
-                      <select style={selectStyle} value={repDate} onChange={e => setRepDate(e.target.value)}>
-                        <option value="">All Periods</option>
-                        {perfDates.map(d => {
-                          const [y, m] = d.split('-')
-                          return <option key={d} value={d}>{monthNamesR[parseInt(m)-1]}-{y.slice(2)}</option>
-                        })}
-                      </select>
-                    )}
-                    <button onClick={() => window.print()} style={{ marginLeft: 'auto', padding: '8px 18px', background: T.blue, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>
-                      <i className="ti ti-printer" style={{ marginRight: '6px' }} />Print / Save PDF
-                    </button>
-                  </div>
+                  )}
+                  <button onClick={() => window.print()} style={{ marginLeft: 'auto', padding: '8px 18px', background: T.blue, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>
+                    <i className="ti ti-printer" style={{ marginRight: '6px' }} />Print / Save PDF
+                  </button>
                 </div>
+              </div>
 
-                {/* Report document — stays white for print */}
-                <div className="print-area" style={{ background: '#fff', color: '#1a2a4a', border: `1px solid ${T.border}`, borderRadius: '12px', padding: '32px', maxWidth: '900px' }}>
+              {(() => {
+                const navy = '#1a2a4a', grey = '#8a9aae'
+                const repSites = sites.filter(s => !repInvestor || s.investment_party === repInvestor)
+                const genDate = new Date().toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' })
+                const Header = () => (
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '3px solid #2B7FD4', paddingBottom: '18px', marginBottom: '22px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                       <svg width="44" height="50" viewBox="0 0 46 52" fill="none">
@@ -2658,151 +2420,130 @@ export default function DashboardPage() {
                         <rect x="14" y="20" width="14" height="12" rx="2" fill="#7DC242" transform="rotate(-8 14 20)"/>
                       </svg>
                       <div>
-                        <div style={{ fontSize: '22px', fontWeight: 800, color: '#2B7FD4' }}>Sosimple Energy</div>
-                        <div style={{ fontSize: '10px', color: '#7DC242', fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase' }}>Cheap energy. Clean business.</div>
+                        <div style={{ fontSize: '18px', fontWeight: 800, color: '#2B7FD4' }}>Sosimple Energy</div>
+                        <div style={{ fontSize: '8px', color: '#7DC242', fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase' }}>Cheap energy. Clean business.</div>
                       </div>
                     </div>
-                    <div style={{ textAlign: 'right', fontSize: '11px', color: '#7a9aba', lineHeight: 1.7 }}>
+                    <div style={{ textAlign: 'right', fontSize: '9px', color: '#7a9aba', lineHeight: 1.7 }}>
                       Generated: {genDate}<br />
-                      Investment Party: <b style={{ color: '#1a2a4a' }}>{invLabel}</b>
-                      {repType === 'perf' && <><br />Period: <b style={{ color: '#1a2a4a' }}>{periodLabel}</b></>}
+                      Investor: <b style={{ color: navy }}>{repInvestor || 'All investors'}</b>
                     </div>
                   </div>
+                )
+                const sectionTitle = (t) => <div style={{ fontSize: '10px', fontWeight: 800, color: navy, textTransform: 'uppercase', letterSpacing: '0.8px', borderTop: '2px solid #2B7FD4', paddingTop: '10px', marginBottom: '10px' }}>{t}</div>
 
-                  <div style={{ fontSize: '20px', fontWeight: 700, color: '#1a2a4a', marginBottom: '18px' }}>
-                    {repType === 'install' ? 'Installation Overview Report' : 'Site Performance Report'}
-                  </div>
-
-                  {repType === 'install' ? (
-                    <>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px', marginBottom: '24px' }}>
+                if (repType === 'install') {
+                  const totCap = repSites.reduce((s, x) => s + (x.capacity_kw || 0), 0)
+                  const totBess = repSites.reduce((s, x) => s + (x.battery_size_wh || 0), 0)
+                  const active = repSites.filter(s => s.status === 'active').length
+                  return (
+                    <div className="print-area" style={{ background: '#fff', color: navy, border: `1px solid ${T.border}`, borderRadius: '12px', padding: '32px' }}>
+                      <Header />
+                      <div style={{ fontSize: '16px', fontWeight: 700, color: navy, marginBottom: '18px' }}>Installation Summary Report</div>
+                      {sectionTitle('Portfolio Summary')}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', marginBottom: '24px', border: '1px solid #dde5ee', borderRadius: '6px', overflow: 'hidden' }}>
                         {[
-                          { label: 'Total Sites', val: repSites.length },
-                          { label: 'Capacity (MWp)', val: (rCap/1000).toFixed(2) },
-                          { label: 'BESS (MWh)', val: (rBess/1000000).toFixed(2) },
-                          { label: 'PPA Sites', val: repSites.filter(s=>s.system_type==='PPA').length },
-                          { label: 'RTO Sites', val: repSites.filter(s=>s.system_type==='RTO').length },
-                        ].map(k => (
-                          <div key={k.label} style={{ background: '#f8fbff', border: '1px solid #dce8f8', borderRadius: '8px', padding: '12px', textAlign: 'center' }}>
-                            <div style={{ fontSize: '22px', fontWeight: 700, color: '#2B7FD4' }}>{k.val}</div>
-                            <div style={{ fontSize: '10px', color: '#7a9aba', marginTop: '2px' }}>{k.label}</div>
+                          ['Total Sites', repSites.length, navy],
+                          ['Active', active, '#3a9b3a'],
+                          ['Capacity', `${(totCap/1000).toFixed(2)} MWp`, '#2B7FD4'],
+                          ['BESS', `${(totBess/1000000).toFixed(2)} MWh`, '#7DC242'],
+                        ].map(([l, v, c]) => (
+                          <div key={l} style={{ padding: '12px 16px', borderLeft: '1px solid #dde5ee' }}>
+                            <div style={{ fontSize: '8px', fontWeight: 700, color: grey, textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: '5px' }}>{l}</div>
+                            <div style={{ fontSize: '17px', fontWeight: 800, color: c }}>{v}</div>
                           </div>
                         ))}
                       </div>
+                      {sectionTitle('Site Breakdown')}
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
-                        <thead><tr style={{ background: '#2B7FD4' }}>
-                          {['Site Name','Province','Capacity (kWp)','BESS (kWh)','Contract','Type','Investor','Status'].map(h => (
-                            <th key={h} style={{ padding: '8px 9px', textAlign: 'left', color: '#fff', fontSize: '10px', fontWeight: 600 }}>{h}</th>
-                          ))}
-                        </tr></thead>
-                        <tbody>
-                          {repSites.map((s, i) => (
-                            <tr key={s.id} style={{ background: i%2===0 ? '#fff' : '#f8fbff' }}>
-                              <td style={{ padding: '6px 9px', borderBottom: '1px solid #f0f6ff', fontWeight: 500 }}>{s.name}</td>
-                              <td style={{ padding: '6px 9px', borderBottom: '1px solid #f0f6ff' }}>{s.province||'—'}</td>
-                              <td style={{ padding: '6px 9px', borderBottom: '1px solid #f0f6ff' }}>{s.capacity_kw??'—'}</td>
-                              <td style={{ padding: '6px 9px', borderBottom: '1px solid #f0f6ff' }}>{s.battery_size_wh>0?(s.battery_size_wh/1000).toFixed(1):'—'}</td>
-                              <td style={{ padding: '6px 9px', borderBottom: '1px solid #f0f6ff' }}>{s.system_type||'—'}</td>
-                              <td style={{ padding: '6px 9px', borderBottom: '1px solid #f0f6ff' }}>{s.business_type||'—'}</td>
-                              <td style={{ padding: '6px 9px', borderBottom: '1px solid #f0f6ff' }}>{s.investment_party||'—'}</td>
-                              <td style={{ padding: '6px 9px', borderBottom: '1px solid #f0f6ff' }}>{s.status||'active'}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                        <tfoot>
-                          <tr style={{ background: '#f0f6ff', fontWeight: 700 }}>
-                            <td colSpan={2} style={{ padding: '8px 9px', fontSize: '10px' }}>TOTAL — {repSites.length} sites</td>
-                            <td style={{ padding: '8px 9px', fontSize: '10px' }}>{rCap.toFixed(1)} kWp</td>
-                            <td style={{ padding: '8px 9px', fontSize: '10px' }}>{(rBess/1000).toFixed(1)} kWh</td>
-                            <td colSpan={4}></td>
+                        <thead>
+                          <tr style={{ background: '#f4f8fc', borderBottom: '2px solid #2B7FD4' }}>
+                            {['Site', 'Province', 'Capacity (kWp)', 'BESS (kWh)', 'Type', 'Contract', 'Status'].map((h, i) => (
+                              <th key={h} style={{ textAlign: i === 0 ? 'left' : 'right', padding: '7px 9px', fontSize: '9px', color: '#5a7aaa', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px' }}>{h}</th>
+                            ))}
                           </tr>
-                        </tfoot>
-                      </table>
-                    </>
-                  ) : (
-                    <>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: '10px', marginBottom: '24px' }}>
-                        {[
-                          { label: 'Records', val: repPerf.length },
-                          { label: 'Measured (kWh)', val: rMeas.toLocaleString() },
-                          { label: 'Expected (kWh)', val: rExp.toLocaleString() },
-                          { label: 'Δ vs Expected', val: rDelta!=null?`${rDelta>0?'+':''}${rDelta}%`:'—', color: rDelta>=0?'#3a7a00':'#9a1a1a' },
-                          { label: 'Expected Band', val: rExpC },
-                          { label: 'Moderate / Poor', val: `${rModC} / ${rPoorC}` },
-                        ].map(k => (
-                          <div key={k.label} style={{ background: '#f8fbff', border: '1px solid #dce8f8', borderRadius: '8px', padding: '12px', textAlign: 'center' }}>
-                            <div style={{ fontSize: '16px', fontWeight: 700, color: k.color||'#2B7FD4' }}>{k.val}</div>
-                            <div style={{ fontSize: '9px', color: '#7a9aba', marginTop: '2px' }}>{k.label}</div>
-                          </div>
-                        ))}
-                      </div>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px', tableLayout: 'fixed' }}>
-                        <thead><tr style={{ background: '#2B7FD4' }}>
-                          {[
-                            { label: 'Site Name', w: '9%' },
-                            { label: 'Period', w: '5%' },
-                            { label: 'Measured kWh', w: '7%' },
-                            { label: 'Expected kWh', w: '7%' },
-                            { label: 'Δ %', w: '5%' },
-                            { label: 'Perf %', w: '5%' },
-                            { label: 'PF Band', w: '6%' },
-                            { label: 'Availability', w: '15%' },
-                            { label: 'Downtime', w: '6%' },
-                            { label: 'Cause of Downtime', w: '9%' },
-                            { label: 'Technical Events', w: '9%' },
-                            { label: 'Energy Impact', w: '6%' },
-                            { label: 'Other Comments', w: '9%' },
-                          ].map(h => (
-                            <th key={h.label} style={{ width: h.w, padding: '7px 7px', textAlign: 'left', color: '#fff', fontSize: '9px', fontWeight: 600 }}>{h.label}</th>
-                          ))}
-                        </tr></thead>
+                        </thead>
                         <tbody>
-                          {repPerf.length===0 ? (
-                            <tr><td colSpan={13} style={{ padding: '20px', textAlign: 'center', color: '#9ab8d8' }}>No performance records for the selected filters</td></tr>
-                          ) : repPerf.map((p,i) => {
-                            const d = p.kwh_produced!=null&&p.expected_kwh>0?(((p.kwh_produced-p.expected_kwh)/p.expected_kwh)*100).toFixed(1):null
-                            const cc = (v, extra={}) => <td style={{ padding: '6px 7px', borderBottom: '1px solid #f0f6ff', fontSize: '9px', color: '#5a7aaa', whiteSpace: 'pre-line', wordBreak: 'break-word', verticalAlign: 'top', ...extra }}>{v!=null&&v!==''?v:'—'}</td>
-                            return (
-                              <tr key={p.id} style={{ background: i%2===0?'#fff':'#f8fbff' }}>
-                                <td style={{ padding: '6px 7px', borderBottom: '1px solid #f0f6ff', fontWeight: 500, verticalAlign: 'top', wordBreak: 'break-word' }}>{p.site_name}</td>
-                                <td style={{ padding: '6px 7px', borderBottom: '1px solid #f0f6ff', whiteSpace: 'nowrap', verticalAlign: 'top' }}>{monthNamesR[p.month-1]}-{String(p.year).slice(2)}</td>
-                                <td style={{ padding: '6px 7px', borderBottom: '1px solid #f0f6ff', verticalAlign: 'top' }}>{p.kwh_produced!=null?p.kwh_produced.toLocaleString():'—'}</td>
-                                <td style={{ padding: '6px 7px', borderBottom: '1px solid #f0f6ff', verticalAlign: 'top' }}>{p.expected_kwh!=null?p.expected_kwh.toLocaleString():'—'}</td>
-                                <td style={{ padding: '6px 7px', borderBottom: '1px solid #f0f6ff', fontWeight: 600, verticalAlign: 'top', color: d==null?'#9ab8d8':d>=0?'#3a7a00':'#9a1a1a' }}>{d!=null?`${d>0?'+':''}${d}%`:'—'}</td>
-                                <td style={{ padding: '6px 7px', borderBottom: '1px solid #f0f6ff', fontWeight: 600, verticalAlign: 'top', color: p.performance_pct==null?'#9ab8d8':p.performance_pct>=100?'#3a7a00':p.performance_pct>=90?'#b8860b':'#9a1a1a' }}>{p.performance_pct!=null?`${parseFloat(p.performance_pct).toFixed(1)}%`:'—'}</td>
-                                <td style={{ padding: '6px 7px', borderBottom: '1px solid #f0f6ff', verticalAlign: 'top' }}>{p.pf_band||'—'}</td>
-                                {cc(p.availability)}
-                                {cc(p.downtime_days, { color: p.downtime_days && p.downtime_days!=='0' && !/^(none|n\/a|-+)$/i.test(String(p.downtime_days)) ? '#9a1a1a' : '#5a7aaa' })}
-                                {cc(p.cause_of_downtime)}
-                                {cc(p.technical_events)}
-                                {cc(p.energy_impact)}
-                                {cc(p.other_comments)}
-                              </tr>
-                            )
-                          })}
-                        </tbody>
-                        {repPerf.length>0&&(
-                          <tfoot>
-                            <tr style={{ background: '#f0f6ff', fontWeight: 700 }}>
-                              <td colSpan={2} style={{ padding: '8px 7px', fontSize: '9px' }}>TOTAL — {repPerf.length} records</td>
-                              <td style={{ padding: '8px 7px', fontSize: '9px' }}>{rMeas.toLocaleString()}</td>
-                              <td style={{ padding: '8px 7px', fontSize: '9px' }}>{rExp.toLocaleString()}</td>
-                              <td style={{ padding: '8px 7px', fontSize: '9px', color: rDelta>=0?'#3a7a00':'#9a1a1a' }}>{rDelta!=null?`${rDelta>0?'+':''}${rDelta}%`:'—'}</td>
-                              <td colSpan={8}></td>
+                          {repSites.map(s => (
+                            <tr key={s.id} style={{ borderBottom: '1px solid #e8eef6' }}>
+                              <td style={{ padding: '6px 9px', fontWeight: 600, color: navy, whiteSpace: 'nowrap' }}>{s.name}</td>
+                              <td style={{ padding: '6px 9px', textAlign: 'right', color: '#33475f' }}>{s.province || '—'}</td>
+                              <td style={{ padding: '6px 9px', textAlign: 'right', color: '#33475f' }}>{s.capacity_kw != null ? s.capacity_kw.toLocaleString() : '—'}</td>
+                              <td style={{ padding: '6px 9px', textAlign: 'right', color: '#33475f' }}>{s.battery_size_wh > 0 ? (s.battery_size_wh/1000).toLocaleString() : '—'}</td>
+                              <td style={{ padding: '6px 9px', textAlign: 'right', color: '#33475f' }}>{s.business_type || '—'}</td>
+                              <td style={{ padding: '6px 9px', textAlign: 'right', color: '#33475f' }}>{s.system_type || '—'}</td>
+                              <td style={{ padding: '6px 9px', textAlign: 'right', color: s.status === 'active' ? '#3a9b3a' : '#d23b3b', fontWeight: 700 }}>{s.status || 'active'}</td>
                             </tr>
-                          </tfoot>
-                        )}
+                          ))}
+                        </tbody>
                       </table>
-                    </>
-                  )}
+                      <div style={{ fontSize: '9px', color: '#9ab0c8', borderTop: '1px solid #dde5ee', paddingTop: '12px', marginTop: '16px', lineHeight: 1.7 }}>
+                        © {new Date().getFullYear()} Sosimple Energy — Cheap energy. Clean business.
+                      </div>
+                    </div>
+                  )
+                }
 
-                  <div style={{ marginTop: '24px', paddingTop: '14px', borderTop: '1px solid #dce8f8', fontSize: '10px', color: '#9ab8d8', textAlign: 'center' }}>
-                    © {new Date().getFullYear()} Sosimple Energy — Confidential. Generated from the Sosimple Performance Portal.
+                // Performance summary
+                const perfRows = perfData.filter(p => {
+                  const mI = !repInvestor || getInvestor(p) === repInvestor
+                  const mD = !repDate || dateKey(p) === repDate
+                  return mI && mD
+                })
+                const totMeas = perfRows.reduce((s, p) => s + (p.kwh_produced || 0), 0)
+                const totExp = perfRows.reduce((s, p) => s + (p.expected_kwh || 0), 0)
+                const avgPerf = perfRows.filter(p => p.performance_pct != null).length > 0
+                  ? (perfRows.filter(p => p.performance_pct != null).reduce((s, p) => s + p.performance_pct, 0) / perfRows.filter(p => p.performance_pct != null).length).toFixed(1)
+                  : '—'
+                return (
+                  <div className="print-area" style={{ background: '#fff', color: navy, border: `1px solid ${T.border}`, borderRadius: '12px', padding: '32px' }}>
+                    <Header />
+                    <div style={{ fontSize: '16px', fontWeight: 700, color: navy, marginBottom: '18px' }}>Performance Summary Report</div>
+                    {sectionTitle('Summary')}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', marginBottom: '24px', border: '1px solid #dde5ee', borderRadius: '6px', overflow: 'hidden' }}>
+                      {[
+                        ['Records', perfRows.length, navy],
+                        ['Measured', `${(totMeas/1000).toFixed(0)}k kWh`, '#2B7FD4'],
+                        ['Expected', `${(totExp/1000).toFixed(0)}k kWh`, '#33475f'],
+                        ['Avg Performance', `${avgPerf}%`, '#7DC242'],
+                      ].map(([l, v, c]) => (
+                        <div key={l} style={{ padding: '12px 16px', borderLeft: '1px solid #dde5ee' }}>
+                          <div style={{ fontSize: '8px', fontWeight: 700, color: grey, textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: '5px' }}>{l}</div>
+                          <div style={{ fontSize: '17px', fontWeight: 800, color: c }}>{v}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {sectionTitle('Records')}
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+                      <thead>
+                        <tr style={{ background: '#f4f8fc', borderBottom: '2px solid #2B7FD4' }}>
+                          {['Site', 'Date', 'Measured (kWh)', 'Expected (kWh)', 'Performance %', 'Band'].map((h, i) => (
+                            <th key={h} style={{ textAlign: i === 0 ? 'left' : 'right', padding: '7px 9px', fontSize: '9px', color: '#5a7aaa', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px' }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {perfRows.slice(0, 400).map((p, i) => (
+                          <tr key={p.id || i} style={{ borderBottom: '1px solid #e8eef6' }}>
+                            <td style={{ padding: '6px 9px', fontWeight: 600, color: navy, whiteSpace: 'nowrap' }}>{p.site_name}</td>
+                            <td style={{ padding: '6px 9px', textAlign: 'right', color: '#33475f' }}>{fmtDate(p.month, p.year)}</td>
+                            <td style={{ padding: '6px 9px', textAlign: 'right', color: navy, fontWeight: 700 }}>{p.kwh_produced != null ? Math.round(p.kwh_produced).toLocaleString() : '—'}</td>
+                            <td style={{ padding: '6px 9px', textAlign: 'right', color: '#33475f' }}>{p.expected_kwh != null ? Math.round(p.expected_kwh).toLocaleString() : '—'}</td>
+                            <td style={{ padding: '6px 9px', textAlign: 'right', fontWeight: 700, color: p.performance_pct >= 90 ? '#3a9b3a' : p.performance_pct >= 70 ? '#f0820a' : '#d23b3b' }}>{p.performance_pct != null ? `${p.performance_pct.toFixed(1)}%` : '—'}</td>
+                            <td style={{ padding: '6px 9px', textAlign: 'right', color: '#33475f' }}>{p.pf_band || '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {perfRows.length > 400 && <div style={{ fontSize: '9px', color: '#9ab0c8', marginTop: '8px' }}>Showing first 400 of {perfRows.length} records — filter by date or investor to narrow.</div>}
+                    <div style={{ fontSize: '9px', color: '#9ab0c8', borderTop: '1px solid #dde5ee', paddingTop: '12px', marginTop: '16px', lineHeight: 1.7 }}>
+                      © {new Date().getFullYear()} Sosimple Energy — Cheap energy. Clean business.
+                    </div>
                   </div>
-                </div>
-              </div>
-            )
-          })()}
+                )
+              })()}
+            </div>
+          )}
 
         </main>
       </div>
