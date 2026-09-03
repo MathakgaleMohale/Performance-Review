@@ -2356,41 +2356,43 @@ export default function DashboardPage() {
           )}
 
           {activePage === 'report' && (
-            <div style={{ maxWidth: '900px' }}>
+            <div>
               <div style={{ fontSize: '20px', fontWeight: 800, color: T.textWhite, marginBottom: '2px' }}>Reports</div>
-              <div style={{ fontSize: '12px', color: T.textSecondary, marginBottom: '18px' }}>Generate printable installation and performance reports by investor</div>
+              <div style={{ fontSize: '12px', color: T.textSecondary, marginBottom: '18px' }}>Generate filtered reports — use Print / Save as PDF to export</div>
 
-              <div style={{ ...cardStyle, padding: '18px', marginBottom: '16px' }}>
-                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-                  <span style={{ fontSize: '11px', fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.8px' }}>Report</span>
-                  <select style={selectStyle} value={repType} onChange={e => setRepType(e.target.value)}>
-                    <option value="install">Installation Summary</option>
-                    <option value="perf">Performance Summary</option>
-                  </select>
-                  <select style={selectStyle} value={repInvestor} onChange={e => setRepInvestor(e.target.value)}>
-                    <option value="">All Investors</option>
-                    {investors.map(i => <option key={i}>{i}</option>)}
-                  </select>
-                  {repType === 'perf' && (
-                    <select style={selectStyle} value={repDate} onChange={e => setRepDate(e.target.value)}>
-                      <option value="">All Dates</option>
-                      {perfDates.map(d => {
-                        const [y, m] = d.split('-')
-                        return <option key={d} value={d}>{monthNames[parseInt(m)-1]}-{y.slice(2)}</option>
-                      })}
-                    </select>
-                  )}
-                  <button onClick={() => window.print()} style={{ marginLeft: 'auto', padding: '8px 18px', background: T.blue, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>
-                    <i className="ti ti-printer" style={{ marginRight: '6px' }} />Print / Save PDF
-                  </button>
+              <div className="no-print" style={{ ...cardStyle, padding: '12px 16px', marginBottom: '16px', display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <div style={{ display: 'inline-flex', background: T.bgMuted, border: `1px solid ${T.border}`, borderRadius: '999px', padding: '3px' }}>
+                  {[['install', 'Installation Overview'], ['perf', 'Site Performance']].map(([k, label]) => (
+                    <button key={k} onClick={() => setRepType(k)}
+                      style={{ padding: '7px 18px', borderRadius: '999px', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 700, background: repType === k ? T.blue : 'transparent', color: repType === k ? '#fff' : T.textSecondary, transition: 'all 0.15s' }}>
+                      {label}
+                    </button>
+                  ))}
                 </div>
+                <select style={selectStyle} value={repInvestor} onChange={e => setRepInvestor(e.target.value)}>
+                  <option value="">All Investment Parties</option>
+                  {investors.map(i => <option key={i}>{i}</option>)}
+                </select>
+                {repType === 'perf' && (
+                  <select style={selectStyle} value={repDate} onChange={e => setRepDate(e.target.value)}>
+                    <option value="">All periods</option>
+                    {perfDates.map(d => {
+                      const [y, m] = d.split('-')
+                      return <option key={d} value={d}>{monthNames[parseInt(m)-1]}-{y.slice(2)}</option>
+                    })}
+                  </select>
+                )}
+                <button onClick={() => window.print()} style={{ marginLeft: 'auto', padding: '8px 18px', background: T.blue, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>
+                  <i className="ti ti-printer" style={{ marginRight: '6px' }} />Print / Save PDF
+                </button>
               </div>
 
               {(() => {
                 const navy = '#1a2a4a', grey = '#8a9aae'
-                const repSites = sites.filter(s => !repInvestor || s.investment_party === repInvestor)
                 const genDate = new Date().toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' })
-                const Header = () => (
+                const fmtN = (n) => Number(n).toLocaleString()
+
+                const ReportHeader = ({ showPeriod }) => (
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '3px solid #2B7FD4', paddingBottom: '18px', marginBottom: '22px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                       <img src="/sosimple-icon.png" alt="Sosimple" width="44" height="50" style={{ height: '50px', width: 'auto', display: 'block' }} />
@@ -2401,117 +2403,203 @@ export default function DashboardPage() {
                     </div>
                     <div style={{ textAlign: 'right', fontSize: '9px', color: '#7a9aba', lineHeight: 1.7 }}>
                       Generated: {genDate}<br />
-                      Investor: <b style={{ color: navy }}>{repInvestor || 'All investors'}</b>
+                      Investment Party: <b style={{ color: navy }}>{repInvestor || 'All investment parties'}</b>
+                      {showPeriod && <><br />Period: <b style={{ color: navy }}>{repDate ? (() => { const [y, m] = repDate.split('-'); return `${monthNames[parseInt(m)-1]}-${y.slice(2)}` })() : 'All periods'}</b></>}
                     </div>
                   </div>
                 )
-                const sectionTitle = (t) => <div style={{ fontSize: '10px', fontWeight: 800, color: navy, textTransform: 'uppercase', letterSpacing: '0.8px', borderTop: '2px solid #2B7FD4', paddingTop: '10px', marginBottom: '10px' }}>{t}</div>
 
+                // ── INSTALLATION OVERVIEW ─────────────────────────────────────
                 if (repType === 'install') {
-                  const totCap = repSites.reduce((s, x) => s + (x.capacity_kw || 0), 0)
-                  const totBess = repSites.reduce((s, x) => s + (x.battery_size_wh || 0), 0)
-                  const active = repSites.filter(s => s.status === 'active').length
+                  const rSites = sites.filter(s => !repInvestor || s.investment_party === repInvestor)
+                    .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+                  const totCap = rSites.reduce((s, x) => s + (x.capacity_kw || 0), 0)
+                  const totBess = rSites.reduce((s, x) => s + (x.battery_size_wh || 0), 0)
+                  const active = rSites.filter(s => s.status === 'active').length
+                  const ppa = rSites.filter(s => s.system_type === 'PPA').length
+                  const rto = rSites.filter(s => s.system_type === 'RTO').length
+
+                  const kpis = [
+                    { label: 'Total Sites', val: rSites.length.toLocaleString(), color: '#2B7FD4' },
+                    { label: 'Active', val: active.toLocaleString(), color: '#3a9b3a' },
+                    { label: 'Capacity (MWp)', val: (totCap / 1000).toFixed(2), color: '#2B7FD4' },
+                    { label: 'BESS (MWh)', val: (totBess / 1000000).toFixed(2), color: '#7DC242' },
+                    { label: 'PPA Sites', val: ppa.toLocaleString(), color: '#2B7FD4' },
+                    { label: 'RTO Sites', val: rto.toLocaleString(), color: '#2B7FD4' },
+                  ]
+                  const cols = [
+                    { label: 'Site Name', w: '15%', align: 'left' },
+                    { label: 'Province', w: '11%', align: 'left' },
+                    { label: 'Capacity (kWp)', w: '9%', align: 'right' },
+                    { label: 'BESS (kWh)', w: '8%', align: 'right' },
+                    { label: 'Business Type', w: '11%', align: 'left' },
+                    { label: 'Contract', w: '8%', align: 'left' },
+                    { label: 'Investor', w: '10%', align: 'left' },
+                    { label: 'Age', w: '7%', align: 'right' },
+                    { label: 'Power Limit', w: '9%', align: 'left' },
+                    { label: 'Status', w: '7%', align: 'left' },
+                  ]
+
                   return (
                     <div className="print-area" style={{ background: '#fff', color: navy, border: `1px solid ${T.border}`, borderRadius: '12px', padding: '32px' }}>
-                      <Header />
-                      <div style={{ fontSize: '16px', fontWeight: 700, color: navy, marginBottom: '18px' }}>Installation Summary Report</div>
-                      {sectionTitle('Portfolio Summary')}
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', marginBottom: '24px', border: '1px solid #dde5ee', borderRadius: '6px', overflow: 'hidden' }}>
-                        {[
-                          ['Total Sites', repSites.length, navy],
-                          ['Active', active, '#3a9b3a'],
-                          ['Capacity', `${(totCap/1000).toFixed(2)} MWp`, '#2B7FD4'],
-                          ['BESS', `${(totBess/1000000).toFixed(2)} MWh`, '#7DC242'],
-                        ].map(([l, v, c]) => (
-                          <div key={l} style={{ padding: '12px 16px', borderLeft: '1px solid #dde5ee' }}>
-                            <div style={{ fontSize: '8px', fontWeight: 700, color: grey, textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: '5px' }}>{l}</div>
-                            <div style={{ fontSize: '17px', fontWeight: 800, color: c }}>{v}</div>
+                      <ReportHeader showPeriod={false} />
+                      <div style={{ fontSize: '18px', fontWeight: 800, color: navy, marginBottom: '18px' }}>Installation Overview</div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: '12px', marginBottom: '24px' }}>
+                        {kpis.map(k => (
+                          <div key={k.label} style={{ background: '#f7fafd', border: '1px solid #e3ecf6', borderRadius: '8px', padding: '14px 12px', textAlign: 'center' }}>
+                            <div style={{ fontSize: '17px', fontWeight: 800, color: k.color, lineHeight: 1.1 }}>{k.val}</div>
+                            <div style={{ fontSize: '9px', color: grey, marginTop: '5px', fontWeight: 500 }}>{k.label}</div>
                           </div>
                         ))}
                       </div>
-                      {sectionTitle('Site Breakdown')}
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px', tableLayout: 'fixed' }}>
                         <thead>
-                          <tr style={{ background: '#f4f8fc', borderBottom: '2px solid #2B7FD4' }}>
-                            {['Site', 'Province', 'Capacity (kWp)', 'BESS (kWh)', 'Type', 'Contract', 'Status'].map((h, i) => (
-                              <th key={h} style={{ textAlign: i === 0 ? 'left' : 'right', padding: '7px 9px', fontSize: '9px', color: '#5a7aaa', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px' }}>{h}</th>
+                          <tr style={{ background: '#2B7FD4' }}>
+                            {cols.map(c => (
+                              <th key={c.label} style={{ width: c.w, textAlign: c.align, padding: '9px 8px', fontSize: '8.5px', color: '#fff', fontWeight: 700 }}>{c.label}</th>
                             ))}
                           </tr>
                         </thead>
                         <tbody>
-                          {repSites.map(s => (
-                            <tr key={s.id} style={{ borderBottom: '1px solid #e8eef6' }}>
-                              <td style={{ padding: '6px 9px', fontWeight: 600, color: navy, whiteSpace: 'nowrap' }}>{s.name}</td>
-                              <td style={{ padding: '6px 9px', textAlign: 'right', color: '#33475f' }}>{s.province || '—'}</td>
-                              <td style={{ padding: '6px 9px', textAlign: 'right', color: '#33475f' }}>{s.capacity_kw != null ? s.capacity_kw.toLocaleString() : '—'}</td>
-                              <td style={{ padding: '6px 9px', textAlign: 'right', color: '#33475f' }}>{s.battery_size_wh > 0 ? (s.battery_size_wh/1000).toLocaleString() : '—'}</td>
-                              <td style={{ padding: '6px 9px', textAlign: 'right', color: '#33475f' }}>{s.business_type || '—'}</td>
-                              <td style={{ padding: '6px 9px', textAlign: 'right', color: '#33475f' }}>{s.system_type || '—'}</td>
-                              <td style={{ padding: '6px 9px', textAlign: 'right', color: s.status === 'active' ? '#3a9b3a' : '#d23b3b', fontWeight: 700 }}>{s.status || 'active'}</td>
+                          {rSites.length === 0 ? (
+                            <tr><td colSpan={cols.length} style={{ padding: '28px', textAlign: 'center', color: '#9ab0c8' }}>No sites match the selected filter</td></tr>
+                          ) : rSites.map((s, idx) => (
+                            <tr key={s.id} style={{ background: idx % 2 === 1 ? '#f7fafd' : '#fff', borderBottom: '1px solid #eef3f8' }}>
+                              <td style={{ padding: '6px 8px', fontWeight: 600, color: navy, wordBreak: 'break-word' }}>{s.name}</td>
+                              <td style={{ padding: '6px 8px', color: '#5a7aaa' }}>{s.province || '—'}</td>
+                              <td style={{ padding: '6px 8px', textAlign: 'right', color: '#33475f' }}>{s.capacity_kw != null ? fmtN(s.capacity_kw) : '—'}</td>
+                              <td style={{ padding: '6px 8px', textAlign: 'right', color: '#33475f' }}>{s.battery_size_wh > 0 ? fmtN(s.battery_size_wh / 1000) : '—'}</td>
+                              <td style={{ padding: '6px 8px', color: '#5a7aaa' }}>{s.business_type || '—'}</td>
+                              <td style={{ padding: '6px 8px', color: '#5a7aaa' }}>{s.system_type || '—'}</td>
+                              <td style={{ padding: '6px 8px', color: '#5a7aaa' }}>{s.investment_party || '—'}</td>
+                              <td style={{ padding: '6px 8px', textAlign: 'right', color: '#5a7aaa', whiteSpace: 'nowrap' }}>{fmtAge(s)}</td>
+                              <td style={{ padding: '6px 8px', color: '#5a7aaa' }}>{s.power_limit || '—'}</td>
+                              <td style={{ padding: '6px 8px', color: s.status === 'active' ? '#3a9b3a' : '#d23b3b', fontWeight: 700 }}>{s.status || 'active'}</td>
                             </tr>
                           ))}
                         </tbody>
+                        {rSites.length > 0 && (
+                          <tfoot>
+                            <tr style={{ background: '#eef4fb', borderTop: '2px solid #2B7FD4' }}>
+                              <td style={{ padding: '7px 8px', fontWeight: 800, color: navy }}>Total ({rSites.length})</td>
+                              <td></td>
+                              <td style={{ padding: '7px 8px', textAlign: 'right', fontWeight: 800, color: navy }}>{fmtN(Math.round(totCap))}</td>
+                              <td style={{ padding: '7px 8px', textAlign: 'right', fontWeight: 800, color: navy }}>{fmtN(Math.round(totBess / 1000))}</td>
+                              <td colSpan={6}></td>
+                            </tr>
+                          </tfoot>
+                        )}
                       </table>
+
                       <div style={{ fontSize: '9px', color: '#9ab0c8', borderTop: '1px solid #dde5ee', paddingTop: '12px', marginTop: '16px', lineHeight: 1.7 }}>
+                        Current installed base{repInvestor ? ` for ${repInvestor}` : ''} — one row per site, ordered alphabetically. Capacity totals are summed across all listed sites.<br />
                         © {new Date().getFullYear()} Sosimple Energy — Cheap energy. Clean business.
                       </div>
                     </div>
                   )
                 }
 
-                // Performance summary
-                const perfRows = perfData.filter(p => {
+                // ── SITE PERFORMANCE ──────────────────────────────────────────
+                if (perfLoading) {
+                  return <div style={{ textAlign: 'center', padding: '60px', color: T.textSecondary }}>Loading performance data...</div>
+                }
+
+                const rows = perfData.filter(p => {
                   const mI = !repInvestor || getInvestor(p) === repInvestor
                   const mD = !repDate || dateKey(p) === repDate
                   return mI && mD
-                })
-                const totMeas = perfRows.reduce((s, p) => s + (p.kwh_produced || 0), 0)
-                const totExp = perfRows.reduce((s, p) => s + (p.expected_kwh || 0), 0)
-                const avgPerf = perfRows.filter(p => p.performance_pct != null).length > 0
-                  ? (perfRows.filter(p => p.performance_pct != null).reduce((s, p) => s + p.performance_pct, 0) / perfRows.filter(p => p.performance_pct != null).length).toFixed(1)
-                  : '—'
+                }).sort((a, b) => (parseInt(b.year) - parseInt(a.year)) || (parseInt(b.month) - parseInt(a.month)) || (a.site_name || '').localeCompare(b.site_name || ''))
+
+                const totMeas = rows.reduce((s, p) => s + (p.kwh_produced || 0), 0)
+                const totExp = rows.reduce((s, p) => s + (p.expected_kwh || 0), 0)
+                const delta = totExp > 0 ? (((totMeas - totExp) / totExp) * 100) : null
+                const bandExp = rows.filter(p => (p.pf_band || '').trim() === 'Expected').length
+                const bandMod = rows.filter(p => (p.pf_band || '').trim() === 'Moderate').length
+                const bandPoor = rows.filter(p => (p.pf_band || '').trim() === 'Poor').length
+
+                const kpis = [
+                  { label: 'Records', val: rows.length.toLocaleString(), color: '#2B7FD4' },
+                  { label: 'Measured (kWh)', val: fmtN(totMeas), color: '#2B7FD4' },
+                  { label: 'Expected (kWh)', val: fmtN(totExp), color: '#2B7FD4' },
+                  { label: 'Δ vs Expected', val: delta != null ? `${delta.toFixed(1)}%` : '—', color: delta == null ? navy : delta >= 0 ? '#3a9b3a' : '#d23b3b' },
+                  { label: 'Expected Band', val: bandExp.toLocaleString(), color: '#2B7FD4' },
+                  { label: 'Moderate / Poor', val: `${bandMod.toLocaleString()} / ${bandPoor.toLocaleString()}`, color: '#2B7FD4' },
+                ]
+                const cols = [
+                  { label: 'Site Name', w: '10%' }, { label: 'Period', w: '5%' }, { label: 'Measured kWh', w: '7%' },
+                  { label: 'Expected kWh', w: '7%' }, { label: 'Δ %', w: '5%' }, { label: 'Perf %', w: '5%' },
+                  { label: 'PF Band', w: '6%' }, { label: 'Availability', w: '15%' }, { label: 'Downtime', w: '6%' },
+                  { label: 'Cause of Downtime', w: '10%' }, { label: 'Technical Events', w: '10%' }, { label: 'Energy Impact', w: '7%' }, { label: 'Other Comments', w: '7%' },
+                ]
+
                 return (
                   <div className="print-area" style={{ background: '#fff', color: navy, border: `1px solid ${T.border}`, borderRadius: '12px', padding: '32px' }}>
-                    <Header />
-                    <div style={{ fontSize: '16px', fontWeight: 700, color: navy, marginBottom: '18px' }}>Performance Summary Report</div>
-                    {sectionTitle('Summary')}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', marginBottom: '24px', border: '1px solid #dde5ee', borderRadius: '6px', overflow: 'hidden' }}>
-                      {[
-                        ['Records', perfRows.length, navy],
-                        ['Measured', `${(totMeas/1000).toFixed(0)}k kWh`, '#2B7FD4'],
-                        ['Expected', `${(totExp/1000).toFixed(0)}k kWh`, '#33475f'],
-                        ['Avg Performance', `${avgPerf}%`, '#7DC242'],
-                      ].map(([l, v, c]) => (
-                        <div key={l} style={{ padding: '12px 16px', borderLeft: '1px solid #dde5ee' }}>
-                          <div style={{ fontSize: '8px', fontWeight: 700, color: grey, textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: '5px' }}>{l}</div>
-                          <div style={{ fontSize: '17px', fontWeight: 800, color: c }}>{v}</div>
+                    <ReportHeader showPeriod={true} />
+                    <div style={{ fontSize: '18px', fontWeight: 800, color: navy, marginBottom: '18px' }}>Site Performance Report</div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: '12px', marginBottom: '24px' }}>
+                      {kpis.map(k => (
+                        <div key={k.label} style={{ background: '#f7fafd', border: '1px solid #e3ecf6', borderRadius: '8px', padding: '14px 12px', textAlign: 'center' }}>
+                          <div style={{ fontSize: '17px', fontWeight: 800, color: k.color, lineHeight: 1.1 }}>{k.val}</div>
+                          <div style={{ fontSize: '9px', color: grey, marginTop: '5px', fontWeight: 500 }}>{k.label}</div>
                         </div>
                       ))}
                     </div>
-                    {sectionTitle('Records')}
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9.5px', tableLayout: 'fixed' }}>
                       <thead>
-                        <tr style={{ background: '#f4f8fc', borderBottom: '2px solid #2B7FD4' }}>
-                          {['Site', 'Date', 'Measured (kWh)', 'Expected (kWh)', 'Performance %', 'Band'].map((h, i) => (
-                            <th key={h} style={{ textAlign: i === 0 ? 'left' : 'right', padding: '7px 9px', fontSize: '9px', color: '#5a7aaa', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px' }}>{h}</th>
+                        <tr style={{ background: '#2B7FD4' }}>
+                          {cols.map((c, i) => (
+                            <th key={c.label} style={{ width: c.w, textAlign: i <= 1 ? 'left' : (i <= 6 ? 'right' : 'left'), padding: '9px 7px', fontSize: '8.5px', color: '#fff', fontWeight: 700, verticalAlign: 'bottom' }}>{c.label}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
-                        {perfRows.slice(0, 400).map((p, i) => (
-                          <tr key={p.id || i} style={{ borderBottom: '1px solid #e8eef6' }}>
-                            <td style={{ padding: '6px 9px', fontWeight: 600, color: navy, whiteSpace: 'nowrap' }}>{p.site_name}</td>
-                            <td style={{ padding: '6px 9px', textAlign: 'right', color: '#33475f' }}>{fmtDate(p.month, p.year)}</td>
-                            <td style={{ padding: '6px 9px', textAlign: 'right', color: navy, fontWeight: 700 }}>{p.kwh_produced != null ? Math.round(p.kwh_produced).toLocaleString() : '—'}</td>
-                            <td style={{ padding: '6px 9px', textAlign: 'right', color: '#33475f' }}>{p.expected_kwh != null ? Math.round(p.expected_kwh).toLocaleString() : '—'}</td>
-                            <td style={{ padding: '6px 9px', textAlign: 'right', fontWeight: 700, color: p.performance_pct >= 90 ? '#3a9b3a' : p.performance_pct >= 70 ? '#f0820a' : '#d23b3b' }}>{p.performance_pct != null ? `${p.performance_pct.toFixed(1)}%` : '—'}</td>
-                            <td style={{ padding: '6px 9px', textAlign: 'right', color: '#33475f' }}>{p.pf_band || '—'}</td>
-                          </tr>
-                        ))}
+                        {rows.length === 0 ? (
+                          <tr><td colSpan={cols.length} style={{ padding: '28px', textAlign: 'center', color: '#9ab0c8' }}>No records match the selected filters</td></tr>
+                        ) : rows.map((p, idx) => {
+                          const d = (p.kwh_produced != null && p.expected_kwh) ? ((p.kwh_produced - p.expected_kwh) / p.expected_kwh) * 100 : null
+                          const dt = p.downtime_days
+                          const dtRed = dt != null && String(dt) !== '' && String(dt) !== '0' && !/^(none|n\/a|-+)$/i.test(String(dt))
+                          const num = (v, opts = {}) => <td style={{ padding: '5px 7px', textAlign: 'right', color: opts.color || '#33475f', fontWeight: opts.weight || 400, whiteSpace: 'nowrap', verticalAlign: 'top' }}>{v}</td>
+                          const txt = (v, opts = {}) => <td style={{ padding: '5px 7px', color: opts.color || '#5a7aaa', fontWeight: opts.weight || 400, whiteSpace: 'pre-line', wordBreak: 'break-word', verticalAlign: 'top' }}>{v != null && v !== '' ? v : '—'}</td>
+                          return (
+                            <tr key={p.id || idx} style={{ background: idx % 2 === 1 ? '#f7fafd' : '#fff', borderBottom: '1px solid #eef3f8' }}>
+                              <td style={{ padding: '5px 7px', fontWeight: 600, color: navy, verticalAlign: 'top', wordBreak: 'break-word' }}>{p.site_name}</td>
+                              <td style={{ padding: '5px 7px', color: '#5a7aaa', whiteSpace: 'nowrap', verticalAlign: 'top' }}>{fmtDate(p.month, p.year)}</td>
+                              {num(p.kwh_produced != null ? fmtN(p.kwh_produced) : '—', { color: navy, weight: 700 })}
+                              {num(p.expected_kwh != null ? fmtN(p.expected_kwh) : '—')}
+                              {num(d != null ? `${d > 0 ? '+' : ''}${d.toFixed(1)}%` : '—', { color: d == null ? '#9ab0c8' : d >= 0 ? '#3a9b3a' : '#d23b3b', weight: 700 })}
+                              {num(p.performance_pct != null ? `${p.performance_pct.toFixed(1)}%` : '—', { color: p.performance_pct == null ? '#9ab0c8' : p.performance_pct >= 90 ? '#3a9b3a' : p.performance_pct >= 70 ? '#f0820a' : '#d23b3b', weight: 700 })}
+                              {num(p.pf_band || '—', { color: '#5a7aaa' })}
+                              {txt(p.availability)}
+                              {txt(p.downtime_days, { color: dtRed ? '#d23b3b' : '#5a7aaa', weight: dtRed ? 700 : 400 })}
+                              {txt(p.cause_of_downtime)}
+                              {txt(p.technical_events)}
+                              {txt(p.energy_impact)}
+                              {txt(p.other_comments || p.comment)}
+                            </tr>
+                          )
+                        })}
                       </tbody>
+                      {rows.length > 0 && (
+                        <tfoot>
+                          <tr style={{ background: '#eef4fb', borderTop: '2px solid #2B7FD4' }}>
+                            <td style={{ padding: '7px', fontWeight: 800, color: navy }}>Total</td>
+                            <td style={{ padding: '7px', color: grey, fontSize: '8.5px' }}>{rows.length.toLocaleString()} rows</td>
+                            <td style={{ padding: '7px', textAlign: 'right', fontWeight: 800, color: navy }}>{fmtN(totMeas)}</td>
+                            <td style={{ padding: '7px', textAlign: 'right', fontWeight: 700, color: '#5a7aaa' }}>{fmtN(totExp)}</td>
+                            <td style={{ padding: '7px', textAlign: 'right', fontWeight: 800, color: delta == null ? navy : delta >= 0 ? '#3a9b3a' : '#d23b3b' }}>{delta != null ? `${delta.toFixed(1)}%` : '—'}</td>
+                            <td colSpan={8}></td>
+                          </tr>
+                        </tfoot>
+                      )}
                     </table>
-                    {perfRows.length > 400 && <div style={{ fontSize: '9px', color: '#9ab0c8', marginTop: '8px' }}>Showing first 400 of {perfRows.length} records — filter by date or investor to narrow.</div>}
+
                     <div style={{ fontSize: '9px', color: '#9ab0c8', borderTop: '1px solid #dde5ee', paddingTop: '12px', marginTop: '16px', lineHeight: 1.7 }}>
+                      One row per site per reporting period, showing measured vs expected generation, performance band, and the technical comments logged for the month. Rows are ordered most-recent period first.<br />
                       © {new Date().getFullYear()} Sosimple Energy — Cheap energy. Clean business.
                     </div>
                   </div>
