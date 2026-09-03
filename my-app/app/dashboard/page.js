@@ -127,6 +127,7 @@ export default function DashboardPage() {
   const [filterStatus, setFilterStatus] = useState('')
   const [siteSort, setSiteSort] = useState({ key: 'name', dir: 'asc' })
   const [activeInvTab, setActiveInvTab] = useState('all')
+  const [provMetric, setProvMetric] = useState('count')
   const [chartReady, setChartReady] = useState(false)
   const [geoReady, setGeoReady] = useState(false)
   const [filterInvestor, setFilterInvestor] = useState('')
@@ -249,7 +250,7 @@ export default function DashboardPage() {
     if (!loading && sites.length > 0 && chartReady && activePage === 'overview') {
       setTimeout(() => buildCharts(filteredOverview), 100)
     }
-  }, [loading, sites, activePage, chartReady, geoReady, filterInvestor, filterInstaller, filterOverviewContract, theme])
+  }, [loading, sites, activePage, chartReady, geoReady, filterInvestor, filterInstaller, filterOverviewContract, theme, provMetric])
 
   useEffect(() => {
     if (activePage === 'investor' && chartReady) setTimeout(() => buildCharts(invSites), 100)
@@ -611,12 +612,18 @@ export default function DashboardPage() {
 
     const provCapMap = {}
     sitesData.forEach(s => { const p = s.province || 'Unknown'; provCapMap[p] = (provCapMap[p] || 0) + (s.capacity_kw || 0) / 1000 })
-    buildGeoMap('provMwpChart', provCapMap, { decimals: 1, unit: 'MWp', country: 'South Africa', showNames: true })
 
     const provCountMap = {}
     sitesData.forEach(s => { const p = s.province || 'Unknown'; provCountMap[p] = (provCountMap[p] || 0) + 1 })
-    buildGeoMap('provSitesChartZA', provCountMap, { decimals: 0, unit: 'sites', country: 'South Africa', showNames: true })
-    buildGeoMap('provSitesChartZM', provCountMap, { decimals: 0, unit: 'sites', country: 'Zambia', showNames: true })
+    const provBessMwhMap = {}
+    sitesData.forEach(s => { const p = s.province || 'Unknown'; if (s.battery_size_wh > 0) provBessMwhMap[p] = (provBessMwhMap[p] || 0) + (s.battery_size_wh || 0) / 1000000 })
+    const _metricCfg = ({
+      count: { map: provCountMap, decimals: 0, unit: 'sites' },
+      mwp:   { map: provCapMap,   decimals: 1, unit: 'MWp' },
+      bess:  { map: provBessMwhMap, decimals: 2, unit: 'MWh' },
+    })[provMetric] || { map: provCountMap, decimals: 0, unit: 'sites' }
+    buildGeoMap('provSitesChartZA', _metricCfg.map, { decimals: _metricCfg.decimals, unit: _metricCfg.unit, country: 'South Africa', showNames: true })
+    buildGeoMap('provSitesChartZM', _metricCfg.map, { decimals: _metricCfg.decimals, unit: _metricCfg.unit, country: 'Zambia', showNames: true })
 
     const provBessMap = {}
     sitesData.forEach(s => { const p = s.province || 'Unknown'; if (s.battery_size_wh > 0) provBessMap[p] = (provBessMap[p] || 0) + (s.battery_size_wh || 0) })
@@ -1386,7 +1393,23 @@ export default function DashboardPage() {
               </div>
 
               <div style={{ ...cardStyle, padding: '20px', marginBottom: '14px' }}>
-                <div style={{ ...cardTitleStyle }}><i className="ti ti-map-pin" style={{ color: T.blue }} />Sites by province</div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', marginBottom: '4px' }}>
+                  <div style={{ ...cardTitleStyle, marginBottom: 0 }}>
+                    <i className="ti ti-map-pin" style={{ color: T.blue }} />
+                    {provMetric === 'count' ? 'Sites by province' : provMetric === 'mwp' ? 'PV capacity by province' : 'BESS by province'}
+                  </div>
+                  <div style={{ display: 'inline-flex', background: T.bgMuted, border: `1px solid ${T.border}`, borderRadius: '8px', padding: '3px' }}>
+                    {[['count', 'Site Count'], ['mwp', 'PV Capacity'], ['bess', 'BESS']].map(([k, label]) => (
+                      <button key={k} onClick={() => setProvMetric(k)}
+                        style={{ padding: '5px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '11px', fontWeight: 700, background: provMetric === k ? T.blue : 'transparent', color: provMetric === k ? '#fff' : T.textSecondary, transition: 'all 0.15s' }}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ fontSize: '10px', color: T.textMuted, marginBottom: '8px' }}>
+                  {provMetric === 'count' ? 'Number of installations per province' : provMetric === 'mwp' ? 'Installed PV capacity (MWp) per province' : 'Installed battery storage (MWh) per province'}
+                </div>
                 <div className="map-grid" style={{ marginTop: '4px' }}>
                   <div>
                     <div style={{ fontSize: '12px', fontWeight: 700, color: T.textSecondary, textAlign: 'center', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.6px' }}>South Africa</div>
@@ -1402,29 +1425,22 @@ export default function DashboardPage() {
               <div className="chart-grid-2" style={{ marginBottom: '14px' }}>
                 <div style={{ ...cardStyle, padding: '18px' }}>
                   <div style={cardTitleStyle}><i className="ti ti-chart-donut" style={{ color: T.blue }} />By business type</div>
-                  <div style={{ position: 'relative', height: '190px' }}><canvas id="bizChart" /></div>
+                  <div style={{ position: 'relative', height: '200px' }}><canvas id="bizChart" /></div>
                 </div>
                 <div style={{ ...cardStyle, padding: '18px' }}>
-                  <div style={cardTitleStyle}><i className="ti ti-map" style={{ color: T.blue }} />MWp by province — South Africa</div>
-                  <div style={{ position: 'relative', height: '340px' }}><canvas id="provMwpChart" /></div>
+                  <div style={cardTitleStyle}><i className="ti ti-file-invoice" style={{ color: T.yellow }} />Contract split</div>
+                  <div style={{ position: 'relative', height: '200px' }}><canvas id="contractChart" /></div>
                 </div>
               </div>
 
               <div className="chart-grid-2" style={{ marginBottom: '14px' }}>
                 <div style={{ ...cardStyle, padding: '18px' }}>
                   <div style={cardTitleStyle}><i className="ti ti-battery" style={{ color: T.green }} />MWh BESS by province</div>
-                  <div style={{ position: 'relative', height: '190px' }}><canvas id="provBessChart" /></div>
+                  <div style={{ position: 'relative', height: '220px' }}><canvas id="provBessChart" /></div>
                 </div>
-                <div style={{ ...cardStyle, padding: '18px' }}>
-                  <div style={cardTitleStyle}><i className="ti ti-file-invoice" style={{ color: T.yellow }} />Contract split</div>
-                  <div style={{ position: 'relative', height: '190px' }}><canvas id="contractChart" /></div>
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '14px' }}>
                 <div style={{ ...cardStyle, padding: '18px' }}>
                   <div style={cardTitleStyle}><i className="ti ti-users" style={{ color: T.green }} />By investor</div>
-                  <div style={{ position: 'relative', height: '300px' }}><canvas id="investorChart" /></div>
+                  <div style={{ position: 'relative', height: '220px' }}><canvas id="investorChart" /></div>
                 </div>
               </div>
             </div>
