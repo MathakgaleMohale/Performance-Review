@@ -1185,11 +1185,12 @@ export default function DashboardPage() {
         }
 
         @media print {
+          @page { size: A4 landscape; margin: 10mm; }
           .no-print { display: none !important; }
           body { background: #fff !important; color: #000 !important; }
           .layout-flex { height: auto !important; display: block !important; }
           .main-area { overflow: visible !important; padding: 0 !important; }
-          .print-area { border: none !important; box-shadow: none !important; background: #fff !important; color: #000 !important; }
+          .print-area { border: none !important; box-shadow: none !important; background: #fff !important; color: #000 !important; padding: 0 !important; }
         }
       `}</style>
 
@@ -2528,10 +2529,10 @@ export default function DashboardPage() {
                   { label: 'Moderate / Poor', val: `${bandMod.toLocaleString()} / ${bandPoor.toLocaleString()}`, color: '#2B7FD4' },
                 ]
                 const cols = [
-                  { label: 'Site Name', w: '10%' }, { label: 'Period', w: '5%' }, { label: 'Measured kWh', w: '7%' },
-                  { label: 'Expected kWh', w: '7%' }, { label: 'Δ %', w: '5%' }, { label: 'Perf %', w: '5%' },
-                  { label: 'PF Band', w: '6%' }, { label: 'Availability', w: '15%' }, { label: 'Downtime', w: '6%' },
-                  { label: 'Cause of Downtime', w: '10%' }, { label: 'Technical Events', w: '10%' }, { label: 'Energy Impact', w: '7%' }, { label: 'Other Comments', w: '7%' },
+                  { label: 'Site Name', w: '9%' }, { label: 'Period', w: '4%' }, { label: 'Measured kWh', w: '7%' },
+                  { label: 'Expected kWh', w: '7%' }, { label: 'Δ %', w: '4%' }, { label: 'Perf %', w: '4%' },
+                  { label: 'PF Band', w: '6%' }, { label: 'Availability', w: '11%' }, { label: 'Downtime', w: '4%' },
+                  { label: 'Cause of Downtime', w: '11%' }, { label: 'Technical Events', w: '11%' }, { label: 'Energy Impact', w: '11%' }, { label: 'Other Comments', w: '11%' },
                 ]
 
                 return (
