@@ -54,11 +54,7 @@ export default function LoginPage() {
       {/* Left branding panel */}
       <div className="login-left">
         <div className="left-logo">
-          <svg width="52" height="58" viewBox="0 0 46 52" fill="none">
-            <ellipse cx="23" cy="16" rx="18" ry="16" fill="#F5D000"/>
-            <ellipse cx="23" cy="36" rx="18" ry="16" fill="#2B7FD4"/>
-            <rect x="14" y="20" width="14" height="12" rx="2" fill="#7DC242" transform="rotate(-8 14 20)"/>
-          </svg>
+          <img src="/sosimple-icon.png" alt="Sosimple" width="46" height="52" className="left-logo-mark" />
           <div>
             <div className="left-brand-name">Sosimple</div>
             <div className="left-tagline">Cheap energy. Clean business.</div>

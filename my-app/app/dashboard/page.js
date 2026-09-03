@@ -625,13 +625,6 @@ export default function DashboardPage() {
     buildGeoMap('provSitesChartZA', _metricCfg.map, { decimals: _metricCfg.decimals, unit: _metricCfg.unit, country: 'South Africa', showNames: true })
     buildGeoMap('provSitesChartZM', _metricCfg.map, { decimals: _metricCfg.decimals, unit: _metricCfg.unit, country: 'Zambia', showNames: true })
 
-    const provBessMap = {}
-    sitesData.forEach(s => { const p = s.province || 'Unknown'; if (s.battery_size_wh > 0) provBessMap[p] = (provBessMap[p] || 0) + (s.battery_size_wh || 0) })
-    const bessKeys = Object.keys(provBessMap).sort((a, b) => provBessMap[b] - provBessMap[a])
-    destroy('provBessChart')
-    const provBessEl = document.getElementById('provBessChart')
-    if (provBessEl) chartsRef.current['provBessChart'] = new Chart(provBessEl, { type: 'bar', data: { labels: bessKeys.length ? bessKeys : ['No BESS data'], datasets: [{ data: bessKeys.length ? bessKeys.map(p => (provBessMap[p]/1000000).toFixed(2)) : [0], backgroundColor: T.yellow, borderRadius: 4 }] }, options: { ...commonOpts, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: tickColor, maxRotation: 40, font: { size: 9 } } }, y: { grid: { color: gridColor }, ticks: { color: tickColor, callback: v => v+' MWh' } } } } })
-
     const otherC = sitesData.filter(s => s.system_type !== 'PPA' && s.system_type !== 'RTO').length
     const ppa = sitesData.filter(s => s.system_type === 'PPA').length
     const rto = sitesData.filter(s => s.system_type === 'RTO').length
@@ -1433,14 +1426,10 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              <div className="chart-grid-2" style={{ marginBottom: '14px' }}>
-                <div style={{ ...cardStyle, padding: '18px' }}>
-                  <div style={cardTitleStyle}><i className="ti ti-battery" style={{ color: T.green }} />MWh BESS by province</div>
-                  <div style={{ position: 'relative', height: '220px' }}><canvas id="provBessChart" /></div>
-                </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '14px' }}>
                 <div style={{ ...cardStyle, padding: '18px' }}>
                   <div style={cardTitleStyle}><i className="ti ti-users" style={{ color: T.green }} />By investor</div>
-                  <div style={{ position: 'relative', height: '220px' }}><canvas id="investorChart" /></div>
+                  <div style={{ position: 'relative', height: '260px' }}><canvas id="investorChart" /></div>
                 </div>
               </div>
             </div>
@@ -1876,7 +1865,7 @@ export default function DashboardPage() {
                   </button>
                 </div>
 
-                <div className="print-area" style={{ background: '#fff', color: navy, border: `1px solid ${T.border}`, borderRadius: '12px', padding: '32px', maxWidth: '1000px' }}>
+                <div className="print-area" style={{ background: '#fff', color: navy, border: `1px solid ${T.border}`, borderRadius: '12px', padding: '32px', maxWidth: '1150px', margin: '0 auto' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '3px solid #2B7FD4', paddingBottom: '18px', marginBottom: '22px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                       <img src="/sosimple-icon.png" alt="Sosimple" width="44" height="50" style={{ height: '50px', width: 'auto', display: 'block' }} />
@@ -1985,7 +1974,7 @@ export default function DashboardPage() {
                   </button>
                 </div>
 
-                <div className="print-area" style={{ background: '#fff', color: navy, border: `1px solid ${T.border}`, borderRadius: '12px', padding: '32px', maxWidth: '900px' }}>
+                <div className="print-area" style={{ background: '#fff', color: navy, border: `1px solid ${T.border}`, borderRadius: '12px', padding: '32px', maxWidth: '1150px', margin: '0 auto' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '3px solid #2B7FD4', paddingBottom: '18px', marginBottom: '22px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                       <img src="/sosimple-icon.png" alt="Sosimple" width="44" height="50" style={{ height: '50px', width: 'auto', display: 'block' }} />
@@ -2054,15 +2043,15 @@ export default function DashboardPage() {
                     <thead>
                       <tr style={{ background: '#f4f8fc', borderBottom: '2px solid #2B7FD4' }}>
                         {[
-                          { label: 'Month', w: '8%' },
-                          { label: 'Measured kWh', w: '9%' },
-                          { label: 'Expected kWh', w: '9%' },
-                          { label: 'Availability', w: '22%' },
+                          { label: 'Month', w: '7%' },
+                          { label: 'Measured kWh', w: '8%' },
+                          { label: 'Expected kWh', w: '8%' },
+                          { label: 'Availability', w: '13%' },
                           { label: 'Downtime (days)', w: '7%' },
                           { label: 'Cause of Downtime', w: '13%' },
-                          { label: 'Technical Events', w: '13%' },
-                          { label: 'Energy Impact', w: '9%' },
-                          { label: 'Other Comments', w: '10%' },
+                          { label: 'Technical Events', w: '14%' },
+                          { label: 'Energy Impact', w: '15%' },
+                          { label: 'Other Comments', w: '15%' },
                         ].map(h => (
                           <th key={h.label} style={{ width: h.w, textAlign: 'left', padding: '7px 8px', fontSize: '9px', color: '#5a7aaa', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{h.label}</th>
                         ))}
