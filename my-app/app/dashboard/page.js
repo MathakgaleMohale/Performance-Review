@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { ZA_ZM_PROVINCES } from './za_zm_provinces'
+import { BW_PROVINCES } from './botswana_provinces'
 
 // Parses semicolon-delimited CSV with quoted multiline fields
 function parseCSV(text) {
@@ -55,6 +56,26 @@ function cleanStr(val) {
 function rawStr(val) {
   const v = (val ?? '').trim()
   return v === '' ? null : v
+}
+
+// Parses a site date that may be DD/MM/YYYY, YYYY/MM/DD (slash, dash or dot
+// separated), tolerates 2-digit years, and returns a clean ISO YYYY-MM-DD.
+// Anything it can't make sense of (blank, "null", "N/A", month 16, etc.) → null,
+// so a single bad date never breaks the whole upload batch.
+function parseFlexDate(raw) {
+  const s = (raw ?? '').trim()
+  if (!s || s.toLowerCase() === 'null' || s.toLowerCase() === 'n/a') return null
+  const p = s.split(/[\/\-.]/).map(x => x.trim()).filter(Boolean)
+  if (p.length !== 3) return null
+  let y, m, d
+  if (p[0].length === 4) { y = +p[0]; m = +p[1]; d = +p[2] }          // YYYY/MM/DD
+  else { d = +p[0]; m = +p[1]; y = +p[2]; if (p[2].length === 2) y = 2000 + y } // DD/MM/YYYY
+  if (!y || !m || !d) return null
+  if (m > 12 && d <= 12) { const t = m; m = d; d = t }                // swap if month/day flipped
+  if (m < 1 || m > 12 || d < 1 || d > 31 || y < 1990 || y > 2100) return null
+  const dt = new Date(Date.UTC(y, m - 1, d))
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== m - 1 || dt.getUTCDate() !== d) return null
+  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
 }
 
 const THEMES = {
@@ -173,7 +194,7 @@ export default function DashboardPage() {
       geoScript.src = 'https://cdn.jsdelivr.net/npm/chartjs-chart-geo@4.3.4/build/index.umd.min.js'
       geoScript.onload = async () => {
         try {
-          const features = ZA_ZM_PROVINCES.features
+          const features = [...ZA_ZM_PROVINCES.features, ...BW_PROVINCES]
           if (!features || features.length === 0) throw new Error('No geo data available')
           window._zaFeatures = features
           setGeoReady(true)
@@ -524,7 +545,7 @@ export default function DashboardPage() {
     const bizEl = document.getElementById('bizChart')
     if (bizEl) chartsRef.current['bizChart'] = new Chart(bizEl, { type: 'doughnut', data: { labels: types, datasets: [{ data: tCounts, backgroundColor: tColors, borderWidth: 2, borderColor: T.bgPanel }] }, options: { ...commonOpts, cutout: '55%', plugins: { legend: { display: true, position: 'right', labels: { color: T.textSecondary, font: { size: 11 }, boxWidth: 12 } } } } })
 
-    const alias = { 'kzn': 'KwaZulu-Natal', 'kwazulu-natal': 'KwaZulu-Natal', 'kwazulu natal': 'KwaZulu-Natal', 'free state': 'Free State', 'freestate': 'Free State', 'gauteng': 'Gauteng', 'limpopo': 'Limpopo', 'north west': 'North West', 'northwest': 'North West', 'western cape': 'Western Cape', 'mpumalanga': 'Mpumalanga', 'northern cape': 'Northern Cape', 'eastern cape': 'Eastern Cape', 'lusaka': 'Lusaka', 'zambia': 'Lusaka', 'copperbelt': 'Copperbelt', 'southern': 'Southern', 'central': 'Central', 'eastern': 'Eastern', 'northern': 'Northern', 'western': 'Western', 'north-western': 'North-Western', 'luapula': 'Luapula', 'muchinga': 'Muchinga' }
+    const alias = { 'kzn': 'KwaZulu-Natal', 'kwazulu-natal': 'KwaZulu-Natal', 'kwazulu natal': 'KwaZulu-Natal', 'free state': 'Free State', 'freestate': 'Free State', 'gauteng': 'Gauteng', 'limpopo': 'Limpopo', 'north west': 'North West', 'northwest': 'North West', 'western cape': 'Western Cape', 'mpumalanga': 'Mpumalanga', 'northern cape': 'Northern Cape', 'eastern cape': 'Eastern Cape', 'lusaka': 'Lusaka', 'zambia': 'Lusaka', 'copperbelt': 'Copperbelt', 'southern': 'Southern', 'central': 'Central', 'eastern': 'Eastern', 'northern': 'Northern', 'western': 'Western', 'north-western': 'North-Western', 'luapula': 'Luapula', 'muchinga': 'Muchinga', 'gaborone': 'South-East', 'south-east': 'South-East', 'south east': 'South-East', 'francistown': 'North-East', 'north-east': 'North-East', 'lobatse': 'South-East', 'selebi-phikwe': 'Central', 'jwaneng': 'Southern', 'ghanzi': 'Ghanzi', 'kgalagadi': 'Kgalagadi', 'kgatleng': 'Kgatleng', 'kweneng': 'Kweneng', 'north-west': 'North-West', 'northwest bw': 'North-West' }
     const featName = f => f.properties.NAME_1 || f.properties.name || ''
     const lerp = (a, b, t) => Math.round(a + (b - a) * t)
     const blueRamp = (t) => {
@@ -624,6 +645,7 @@ export default function DashboardPage() {
     })[provMetric] || { map: provCountMap, decimals: 0, unit: 'sites' }
     buildGeoMap('provSitesChartZA', _metricCfg.map, { decimals: _metricCfg.decimals, unit: _metricCfg.unit, country: 'South Africa', showNames: true })
     buildGeoMap('provSitesChartZM', _metricCfg.map, { decimals: _metricCfg.decimals, unit: _metricCfg.unit, country: 'Zambia', showNames: true })
+    buildGeoMap('provSitesChartBW', _metricCfg.map, { decimals: _metricCfg.decimals, unit: _metricCfg.unit, country: 'Botswana', showNames: true })
 
     const otherC = sitesData.filter(s => s.system_type !== 'PPA' && s.system_type !== 'RTO').length
     const ppa = sitesData.filter(s => s.system_type === 'PPA').length
@@ -729,9 +751,7 @@ export default function DashboardPage() {
           shading: idx.shading >= 0 ? cleanStr(r[idx.shading]) : null,
         }
         if (idx.date >= 0) {
-          const d = (r[idx.date] || '').trim()
-          const p = d.split('/')
-          rec.commissioned_date = p.length === 3 ? `${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}` : null
+          rec.commissioned_date = parseFlexDate(r[idx.date])
           rec.install_date = rec.commissioned_date
         }
         if (idx.status >= 0) {
@@ -779,15 +799,25 @@ export default function DashboardPage() {
     if (!upSites?.rows?.length) return
     setUpBusy(true)
     setUpMsg('Uploading site data...')
-    let done = 0, failed = 0
+    let done = 0, failed = 0, lastErr = ''
     for (let i = 0; i < upSites.rows.length; i += 200) {
       const batch = upSites.rows.slice(i, i + 200)
       const { error } = await supabase.from('sites').upsert(batch, { onConflict: 'name' })
-      if (error) { failed += batch.length; console.error(error) }
-      else done += batch.length
-      setUpMsg(`Uploading... ${done + failed}/${upSites.rows.length}`)
+      if (error) {
+        console.error('Sites batch failed, retrying row-by-row:', error)
+        lastErr = error.message || String(error)
+        for (const row of batch) {
+          const { error: rowErr } = await supabase.from('sites').upsert([row], { onConflict: 'name' })
+          if (rowErr) { failed++; lastErr = rowErr.message || String(rowErr); console.error('Row failed:', row, rowErr) }
+          else done++
+          setUpMsg(`Uploading... ${done + failed}/${upSites.rows.length}`)
+        }
+      } else {
+        done += batch.length
+        setUpMsg(`Uploading... ${done + failed}/${upSites.rows.length}`)
+      }
     }
-    setUpMsg(failed === 0 ? `${done} sites uploaded successfully` : `${done} uploaded, ${failed} failed — check console (F12)`)
+    setUpMsg(failed === 0 ? `${done} sites uploaded successfully` : `${done} uploaded, ${failed} failed. Reason: ${lastErr || 'see console (F12)'}`)
     setUpSites(null)
     const { data: sitesData } = await supabase.from('sites').select('*').order('name')
     setSites(sitesData || [])
@@ -1164,7 +1194,7 @@ export default function DashboardPage() {
         .nav-active { box-shadow: inset 3px 0 0 ${T.blue}; }
 
         .chart-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-        .map-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: stretch; }
+        .map-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; align-items: stretch; }
         .map-box { position: relative; height: 340px; }
         .map-divider { border-left: 1px solid ${T.border}; padding-left: 20px; }
 
@@ -1411,6 +1441,10 @@ export default function DashboardPage() {
                   <div className="map-divider">
                     <div style={{ fontSize: '12px', fontWeight: 700, color: T.textSecondary, textAlign: 'center', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Zambia</div>
                     <div className="map-box"><canvas id="provSitesChartZM" /></div>
+                  </div>
+                  <div className="map-divider">
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: T.textSecondary, textAlign: 'center', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Botswana</div>
+                    <div className="map-box"><canvas id="provSitesChartBW" /></div>
                   </div>
                 </div>
               </div>
