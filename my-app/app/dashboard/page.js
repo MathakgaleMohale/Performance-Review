@@ -716,48 +716,73 @@ export default function DashboardPage() {
       const headers = rows[0].map(h => h.trim().toLowerCase())
       const find = (s) => headers.findIndex(h => h.includes(s))
       const idx = {
-        name: find('site name'), location: find('location'), province: find('province'),
-        country: find('country'), capacity: find('pv capacity'), date: find('commisioned date'),
-        status: find('operational'), battery_name: find('battery name'), contract: find('contract type'),
-        business: find('business type'), investor: find('investment party'), battery_wh: find('battery size (wh)'),
-        installer: find('installer name'), project: find('project number'), platform: headers.findIndex(h => h === 'platform'),
-        age: find('age'), power_limit: find('power limit'),
-        soiling: find('soiling'), shading: find('shading'),
+        name: find('site name'),
+        capacity: find('pv capacity'),
+        pv_inverter: find('pv inverter'),
+        battery_wh: find('battery size'),
+        battery_name: find('battery name'),
+        battery_inv: find('battery inverter'),
+        generator: find('generator'),
+        genset: find('genset'),
+        country: find('country'),
+        province: find('province'),
+        location: find('location'),
+        meter: find('meter'),
+        contract: find('contract type'),
+        business: find('business type'),
+        operational: find('operational'),
+        sales: find('sales'),
+        investor: find('investment party'),
+        project: find('project number'),
+        date: find('commisioned'),
+        installer: find('installer'),
+        platform: headers.findIndex(h => h === 'platform'),
+        offtake: find('offtake'),
+        age: find('age'),
+        soiling: find('soiling'),
+        shading: find('shading'),
+        power_limit: find('power limit'),
       }
       if (idx.name < 0) { setUpMsg('Sites CSV must have a "Site Name" column'); return }
+      const g = (r, i) => i >= 0 ? cleanStr(r[i]) : null
       const parsed = [], errors = []
       rows.slice(1).forEach((r, i) => {
         const name = (r[idx.name] || '').trim()
         if (!name) { errors.push(i + 2); return }
-        const province = idx.province >= 0 ? cleanStr(r[idx.province]) : null
-        const location = idx.location >= 0 ? cleanStr(r[idx.location]) : null
-        const country = idx.country >= 0 ? cleanStr(r[idx.country]) : null
         const rec = {
           name,
-          location: [location || province, country].filter(Boolean).join(', ') || null,
-          province,
           capacity_kw: idx.capacity >= 0 && parseNum(r[idx.capacity]) != null ? parseNum(r[idx.capacity]) / 1000 : null,
+          pv_inverter_kw: idx.pv_inverter >= 0 ? parseNum(r[idx.pv_inverter]) : null,
           battery_size_wh: idx.battery_wh >= 0 ? parseNum(r[idx.battery_wh]) : null,
-          system_type: idx.contract >= 0 ? cleanStr(r[idx.contract]) : null,
-          business_type: idx.business >= 0 ? cleanStr(r[idx.business]) : null,
-          investment_party: idx.investor >= 0 ? cleanStr(r[idx.investor]) : null,
-          installer_name: idx.installer >= 0 ? cleanStr(r[idx.installer]) : null,
-          project_number: idx.project >= 0 ? cleanStr(r[idx.project]) : null,
-          platform: idx.platform >= 0 ? cleanStr(r[idx.platform]) : null,
-          inverter_brand: idx.battery_name >= 0 ? cleanStr(r[idx.battery_name]) : null,
+          inverter_brand: g(r, idx.battery_name),
+          battery_inverter_size: g(r, idx.battery_inv),
+          generator_size: g(r, idx.generator),
+          genset_setpoint_kit: g(r, idx.genset),
+          country: g(r, idx.country),
+          province: g(r, idx.province),
+          location: g(r, idx.location),
+          meter: g(r, idx.meter),
+          system_type: g(r, idx.contract),
+          business_type: g(r, idx.business),
+          operational_status: g(r, idx.operational),
+          sales_type: g(r, idx.sales),
+          investment_party: g(r, idx.investor),
+          project_number: g(r, idx.project),
+          installer_name: g(r, idx.installer),
+          platform: g(r, idx.platform),
+          offtake_guarantee: g(r, idx.offtake),
           age_years: idx.age >= 0 && parseNum(r[idx.age]) != null ? parseNum(r[idx.age]) : null,
-          power_limit: idx.power_limit >= 0 ? cleanStr(r[idx.power_limit]) : null,
-          soiling_intensity: idx.soiling >= 0 ? cleanStr(r[idx.soiling]) : null,
-          shading: idx.shading >= 0 ? cleanStr(r[idx.shading]) : null,
+          soiling_intensity: g(r, idx.soiling),
+          shading: g(r, idx.shading),
+          power_limit: g(r, idx.power_limit),
         }
         if (idx.date >= 0) {
           rec.commissioned_date = parseFlexDate(r[idx.date])
           rec.install_date = rec.commissioned_date
         }
-        if (idx.status >= 0) {
-          const s = (r[idx.status] || '').trim().toLowerCase()
-          rec.status = s.includes('decommission') ? 'inactive' : 'active'
-        }
+        // Derive active/inactive from the raw operational status
+        const opRaw = (idx.operational >= 0 ? (r[idx.operational] || '') : '').toLowerCase()
+        rec.status = opRaw.includes('decommission') ? 'inactive' : 'active'
         parsed.push(rec)
       })
       setUpSites({ rows: parsed, errors, fileName: file.name })
@@ -1185,6 +1210,12 @@ export default function DashboardPage() {
 
         .tbl-row:hover td { background: rgba(43,127,212,0.06) !important; }
 
+        .sites-scroll::-webkit-scrollbar { width: 12px; height: 14px; }
+        .sites-scroll::-webkit-scrollbar-track { background: ${T.bgMuted}; border-radius: 7px; }
+        .sites-scroll::-webkit-scrollbar-thumb { background: ${T.blue}; border-radius: 7px; border: 3px solid ${T.bgMuted}; }
+        .sites-scroll::-webkit-scrollbar-thumb:hover { background: ${T.blueBright}; }
+        .sites-scroll { scrollbar-color: ${T.blue} ${T.bgMuted}; scrollbar-width: thin; }
+
         .tab:hover { background: rgba(43,127,212,0.12) !important; }
 
         input:focus { border-color: ${T.blue} !important; box-shadow: 0 0 0 3px rgba(43,127,212,0.15) !important; outline: none; }
@@ -1505,49 +1536,83 @@ export default function DashboardPage() {
                     style={{ ...selectStyle, background: 'rgba(239,68,68,0.1)', border: `1px solid rgba(239,68,68,0.3)`, color: T.red, cursor: 'pointer' }}>Clear ×</button>
                 )}
               </div>
-              <div style={{ fontSize: '11px', color: T.textMuted, marginBottom: '8px' }}>Showing {filteredSites.length} of {sites.length} sites</div>
-              <div style={{ ...cardStyle, overflow: 'hidden' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+              <div style={{ fontSize: '11px', color: T.textMuted, marginBottom: '8px' }}>Showing {filteredSites.length} of {sites.length} sites · scroll sideways to see all columns</div>
+              <div className="sites-scroll" style={{ ...cardStyle, overflow: 'auto', maxHeight: '70vh' }}>
+                <table style={{ borderCollapse: 'collapse', fontSize: '12px', minWidth: '2400px' }}>
                   <thead>
                     <tr style={{ background: T.bgMuted, borderBottom: `2px solid ${T.border}` }}>
                       {[
                         { label: 'Site Name', key: 'name' },
-                        { label: 'Province', key: 'province' },
                         { label: 'Capacity', key: 'capacity' },
+                        { label: 'PV Inverter (kW)', key: null },
                         { label: 'BESS (kWh)', key: 'bess' },
-                        { label: 'Type', key: 'type' },
+                        { label: 'Battery', key: null },
+                        { label: 'Battery Inv. Size', key: null },
+                        { label: 'Generator', key: null },
+                        { label: 'Genset Kit', key: null },
+                        { label: 'Country', key: null },
+                        { label: 'Province', key: 'province' },
+                        { label: 'Location', key: null },
+                        { label: 'Meter', key: null },
                         { label: 'Contract', key: 'contract' },
+                        { label: 'Business Type', key: 'type' },
+                        { label: 'Operational', key: null },
+                        { label: 'Sales Type', key: null },
                         { label: 'Investor', key: 'investor' },
+                        { label: 'Project #', key: null },
+                        { label: 'Commissioned', key: null },
+                        { label: 'Installer', key: null },
+                        { label: 'Platform', key: null },
+                        { label: 'Offtake Guar.', key: null },
                         { label: 'Age', key: 'age' },
-                        { label: 'Power Limit', key: 'power' },
                         { label: 'Soiling', key: 'soiling' },
                         { label: 'Shading', key: 'shading' },
+                        { label: 'Power Limit', key: 'power' },
                         { label: 'Status', key: 'status' },
                       ].map(h => (
-                        <th key={h.label} onClick={() => toggleSiteSort(h.key)}
-                          style={{ textAlign: 'left', padding: '9px 10px', fontSize: '10px', color: siteSort.key === h.key ? T.blue : T.textMuted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.7px', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                          {h.label} {siteSort.key === h.key ? (siteSort.dir === 'asc' ? '▲' : '▼') : <span style={{ opacity: 0.3 }}>⇅</span>}
+                        <th key={h.label} onClick={h.key ? () => toggleSiteSort(h.key) : undefined}
+                          style={{ textAlign: 'left', padding: '9px 10px', fontSize: '10px', color: h.key && siteSort.key === h.key ? T.blue : T.textMuted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.7px', cursor: h.key ? 'pointer' : 'default', userSelect: 'none', whiteSpace: 'nowrap', position: 'sticky', top: 0, background: T.bgMuted, zIndex: 1, boxShadow: `inset 0 -2px 0 ${T.border}` }}>
+                          {h.label} {h.key ? (siteSort.key === h.key ? (siteSort.dir === 'asc' ? '▲' : '▼') : <span style={{ opacity: 0.3 }}>⇅</span>) : ''}
                         </th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredSites.map(site => (
+                    {filteredSites.map(site => {
+                      const cell = (v) => <td style={{ padding: '8px 10px', color: T.textSecondary, whiteSpace: 'nowrap' }}>{v != null && v !== '' ? v : '—'}</td>
+                      const wear = (v) => <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', fontWeight: 600, color: /high/i.test(v||'') ? T.red : /medium/i.test(v||'') ? T.orange : /low/i.test(v||'') ? T.green : T.textMuted }}>{v || '--'}</td>
+                      return (
                       <tr key={site.id} className="tbl-row" style={{ cursor: 'pointer', borderBottom: `1px solid ${T.border}` }} onClick={() => window.location.href = `/sites/${site.id}`}>
-                        <td style={{ padding: '8px 10px', fontWeight: 600, color: T.blue }}>{site.name}</td>
-                        <td style={{ padding: '8px 10px', color: T.textSecondary }}>{site.province || '—'}</td>
-                        <td style={{ padding: '8px 10px', color: T.textPrimary }}>{site.capacity_kw} kWp</td>
-                        <td style={{ padding: '8px 10px', color: T.textSecondary }}>{site.battery_size_wh > 0 ? (site.battery_size_wh/1000).toFixed(1) : '—'}</td>
+                        <td style={{ padding: '8px 10px', fontWeight: 600, color: T.blue, whiteSpace: 'nowrap' }}>{site.name}</td>
+                        <td style={{ padding: '8px 10px', color: T.textPrimary, whiteSpace: 'nowrap' }}>{site.capacity_kw != null ? `${site.capacity_kw} kWp` : '—'}</td>
+                        {cell(site.pv_inverter_kw != null ? `${site.pv_inverter_kw} kW` : null)}
+                        {cell(site.battery_size_wh > 0 ? (site.battery_size_wh/1000).toFixed(1) : null)}
+                        {cell(site.inverter_brand)}
+                        {cell(site.battery_inverter_size)}
+                        {cell(site.generator_size)}
+                        {cell(site.genset_setpoint_kit)}
+                        {cell(site.country)}
+                        {cell(site.province)}
+                        <td style={{ padding: '8px 10px', color: T.textSecondary, maxWidth: '260px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={site.location || ''}>{site.location || '—'}</td>
+                        {cell(site.meter)}
+                        {cell(site.system_type)}
                         <td style={{ padding: '8px 10px' }}>{typeBadge(site.business_type)}</td>
-                        <td style={{ padding: '8px 10px', color: T.textSecondary }}>{site.system_type || '--'}</td>
-                        <td style={{ padding: '8px 10px', color: T.textSecondary }}>{site.investment_party || '--'}</td>
+                        {cell(site.operational_status)}
+                        {cell(site.sales_type)}
+                        {cell(site.investment_party)}
+                        {cell(site.project_number)}
+                        {cell(site.commissioned_date)}
+                        {cell(site.installer_name)}
+                        {cell(site.platform)}
+                        {cell(site.offtake_guarantee)}
                         <td style={{ padding: '8px 10px', color: T.textSecondary, whiteSpace: 'nowrap' }} title={site.commissioned_date ? `Commissioned ${site.commissioned_date}` : ''}>{fmtAge(site)}</td>
-                        <td style={{ padding: '8px 10px', color: T.textSecondary, whiteSpace: 'nowrap' }}>{site.power_limit || '--'}</td>
-                        <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', fontWeight: 600, color: /high/i.test(site.soiling_intensity||'') ? T.red : /medium/i.test(site.soiling_intensity||'') ? T.orange : /low/i.test(site.soiling_intensity||'') ? T.green : T.textMuted }}>{site.soiling_intensity || '--'}</td>
-                        <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', fontWeight: 600, color: /high/i.test(site.shading||'') ? T.red : /medium/i.test(site.shading||'') ? T.orange : /low/i.test(site.shading||'') ? T.green : T.textMuted }}>{site.shading || '--'}</td>
+                        {wear(site.soiling_intensity)}
+                        {wear(site.shading)}
+                        {cell(site.power_limit)}
                         <td style={{ padding: '8px 10px' }}>{statusBadge(site.status)}</td>
                       </tr>
-                    ))}
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>

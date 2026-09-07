@@ -54,7 +54,7 @@ System Performance affected by rain on some days";;;;;
 21 Melrose;May-26;Performend poorly due to load demand;;;;;
 21 Melrose;Jun-26;;;;;;
 21 Melrose;Jul-26;31;0;None;None;The  System performed as expected;N/A
-21 Melrose;Aug-26;;;;;;
+21 Melrose;Aug-26;30 days;0;None;None;Energy production was limited by load demand;N/A
 African Global Plastics;Sept-24;;;;;;
 African Global Plastics;Oct-24;;;;;;
 African Global Plastics;Nov-24;;;;;;
@@ -101,7 +101,7 @@ African Global Plastics;Apr-26;Performed poorly due to load demand;;;;;
 African Global Plastics;May-26;Performing poorly due to slightly reduced load demand;;;;;
 African Global Plastics;Jun-26;31 days ;0;None;;;
 African Global Plastics;Jul-26;31;0;None;None;Energy production was limited by reduced load demand;N/A
-African Global Plastics;Aug-26;;;;;;
+African Global Plastics;Aug-26;30 days;0;None;None;Energy production was limited by load demand;N/A
 Alpine Heath Residential ;Sept-24;;;;;;
 Alpine Heath Residential ;Oct-24;;;;;;
 Alpine Heath Residential ;Nov-24;;;;;;
@@ -125,47 +125,31 @@ Alpine Heath Residential ;Apr-26;30 days ;28-30, 3 days;PV Breaker tripped ;Faul
 Alpine Heath Residential ;May-26;31 days ;01-18, 18 days;System isolated for maintenance;Faulty DC breakers ;Energy production was limited by reduced load demand & technical event;
 Alpine Heath Residential ;Jun-26;30 days ;0;None;None ;Energy production was limited by reduced load demand ;N/A
 Alpine Heath Residential ;Jul-26;30;1 day, 14th;Power outage ;None;Energy production was limited by reduced load demand and weather ;N/A
-Alpine Heath Residential ;Aug-26;;;;;;
-BP Parys ;Sept-24;;;;;;
-BP Parys ;Oct-24;;;;;;
-BP Parys ;Nov-24;;;;;;
-BP Parys ;Dec-24;;;;;;
-BP Parys ;Jan-25;;;;;;
-BP Parys ;Feb-25;"Low load demand, 15-20kW avg
-System performing as expected due to low loads";;;;;
-BP Parys ;Mar-25;"Rain
-Load Demand Low ";;;;;
-BP Parys ;Apr-25;Load Demand Low;;;;;
-BP Parys ;May-25;"1. Production is 65% of the expected energy. 
-2. Production is 6% more compared to last month.
-3. There was a power outage for 1 day,  client load is lower than the system installed";;;;;
-BP Parys ;Jun-25;"1. Production is 50% of the expected energy.
-2. Production is 15% less compared to last month.
-4. The system comms went ofline for 8 days, client load demand is lower than the system installed. ";;;;;
-BP Parys ;Jul-25;"1. Production is 40% of the expected energy.
-2. Production is 10% less compared to last month.
-4. The system is performing poorly due to low load demand";;;;;
-BP Parys ;Aug-25;"1. Production is 15% of the expected energy.
-2. Production is 25% less compared to last month.
-4. Inverter reading has 10 days (10/08/25-31/08/25) of missing data (actual reading should be higher), the system has been operational regardless of comms being offline on the monitoring, and the comms are online again.";;;;;
-BP Parys ;Sept-25;"1. Production is 28% of the expected energy.
-2. Production is 13% more compared to last month.
-4. The system produced poorly due to reduced load demand";;;;;
-BP Parys ;Oct-25;"1. Production is 40% of the expected energy.
-2. Production is 12% more compared to last month.
-4. The system produced poorly due to reduced load demand";;;;;
-BP Parys ;Nov-25;"1. Production is 20% of the expected energy.
-2. Production is 20% less compared to last month.
-4. The system produced poorly due to reduced load demand";;;;;
-BP Parys ;Dec-25; The system produced poorly due to business closure;;;;;
-BP Parys ;Jan-26; The system produced poorly due to business closure;;;;;
-BP Parys ;Feb-26;The system is performing moderately, reduced demand and affected by rainy weather .;;;;;
-BP Parys ;Mar-26;Performed poorly due to load demand;;;;;
-BP Parys ;Apr-26;Performed poorly due to load demand;;;;;
-BP Parys ;May-26;Performend poorly due to load demand;;;;;
+Alpine Heath Residential ;Aug-26;30 days;0;None;None;Energy production was limited by load demand;N/A
 Alpine Heath Resort;Jul-26;31;0;None;None;The system performed as expected ;N/A
 Alpine Heath Resort;Jun-26;30 days;0;None;None;The energy production was limited by load demand & bad weather;N/A
-BP Parys ;Aug-26;;;;;;
+Alpine Heath Resort;Sept-24;;;;;;
+Alpine Heath Resort;Oct-24;;;;;;
+Alpine Heath Resort;Nov-24;;;;;;
+Alpine Heath Resort;Dec-24;;;;;;
+Alpine Heath Resort;Jan-25;;;;;;
+Alpine Heath Resort;Feb-25;;;;;;
+Alpine Heath Resort;Mar-25;;;;;;
+Alpine Heath Resort;Apr-25;;;;;;
+Alpine Heath Resort;May-25;;;;;;
+Alpine Heath Resort;Jun-25;;;;;;
+Alpine Heath Resort;Jul-25;31 days;N/A;N/A;N/A;N/A;system not commissioned 
+Alpine Heath Resort;Aug-25;31 days;N/A;N/A;N/A;N/A;system not commissioned 
+Alpine Heath Resort;Sept-25;30 days;N/A;N/A;N/A;N/A;system not commissioned 
+Alpine Heath Resort;Oct-25;31 days;N/A;N/A;N/A;N/A;system not commissioned 
+Alpine Heath Resort;Nov-25;30 days;N/A;N/A;N/A;N/A;system not commissioned 
+Alpine Heath Resort;Dec-25;31 days;N/A;N/A;N/A;N/A;system not commissioned 
+Alpine Heath Resort;Jan-26;31 days;N/A;N/A;N/A;N/A;system not commissioned 
+Alpine Heath Resort;Feb-26;28 days;N/A;N/A;N/A;N/A;system not commissioned 
+Alpine Heath Resort;Mar-26;31 days;N/A;N/A;N/A;N/A;system not commissioned 
+Alpine Heath Resort;Apr-26;2 days;01-28, 28 days;system not commissioned ;None;None;N/A
+Alpine Heath Resort;May-26;31 days;None;None;None;There system produced as expected ;N/A
+Alpine Heath Resort;Aug-26;30 days;0;None;None;The system performed as expected ;N/A
 Bendstore Plaza Shops;Sept-24;Client Load Demand went Lower than Installed Capacity;;;;;
 Bendstore Plaza Shops;Oct-24;;;;;;
 Bendstore Plaza Shops;Nov-24;;;;;;
@@ -222,7 +206,7 @@ Bendstore Plaza Shops;Apr-26;Performed poorly due to load demand;;;;;
 Bendstore Plaza Shops;May-26;Performend poorly due to load demand;;;;;
 Bendstore Plaza Shops;Jun-26;;;;;;
 Bendstore Plaza Shops;Jul-26;31;0;None;None;Energy production was limited by reduced load demand;N/A
-Bendstore Plaza Shops;Aug-26;;;;;;
+Bendstore Plaza Shops;Aug-26;30 days;0;None;None;Energy production was limited by load demand;N/A
 Bendstore Spar;Sept-24;;;;;;
 Bendstore Spar;Oct-24;;;;;;
 Bendstore Spar;Nov-24;;;;;;
@@ -276,7 +260,7 @@ Bendstore Spar;Apr-26;The performed moderately ;;;;;
 Bendstore Spar;May-26;There is no monitoring onsite ;;;;;
 Bendstore Spar;Jun-26;;;;;;
 Bendstore Spar;Jul-26;31;0;None;None;The  System performed as expected;N/A
-Bendstore Spar;Aug-26;;;;;;
+Bendstore Spar;Aug-26;30 days;0;None;None;The system performed as expected ;N/A
 Beyerskloof;Sept-24;;;;;;
 Beyerskloof;Oct-24;;;;;;
 Beyerskloof;Nov-24;;;;;;
@@ -327,7 +311,47 @@ Beyerskloof;Apr-26;Performed as expected;;;;;
 Beyerskloof;May-26;Performed as expected;;;;;
 Beyerskloof;Jun-26;;;;;;
 Beyerskloof;Jul-26;31;0;None;None;The  System performed as expected;N/A
-Beyerskloof;Aug-26;;;;;;
+Beyerskloof;Aug-26;30 days;0;None;None;The system performed as expected ;N/A
+BP Parys ;Sept-24;;;;;;
+BP Parys ;Oct-24;;;;;;
+BP Parys ;Nov-24;;;;;;
+BP Parys ;Dec-24;;;;;;
+BP Parys ;Jan-25;;;;;;
+BP Parys ;Feb-25;"Low load demand, 15-20kW avg
+System performing as expected due to low loads";;;;;
+BP Parys ;Mar-25;"Rain
+Load Demand Low ";;;;;
+BP Parys ;Apr-25;Load Demand Low;;;;;
+BP Parys ;May-25;"1. Production is 65% of the expected energy. 
+2. Production is 6% more compared to last month.
+3. There was a power outage for 1 day,  client load is lower than the system installed";;;;;
+BP Parys ;Jun-25;"1. Production is 50% of the expected energy.
+2. Production is 15% less compared to last month.
+4. The system comms went ofline for 8 days, client load demand is lower than the system installed. ";;;;;
+BP Parys ;Jul-25;"1. Production is 40% of the expected energy.
+2. Production is 10% less compared to last month.
+4. The system is performing poorly due to low load demand";;;;;
+BP Parys ;Aug-25;"1. Production is 15% of the expected energy.
+2. Production is 25% less compared to last month.
+4. Inverter reading has 10 days (10/08/25-31/08/25) of missing data (actual reading should be higher), the system has been operational regardless of comms being offline on the monitoring, and the comms are online again.";;;;;
+BP Parys ;Sept-25;"1. Production is 28% of the expected energy.
+2. Production is 13% more compared to last month.
+4. The system produced poorly due to reduced load demand";;;;;
+BP Parys ;Oct-25;"1. Production is 40% of the expected energy.
+2. Production is 12% more compared to last month.
+4. The system produced poorly due to reduced load demand";;;;;
+BP Parys ;Nov-25;"1. Production is 20% of the expected energy.
+2. Production is 20% less compared to last month.
+4. The system produced poorly due to reduced load demand";;;;;
+BP Parys ;Dec-25; The system produced poorly due to business closure;;;;;
+BP Parys ;Jan-26; The system produced poorly due to business closure;;;;;
+BP Parys ;Feb-26;The system is performing moderately, reduced demand and affected by rainy weather .;;;;;
+BP Parys ;Mar-26;Performed poorly due to load demand;;;;;
+BP Parys ;Apr-26;Performed poorly due to load demand;;;;;
+BP Parys ;May-26;Performend poorly due to load demand;;;;;
+BP Parys ;Aug-26;26 days;4 days, 8-10, 26th ;The inverter went to safe mode;Grid over frequency ;Energy production was limited by load demand and downtimes ;N/A
+BP Parys ;Jun-26;;;;;;
+BP Parys ;Jul-26;31;0;None;None;Energy production was limited by reduced load demand;N/A
 Buffalo Rock;Sept-24;;;;;;
 Buffalo Rock;Oct-24;;;;;;
 Buffalo Rock;Nov-24;;;;;;
@@ -358,9 +382,9 @@ Buffalo Rock;Feb-26;System went offline ;;;;;
 Buffalo Rock;Mar-26;System went offline ;;;;;
 Buffalo Rock;Apr-26;System went offline ;;;;;
 Buffalo Rock;May-26;No Monitoring onsite;;;;;
-BP Parys ;Jun-26;;;;;;
-BP Parys ;Jul-26;31;0;None;None;Energy production was limited by reduced load demand;N/A
-Buffalo Rock;Aug-26;;;;;;
+Buffalo Rock;Aug-26;30 days ;0;None;Battery cell imbalance;Energy production was limited by load demand;N/A
+Buffalo Rock;Jun-26;;;;;;
+Buffalo Rock;Jul-26;31;0;None;None;Energy production was limited by reduced load demand;N/A
 Checkers De Aar;Sept-24;;;;;;
 Checkers De Aar;Oct-24;;;;;;
 Checkers De Aar;Nov-24;;;;;;
@@ -405,9 +429,17 @@ Checkers De Aar;Feb-26;System performed well;;;;;
 Checkers De Aar;Mar-26;System performed well;;;;;
 Checkers De Aar;Apr-26;Performed as expected;;;;;
 Checkers De Aar;May-26;Performed as expected;;;;;
-Buffalo Rock;Jun-26;;;;;;
-Buffalo Rock;Jul-26;31;0;None;None;Energy production was limited by reduced load demand;N/A
-Checkers De Aar;Aug-26;;;;;;
+Checkers De Aar;Aug-26;26 days;4 days, 1-4th ;client contractor tempered with the system ;Zero export CT were swapped in the wrong direction ;Energy production was limited by technical downtime, and heavily soiled panels;N/A
+Checkers De Aar;Jun-26;;;;;;
+Checkers De Aar;Jul-26;24;7 days, 24-31st;client contractor tempered with the system ;Zero export CT were swapped in the wrong direction ;Energy production was limited by technical downtime, and heavily soiled panels;N/A
+Checkers Lichtenburg;Jul-26;31;0;None;None;The system performed as expected;N/A
+Checkers Lichtenburg;Jun-26;;;;;;
+Checkers Lichtenburg;May-26;Performed as expected;;;;;
+Checkers Lichtenburg;Aug-26;30 days ;0;None;None;The system performed as expected;N/A
+Checkers Lichtenburg;Sept-26;;;;;;
+Checkers Lichtenburg;Oct-26;;;;;;
+Checkers Lichtenburg;Nov-26;;;;;;
+Checkers Lichtenburg;Dec-26;;;;;;
 Checkers Silverlakes Gen;Sept-24;;;;;;
 Checkers Silverlakes Gen;Oct-24;;;;;;
 Checkers Silverlakes Gen;Nov-24;;;;;;
@@ -446,9 +478,9 @@ Checkers Silverlakes Gen;Feb-26;System performed well;;;;;
 Checkers Silverlakes Gen;Mar-26;System performed well;;;;;
 Checkers Silverlakes Gen;Apr-26;Performed as expected;;;;;
 Checkers Silverlakes Gen;May-26;Performed as expected;;;;;
-Checkers De Aar;Jun-26;;;;;;
-Checkers De Aar;Jul-26;24;7 days, 24-31st;client contractor tempered with the system ;Zero export CT were swapped in the wrong direction ;Energy production was limited by technical downtime, and heavily soiled panels;N/A
-Checkers Silverlakes Gen;Aug-26;;;;;;
+Checkers Silverlakes Gen;Aug-26;30 days ;0;None;None;The system performed as expected;N/A
+Checkers Silverlakes Gen;Jun-26;;;;;;
+Checkers Silverlakes Gen;Jul-26;31;0;None;None;The  System performed as expected;N/A
 Checkers Silverlakes No Gen;Sept-24;;;;;;
 Checkers Silverlakes No Gen;Oct-24;;;;;;
 Checkers Silverlakes No Gen;Nov-24;;;;;;
@@ -487,9 +519,9 @@ Checkers Silverlakes No Gen;Feb-26;System performed well;;;;;
 Checkers Silverlakes No Gen;Mar-26;System performed moderately due to bad weather days;;;;;
 Checkers Silverlakes No Gen;Apr-26;Performed as expected;;;;;
 Checkers Silverlakes No Gen;May-26;Performed as expected;;;;;
-Checkers Lichtenburg;Jul-26;31;0;None;None;The system performed as expected;N/A
-Checkers Lichtenburg;Jun-26;;;;;;
-Checkers Silverlakes No Gen;Aug-26;;;;;;
+Checkers Silverlakes No Gen;Aug-26;30 days ;0;None;None;The system performed as expected;N/A
+Checkers Silverlakes No Gen;Jun-26;;;;;;
+Checkers Silverlakes No Gen;Jul-26;31;0;None;None;The  System performed as expected;N/A
 Checkrite Inanda;Sept-24;;;;;;
 Checkrite Inanda;Oct-24;;;;;;
 Checkrite Inanda;Nov-24;;;;;;
@@ -518,9 +550,9 @@ Checkrite Inanda;Feb-26;28 days;0;None;4 strings disconnected ;System underperfo
 Checkrite Inanda;Mar-26;31 days;0;None;4 strings disconnected ;System underperformed due to technical fault experienced onsite. Expected February production corrected due to technical fault. ;N/A
 Checkrite Inanda;Apr-26;30 days;0;None;None;The  System is performed as expected;N/A
 Checkrite Inanda;May-26;31 days;0;None;None;The  System is performed as expected;N/A
-Checkers Silverlakes Gen;Jun-26;;;;;;
-Checkers Silverlakes Gen;Jul-26;31;0;None;None;The  System performed as expected;N/A
-Checkrite Inanda;Aug-26;;;;;;
+Checkrite Inanda;Aug-26;30 days ;0;None;None;The system performed as expected;N/A
+Checkrite Inanda;Jun-26;30 days;0;None;None;The  System is performed as expected;N/A
+Checkrite Inanda;Jul-26;31;0;None;None;The system performed as expected;N/A
 Club Houghton;Sept-24;;;;;;
 Club Houghton;Oct-24;;;;;;
 Club Houghton;Nov-24;;;;;;
@@ -573,9 +605,9 @@ Club Houghton;Feb-26;System performed poorly, one inveter is faulty and needs ma
 Club Houghton;Mar-26;System performed poorly due to low load demand;;;;;
 Club Houghton;Apr-26;The system performed poorly due to load demand. The system was on bu pass from the 24nd - 27th, there was a phase rotation from city power, the issue is now resolved ;;;;;
 Club Houghton;May-26;Performend poorly due to load demand;;;;;
-Checkers Silverlakes No Gen;Jun-26;;;;;;
-Checkers Silverlakes No Gen;Jul-26;31;0;None;None;The  System performed as expected;N/A
-Club Houghton;Aug-26;;;;;;
+Club Houghton;Aug-26;30;0;None;None;Energy production was limited by load demand;N/A
+Club Houghton;Jun-26;;;;;;
+Club Houghton;Jul-26;31;0;None;None;The system performed as expected;N/A
 Coldstar International;Sept-24;;;;;;
 Coldstar International;Oct-24;;;;;;
 Coldstar International;Nov-24;;;;;;
@@ -629,9 +661,9 @@ Coldstar International;Feb-26;System performed well;;;;;
 Coldstar International;Mar-26;System performed well;;;;;
 Coldstar International;Apr-26;Performed as expected;;;;;
 Coldstar International;May-26;Performed as expected;;;;;
-Checkrite Inanda;Jun-26;30 days;0;None;None;The  System is performed as expected;N/A
-Checkrite Inanda;Jul-26;31;0;None;None;The system performed as expected;N/A
-Coldstar International;Aug-26;;;;;;
+Coldstar International;Aug-26;30 days ;0;None;None;The system performed as expected;N/A
+Coldstar International;Jun-26;;;;;;
+Coldstar International;Jul-26;31;0;None;None;The system performed as expected;N/A
 Cultura Fresh;Sept-24;;;;;;
 Cultura Fresh;Oct-24;;;;;;
 Cultura Fresh;Nov-24;;;;;;
@@ -655,9 +687,9 @@ Cultura Fresh;Feb-26;System performed well;;;;;
 Cultura Fresh;Mar-26;System performed well;;;;;
 Cultura Fresh;Apr-26;No recorded monthly readings;;;;;
 Cultura Fresh;May-26;Monitoring system is not working properly;;;;;
-Club Houghton;Jun-26;;;;;;
-Club Houghton;Jul-26;31;0;None;None;The system performed as expected;N/A
-Cultura Fresh;Aug-26;;;;;;
+Cultura Fresh;Aug-26;N/A;N/A;N/A;N/A;N/A;Comms issue
+Cultura Fresh;Jun-26;;;;;;
+Cultura Fresh;Jul-26;31;0;None;Unreliable monitoring platform ;N/A;N/A
 Demco;Sept-24;Client Demand very low on Friday and weekends, soiling;;;;;
 Demco;Oct-24;"Client Demand very low on Friday and weekends,
  Load reduction genset kit now serving its purpose";;;;;
@@ -692,9 +724,33 @@ Demco;Feb-26;3 days;1-3, 3 days;Power outages & low load demand;grid failure on 
 Demco;Mar-26;31 days;0;None;None;Energy production was limited by reduced load demand;N/A
 Demco;Apr-26;30 days;0;None;None;Energy production was limited by reduced load demand;N/A
 Demco;May-26;31 days;0;None;None;Energy production was limited by reduced load demand;N/A
-Coldstar International;Jun-26;;;;;;
-Coldstar International;Jul-26;31;0;None;None;The system performed as expected;N/A
-Demco;Aug-26;;;;;;
+Demco;Aug-26;30 days;0;None;None;Energy production was limited by load demand;N/A
+Demco;Jun-26;30 days;0;None;None;Energy production was limited by reduced load demand;N/A
+Demco;Jul-26;31;0;None;None;Energy production was limited by reduced load demand;N/A
+Engen Kaalfontein;Jun-26;30 days;0;N/A;None ;None;N/A
+Engen Kaalfontein;Jul-26;18;13 days,8-21st;Inverter software ;Unknown;Energy production is limited by system unavailability and soiling;N/A
+Engen Kaalfontein;Sept-24;;;;;;
+Engen Kaalfontein;Oct-24;;;;;;
+Engen Kaalfontein;Nov-24;;;;;;
+Engen Kaalfontein;Dec-24;;;;;;
+Engen Kaalfontein;Jan-25;;;;;;
+Engen Kaalfontein;Feb-25;;;;;;
+Engen Kaalfontein;Mar-25;;;;;;
+Engen Kaalfontein;Apr-25;;;;;;
+Engen Kaalfontein;May-25;;;;;;
+Engen Kaalfontein;Jun-25;;;;;;
+Engen Kaalfontein;Jul-25;N/A;N/A;N/A;N/A;N/A;system not commissioned 
+Engen Kaalfontein;Aug-25;N/A;N/A;N/A;N/A;N/A;system not commissioned 
+Engen Kaalfontein;Sept-25;N/A;N/A;N/A;N/A;N/A;system not commissioned 
+Engen Kaalfontein;Oct-25;N/A;N/A;N/A;N/A;N/A;system not commissioned 
+Engen Kaalfontein;Nov-25;N/A;N/A;N/A;N/A;N/A;system not commissioned 
+Engen Kaalfontein;Dec-25;N/A;N/A;N/A;N/A;N/A;system not commissioned 
+Engen Kaalfontein;Jan-26;N/A;N/A;N/A;N/A;N/A;system not commissioned 
+Engen Kaalfontein;Feb-26;N/A;N/A;N/A;N/A;N/A;system not commissioned 
+Engen Kaalfontein;Mar-26;N/A;N/A;N/A;N/A;N/A;system not commissioned 
+Engen Kaalfontein;Apr-26;N/A;N/A;N/A;N/A;N/A;system not commissioned 
+Engen Kaalfontein;May-26;8 days;1-23, 23 days;system not commissioned ;N/A;N/A;
+Engen Kaalfontein;Aug-26;30 days ;0;None;None;The system performed as expected;N/A
 Engen Lotus Gardens;Sept-24;;;;;;
 Engen Lotus Gardens;Oct-24;;;;;;
 Engen Lotus Gardens;Nov-24;;;;;;
@@ -716,9 +772,9 @@ Engen Lotus Gardens;Feb-26;28 days;0;None;None;The system performed as expected;
 Engen Lotus Gardens;Mar-26;31 days;0;None;None;The system performed as expected;N/A
 Engen Lotus Gardens;Apr-26;30 days;0;None;None;Performed as expected;N/A
 Engen Lotus Gardens;May-26;31 days;0;None;None;Performed as expected;N/A
-Cultura Fresh;Jun-26;;;;;;
-Cultura Fresh;Jul-26;31;0;None;Unreliable monitoring platform ;N/A;N/A
-Engen Lotus Gardens;Aug-26;;;;;;
+Engen Lotus Gardens;Aug-26;30 days ;0;None;None;The system performed as expected;N/A
+Engen Lotus Gardens;Jun-26;30 days;0;None;None;The system performed as expected ;N/A
+Engen Lotus Gardens;Jul-26;31;0;None;Inverter Internet connectivity;The system performed as expected;N/A
 Giba Gorge Main;Sept-24;;;;;;
 Giba Gorge Main;Oct-24;;;;;;
 Giba Gorge Main;Nov-24;;;;;;
@@ -765,9 +821,9 @@ Giba Gorge Main;Feb-26;Performed poorly due to reduced loads, client loads aore 
 Giba Gorge Main;Mar-26;The system performed poorly due to broken inverters ;;;;;
 Giba Gorge Main;Apr-26;The system performed poorly due to broken inverters ;;;;;
 Giba Gorge Main;May-26;The system is broken, the inverter to be replaced ;;;;;
-Demco;Jun-26;30 days;0;None;None;Energy production was limited by reduced load demand;N/A
-Demco;Jul-26;31;0;None;None;Energy production was limited by reduced load demand;N/A
-Giba Gorge Main;Aug-26;;;;;;
+Giba Gorge Main;Aug-26;30 days ;0;None;None;Energy production was limited by load demand;N/A
+Giba Gorge Main;Jun-26;;;;;;
+Giba Gorge Main;Jul-26;31;0;None;Inverter Internet connectivity;Energy production was limited by reduced load demand;N/A
 Giba Gorge Storage;Sept-24;;;;;;
 Giba Gorge Storage;Oct-24;;;;;;
 Giba Gorge Storage;Nov-24;;;;;;
@@ -817,9 +873,9 @@ Giba Gorge Storage;Feb-26;Performed poorly due to reduced loads;;;;;
 Giba Gorge Storage;Mar-26;Performed poorly due to reduced loads;;;;;
 Giba Gorge Storage;Apr-26;Performed poorly due to reduced loads;;;;;
 Giba Gorge Storage;May-26;Performend poorly due to load demand;;;;;
-Engen Kaalfontein;Jun-26;30 days;0;N/A;None ;None;N/A
-Engen Kaalfontein;Jul-26;18;13 days,8-21st;Inverter software ;Unknown;Energy production is limited by system unavailability and soiling;N/A
-Giba Gorge Storage;Aug-26;;;;;;
+Giba Gorge Storage;Aug-26;30 days ;0;None;None;Energy production was limited by load demand;N/A
+Giba Gorge Storage;Jun-26;;;;;;
+Giba Gorge Storage;Jul-26;31;0;None;Inverter Internet connectivity;Energy production was limited by reduced load demand;N/A
 Golden Spot Resort;Sept-24;Load Demand sometimes is very low;;;;;
 Golden Spot Resort;Oct-24;Load Demand sometimes is very low;;;;;
 Golden Spot Resort;Nov-24;;;;;;
@@ -856,9 +912,9 @@ Golden Spot Resort;Feb-26;28 days;0;None;None;Energy production was limited by r
 Golden Spot Resort;Mar-26;8 days;01-23, 23 days;Inverter is offline;internert connection ;Energy production was limited by reduced load demand;N/A
 Golden Spot Resort;Apr-26;30 days;0;None;None;Energy production was limited by reduced load demand;
 Golden Spot Resort;May-26;0 days;01-31, 31 days;Inverter is offline;internert connection ;The system monitoring is offline;
-Engen Lotus Gardens;Jun-26;30 days;0;None;None;The system performed as expected ;N/A
-Engen Lotus Gardens;Jul-26;31;0;None;Inverter Internet connectivity;The system performed as expected;N/A
-Golden Spot Resort;Aug-26;;;;;;
+Golden Spot Resort;Aug-26;30 days ;0;None;None;Energy production was limited by load demand;N/A
+Golden Spot Resort;Jun-26;30 days;0;None;Ineternet connectivity;The energy production was limited by load demand & bad weather;N/A
+Golden Spot Resort;Jul-26;31;0;None;None ;Energy production was limited by reduced load demand;Daytime load demand reduced further 
 Golden Spot Shops;Sept-24;;;;;;
 Golden Spot Shops;Oct-24;;;;;;
 Golden Spot Shops;Nov-24;;;;;;
@@ -889,9 +945,9 @@ Golden Spot Shops;Feb-26;28 days;0;None;None;The system performed as expected ;N
 Golden Spot Shops;Mar-26;31 days;0;None;None;Energy production was limited by reduced load demand;N/A
 Golden Spot Shops;Apr-26;30 days;0;None;None;Energy production was limited by reduced load demand;N/A
 Golden Spot Shops;May-26;31 days;0;None;None;The system performed as expected ;N/A
-Giba Gorge Main;Jun-26;;;;;;
-Giba Gorge Main;Jul-26;31;0;None;Inverter Internet connectivity;Energy production was limited by reduced load demand;N/A
-Golden Spot Shops;Aug-26;;;;;;
+Golden Spot Shops;Aug-26;0;30;The system is switched off as per client request;None;N/A;N/A
+Golden Spot Shops;Jul-26;17;14 days, 8-10,15-17,21-31st;System switched off;None;Energy production was limited by system beign switched off. ;Client system switched off as per their requirements
+Golden Spot Shops;Jun-26;30 days;0;None;None;The system performed as expected;N/A
 Grootpan;Sept-24;;;;;;
 Grootpan;Oct-24;;;;;;
 Grootpan;Nov-24;;;;;;
@@ -913,9 +969,9 @@ Grootpan;Feb-26;;;;;;
 Grootpan;Mar-26;First month of commisioning ;;;;;
 Grootpan;Apr-26;System performed as expected ;;;;;
 Grootpan;May-26;Performend poorly due to load demand;;;;;
-Giba Gorge Storage;Jun-26;;;;;;
-Giba Gorge Storage;Jul-26;31;0;None;Inverter Internet connectivity;Energy production was limited by reduced load demand;N/A
-Grootpan;Aug-26;;;;;;
+Grootpan;Aug-26;30 days ;0;None;None;Energy production was limited by load demand;N/A
+Grootpan;Jun-26;;;;;;
+Grootpan;Jul-26;31;0;None;None;Energy production was limited by reduced load demand;N/A
 HB Dunn;Sept-24;;;;;;
 HB Dunn;Oct-24;;;;;;
 HB Dunn;Nov-24;;;;;;
@@ -958,9 +1014,9 @@ HB Dunn;Feb-26;System performed well;;;;;
 HB Dunn;Mar-26;The system performed moderately due to slightly reducded loads ;;;;;
 HB Dunn;Apr-26;The system performed moderately due to slightly reducded loads ;;;;;
 HB Dunn;May-26;The system is decommisioned ;;;;;
-Golden Spot Resort;Jun-26;30 days;0;None;Ineternet connectivity;The energy production was limited by load demand & bad weather;N/A
-Golden Spot Resort;Jul-26;31;0;None;None ;Energy production was limited by reduced load demand;Daytime load demand reduced further 
-HB Dunn;Aug-26;;;;;;
+HB Dunn;Aug-26;30 days ;0;None;None;Energy production was limited by load demand;N/A
+HB Dunn;Jun-26;;;;;;
+HB Dunn;Jul-26;31;0;None;None;Energy production was limited by reduced load demand;N/A
 Helderberg Collage ;Sept-24;;;;;;
 Helderberg Collage ;Oct-24;;;;;;
 Helderberg Collage ;Nov-24;;;;;;
@@ -1007,9 +1063,9 @@ Helderberg Collage ;Feb-26;System performed well;;;;;
 Helderberg Collage ;Mar-26;System performed well;;;;;
 Helderberg Collage ;Apr-26;The system performed moderatly;;;;;
 Helderberg Collage ;May-26;Performing poorly due to slightly reduced load demand;;;;;
-Golden Spot Shops;Jul-26;17;14 days, 8-10,15-17,21-31st;System switched off;None;Energy production was limited by system beign switched off. ;Client system switched off as per their requirements
-Golden Spot Shops;Jun-26;30 days;0;None;None;The system performed as expected;N/A
-Helderberg Collage ;Aug-26;;;;;;
+Helderberg Collage ;Aug-26;30 days ;0;None;None;The system performed as expected;N/A
+Helderberg Collage ;Jun-26;;;;;;
+Helderberg Collage ;Jul-26;31;0;None;None;Energy production was limited by reduced load demand;N/A
 Hilston Rotoflo;Sept-24;;;;;;
 Hilston Rotoflo;Oct-24;;;;;;
 Hilston Rotoflo;Nov-24;;;;;;
@@ -1044,9 +1100,9 @@ Hilston Rotoflo;Feb-26;28 days;0;None;None;The system performed as expected ;N/A
 Hilston Rotoflo;Mar-26;31 days;0;None;None;The system performed as expected ;N/A
 Hilston Rotoflo;Apr-26;30 days;0;None;None;Performed moderately due to slightly reduced load and weather;N/A
 Hilston Rotoflo;May-26;31 days;0;None;None;The system performed as expected ;N/A
-Grootpan;Jun-26;;;;;;
-Grootpan;Jul-26;31;0;None;None;Energy production was limited by reduced load demand;N/A
-Hilston Rotoflo;Aug-26;;;;;;
+Hilston Rotoflo;Aug-26;30 days ;0;None;None;The system performed as expected;N/A
+Hilston Rotoflo;Jun-26;30 days;0;None;None;The energy production was limited by load demand & bad weather;N/A
+Hilston Rotoflo;Jul-26;31;0;None;None;The  System performed as expected;N/A
 Huis Herfsblaar;Sept-24;;;;;;
 Huis Herfsblaar;Oct-24;;;;;;
 Huis Herfsblaar;Nov-24;;;;;;
@@ -1065,7 +1121,6 @@ Huis Herfsblaar;Jun-25;"1. Production is 89% of the expected energy.
 2. Production is 14% less compared to last month.
 3. The system is performing well. There system lost comms and PV (days: 6,12,13)";;;;;
 Huis Herfsblaar;Jul-25;16 days;15;Technical Fault on one inverter;Inverter breaker tripped;50% of the production reduced due to offline inverter;N/A
-n/;Aug-25;31 days;0;None;None;The system performe well;N/A
 Huis Herfsblaar;Sept-25;30 days;0;None;None;The system performe well;N/A
 Huis Herfsblaar;Oct-25;31 days;0;None;None;The system performe well;N/A
 Huis Herfsblaar;Nov-25;30 days;0;None;None;The energy production was limited by load demand & rainy  weather;N/A
@@ -1075,9 +1130,9 @@ Huis Herfsblaar;Feb-26;28 days;0;None;None;The system performe well;N/A
 Huis Herfsblaar;Mar-26;31 days;0;None;None;The energy production was limited by load demand & bad weather;N/A
 Huis Herfsblaar;Apr-26;30 days;0;None;None;The energy production was limited by load demand;N/A
 Huis Herfsblaar;May-26;31 days;0;None;None;The system performe well;N/A
-HB Dunn;Jun-26;;;;;;
-HB Dunn;Jul-26;31;0;None;None;Energy production was limited by reduced load demand;N/A
-Huis Herfsblaar;Aug-26;31 days ;;;;;
+Huis Herfsblaar;Aug-26;30 days ;0;None;None;Energy production was limited by reduced load demand;N/A
+Huis Herfsblaar;Jun-26;30 days;0;None;None;The energy production was limited by load demand & bad weather;N/A
+Huis Herfsblaar;Jul-26;31;0;None;None;The  System performed as expected;N/A
 IPID - Floor 4;Sept-24;;;;;;
 IPID - Floor 4;Oct-24;;;;;;
 IPID - Floor 4;Nov-24;;;;;;
@@ -1099,9 +1154,9 @@ IPID - Floor 4;Feb-26;28 days;0;None;None;System performed as expected ;N/A
 IPID - Floor 4;Mar-26;31 days ;0;None;None;System performed as expected ;N/A
 IPID - Floor 4;Apr-26;30 days ;0;None;None;System performed as expected ;N/A
 IPID - Floor 4;May-26;31 days ;0;None;None;System performed as expected ;N/A
-Helderberg Collage ;Jun-26;;;;;;
-Helderberg Collage ;Jul-26;31;0;None;None;Energy production was limited by reduced load demand;N/A
-IPID - Floor 4;Aug-26;;;;;;
+IPID - Floor 4;Aug-26;30 days ;0;None;None;The system performed as expected;N/A
+IPID - Floor 4;Jun-26;30 days ;0;None;None;The system performed as expected;N/A
+IPID - Floor 4;Jul-26;31;0;None;None;The  System performed as expected;N/A
 IPID - Floor 6;Sept-24;;;;;;
 IPID - Floor 6;Oct-24;;;;;;
 IPID - Floor 6;Nov-24;;;;;;
@@ -1123,9 +1178,9 @@ IPID - Floor 6;Feb-26;28 days;0;None;None;Energy production was limited by reduc
 IPID - Floor 6;Mar-26;31 days ;0;None;None;Energy production was limited by reduced load demand;N/A
 IPID - Floor 6;Apr-26;30 days ;0;None;None;Energy production was limited by reduced load demand;N/A
 IPID - Floor 6;May-26;31 days ;0;None;None;Energy production was limited by reduced load demand;N/A
-Hilston Rotoflo;Jun-26;30 days;0;None;None;The energy production was limited by load demand & bad weather;N/A
-Hilston Rotoflo;Jul-26;31;0;None;None;The  System performed as expected;N/A
-IPID - Floor 6;Aug-26;;;;;;
+IPID - Floor 6;Aug-26;30 days ;0;None;None;Energy production was limited by reduced load demand;N/A
+IPID - Floor 6;Jul-26;31;0;None;None;Energy production was limited by reduced load demand;N/A
+IPID - Floor 6;Jun-26;30 days ;0;None;None;The energy production was limited by load demand & bad weather;N/A
 Kool Village ;Sept-24;;;;;;
 Kool Village ;Oct-24;;;;;;
 Kool Village ;Nov-24;;;;;;
@@ -1177,9 +1232,9 @@ Kool Village ;Feb-26;The system is performing moderately, reduced demand and aff
 Kool Village ;Mar-26;The system is performing moderately, reduced demand and affected by rainy weather .;;;;;
 Kool Village ;Apr-26;System performed poorly due to load demand;;;;;
 Kool Village ;May-26;Performend poorly due to load demand;;;;;
-Huis Herfsblaar;Jun-26;30 days;0;None;None;The energy production was limited by load demand & bad weather;N/A
-Huis Herfsblaar;Jul-26;31;0;None;None;The  System performed as expected;N/A
-Kool Village ;Aug-26;;;;;;
+Kool Village ;Aug-26;30 days ;0;None;None;N/A;N/A
+Kool Village ;Jun-26;;;;;;
+Kool Village ;Jul-26;31;0;None;2 strings were off due to damaged fuses, No inverter monitoring ;Energy production was limited by none operational strings;Installing new monitoring 
 Mambha Cash & Carry;Sept-24;;;;;;
 Mambha Cash & Carry;Oct-24;;;;;;
 Mambha Cash & Carry;Nov-24;;;;;;
@@ -1229,9 +1284,9 @@ Mambha Cash & Carry;Feb-26;System performed well;;;;;
 Mambha Cash & Carry;Mar-26;The system performed as expected;;;;;
 Mambha Cash & Carry;Apr-26;Performed as expected;;;;;
 Mambha Cash & Carry;May-26;Performed as expected;;;;;
-IPID - Floor 4;Jun-26;30 days ;0;None;None;The system performed as expected;N/A
-IPID - Floor 4;Jul-26;31;0;None;None;The  System performed as expected;N/A
-Mambha Cash & Carry;Aug-26;;;;;;
+Mambha Cash & Carry;Aug-26;30 days ;0;None;None;The system performed as expected;N/A
+Mambha Cash & Carry;Jun-26;;;;;;
+Mambha Cash & Carry;Jul-26;31;0;None;None;The  System performed as expected;N/A
 Mathe Group Company;Sept-24;The company had no loads during maintenance in october ;;;;;
 Mathe Group Company;Oct-24;;;;;;
 Mathe Group Company;Nov-24;;;;;;
@@ -1282,9 +1337,9 @@ Mathe Group Company;Feb-26;System performed well;;;;;
 Mathe Group Company;Mar-26;System performed well;;;;;
 Mathe Group Company;Apr-26;The system performed moderately due to winter shades ;;;;;
 Mathe Group Company;May-26;Performed as expected;;;;;
-IPID - Floor 6;Jul-26;31;0;None;None;Energy production was limited by reduced load demand;N/A
-IPID - Floor 6;Jun-26;30 days ;0;None;None;The energy production was limited by load demand & bad weather;N/A
-Mathe Group Company;Aug-26;;;;;;
+Mathe Group Company;Aug-26;30 days ;0;None;None;The system performed as expected;N/A
+Mathe Group Company;Jun-26;;;;;;
+Mathe Group Company;Jul-26;31;0;None;None;The  System performed as expected;N/A
 Mdluli;Sept-24;;;;;;
 Mdluli;Oct-24;;;;;;
 Mdluli;Nov-24;;;;;;
@@ -1309,9 +1364,9 @@ Mdluli;Feb-26;28 days;0;None;None;System performed well;N/A
 Mdluli;Mar-26;31 days;0;None;None;Energy production was limited by reduced load demand;N/A
 Mdluli;Apr-26;30 days;0;None;None;Energy production was limited by reduced load demand;N/A
 Mdluli;May-26;31 days;0;None;None;The system performned as expected;N/A
-Kool Village ;Jun-26;;;;;;
-Kool Village ;Jul-26;31;0;None;2 strings were off due to damaged fuses, No inverter monitoring ;Energy production was limited by none operational strings;Installing new monitoring 
-Mdluli;Aug-26;;;;;;
+Mdluli;Aug-26;30 days ;0;None;None;The system performed as expected;N/A
+Mdluli;Jun-26;30 days;0;None;None;The energy production was limited by load demand & bad weather;N/A
+Mdluli;Jul-26;31;0;None;There is no inverter monitoring ;Unknown ;N/A
 Medipost;Sept-24;;;;;;
 Medipost;Oct-24;;;;;;
 Medipost;Nov-24;;;;;;
@@ -1333,9 +1388,9 @@ Medipost;Feb-26;System performed well;;;;;
 Medipost;Mar-26;System performed well;;;;;
 Medipost;Apr-26;Performed as expected;;;;;
 Medipost;May-26;Performed as expected;;;;;
-Mambha Cash & Carry;Jun-26;;;;;;
-Mambha Cash & Carry;Jul-26;31;0;None;None;The  System performed as expected;N/A
-Medipost;Aug-26;;;;;;
+Medipost;Aug-26;30 days ;0;None;None;The system performed as expected;N/A
+Medipost;Jun-26;31;0;None;None;The  System performed as expected;N/A
+Medipost;Jul-26;31;0;None;None;The  System performed as expected;N/A
 Meredale Heights ;Sept-24;;;;;;
 Meredale Heights ;Oct-24;;;;;;
 Meredale Heights ;Nov-24;;;;;;
@@ -1375,9 +1430,9 @@ Meredale Heights ;Feb-26;28 days;0;None;None;The system performed as expected;N/
 Meredale Heights ;Mar-26;31 days;0;None;None;The system performed as expected;N/A
 Meredale Heights ;Apr-26;30 days;0;None;None;The system performed as expected;N/A
 Meredale Heights ;May-26;31 days;0;None;None;The system performed as expected;N/A
-Mathe Group Company;Jun-26;;;;;;
-Mathe Group Company;Jul-26;31;0;None;None;The  System performed as expected;N/A
-Meredale Heights ;Aug-26;;;;;;
+Meredale Heights ;Aug-26;30 days ;0;None;None;The system performed as expected;N/A
+Meredale Heights ;Jun-26;30 days;0;None;None;The system performed as expected;N/A
+Meredale Heights ;Jul-26;31;0;None;None;The  System performed as expected;N/A
 Monument Park Checkers;Sept-24;;;;;;
 Monument Park Checkers;Oct-24;;;;;;
 Monument Park Checkers;Nov-24;;;;;;
@@ -1427,9 +1482,10 @@ Monument Park Checkers;Feb-26;System performed well;;;;;
 Monument Park Checkers;Mar-26;System performed well;;;;;
 Monument Park Checkers;Apr-26;The system performed moderately ;;;;;
 Monument Park Checkers;May-26;Performed as expected;;;;;
-Mdluli;Jun-26;30 days;0;None;None;The energy production was limited by load demand & bad weather;N/A
-Mdluli;Jul-26;31;0;None;There is no inverter monitoring ;Unknown ;N/A
-Monument Park Checkers;Aug-26;;;;;;
+Monument Park Checkers;Aug-26;30 days ;0;None;None;The system performed as expected;N/A
+Monument Park Checkers;Jun-26;;;;;;
+Monument Park Checkers;Jul-26;31;0;None;None;The  System performed as expected;N/A
+n/;Aug-25;31 days;0;None;None;The system performe well;N/A
 Nkambeni Industrial;Sept-24;;;;;;
 Nkambeni Industrial;Oct-24;;;;;;
 Nkambeni Industrial;Nov-24;;;;;;
@@ -1453,9 +1509,9 @@ Nkambeni Industrial;Feb-26;System performed well;;;;;
 Nkambeni Industrial;Mar-26;No comms onsite, system performed poorly;;;;;
 Nkambeni Industrial;Apr-26;No data recorded ;;;;;
 Nkambeni Industrial;May-26;There is no monitoring ;;;;;
-Medipost;Jun-26;31;0;None;None;The  System performed as expected;N/A
-Medipost;Jul-26;31;0;None;None;The  System performed as expected;N/A
 Nkambeni Industrial;Aug-26;;;;;;
+Nkambeni Industrial;Jun-26;;;;;;
+Nkambeni Industrial;Jul-26;31;0;None;There is no inverter monitoring ;Unknown ;N/A
 Olievenhoutbosch 1;Sept-24;;;;;;
 Olievenhoutbosch 1;Oct-24;;;;;;
 Olievenhoutbosch 1;Nov-24;;;;;;
@@ -1477,9 +1533,9 @@ Olievenhoutbosch 1;Feb-26;28 days ;0;None;None ;The system is performing moderat
 Olievenhoutbosch 1;Mar-26;31 days ;0;None;None ;The system is performing moderately, reduced demand and affected by rainy weather .;N/A
 Olievenhoutbosch 1;Apr-26;30 days ;0;None;None ;The system is performing moderately, reduced demand and affected by rainy weather .;N/A
 Olievenhoutbosch 1;May-26;31 days;0;None;None ;Performed as expected;N/A
-Meredale Heights ;Jun-26;30 days;0;None;None;The system performed as expected;N/A
-Meredale Heights ;Jul-26;31;0;None;None;The  System performed as expected;N/A
-Olievenhoutbosch 1;Aug-26;;;;;;
+Olievenhoutbosch 1;Aug-26;30 days ;0;None;None;The system performed as expected;N/A
+Olievenhoutbosch 1;Jun-26;30 days ;0;None;None ;The energy production was limited by load demand & bad weather;N/A
+Olievenhoutbosch 1;Jul-26;31;0;None;Offline inverter comms;Energy production was limited by soiling;Inverter comms currently offline
 Olievenhoutbosch 2;Sept-24;;;;;;
 Olievenhoutbosch 2;Oct-24;;;;;;
 Olievenhoutbosch 2;Nov-24;;;;;;
@@ -1501,9 +1557,9 @@ Olievenhoutbosch 2;Feb-26;28 days ;0;None;None ;The system is performing moderat
 Olievenhoutbosch 2;Mar-26;31 days ;0;None;None ;The system is performing moderately, reduced demand and affected by rainy weather.;N/A
 Olievenhoutbosch 2;Apr-26;30 days ;0;None;None ;The system is performing moderately, reduced demand and affected by rainy weather .;N/A
 Olievenhoutbosch 2;May-26;31 days;0;None;None ;Performed as expected;N/A
-Monument Park Checkers;Jun-26;;;;;;
-Monument Park Checkers;Jul-26;31;0;None;None;The  System performed as expected;N/A
-Olievenhoutbosch 2;Aug-26;;;;;;
+Olievenhoutbosch 2;Aug-26;30 days ;0;None;None;The system performed as expected;N/A
+Olievenhoutbosch 2;Jun-26;30 days ;0;None;None ;The energy production was limited by load demand & bad weather;N/A
+Olievenhoutbosch 2;Jul-26;31;0;None;Offline inverter comms;Energy production was limited by soiling;N/A
 Opal Students ;Sept-24;;;;;;
 Opal Students ;Oct-24;;;;;;
 Opal Students ;Nov-24;;;;;;
@@ -1537,9 +1593,9 @@ Opal Students ;Feb-26;28 days;0;None;None;The system performed as expected;N/A
 Opal Students ;Mar-26;31 days;0;None;None;The system performed as expected;N/A
 Opal Students ;Apr-26;30 days;0;None;None;The system performed as expected;N/A
 Opal Students ;May-26;31 days;0;None;None;The system performed as expected;N/A
-Nkambeni Industrial;Jun-26;;;;;;
-Nkambeni Industrial;Jul-26;31;0;None;There is no inverter monitoring ;Unknown ;N/A
-Opal Students ;Aug-26;;;;;;
+Opal Students ;Aug-26;30 days ;0;None;None;The system performed as expected;N/A
+Opal Students ;Jun-26;30 days;0;None;None;The energy production was limited by load demand & bad weather;N/A
+Opal Students ;Jul-26;31;0;None;None;The  System performed as expected;N/A
 Orthochem Bethlehem;Sept-24;;;;;;
 Orthochem Bethlehem;Oct-24;;;;;;
 Orthochem Bethlehem;Nov-24;;;;;;
@@ -1583,9 +1639,47 @@ Orthochem Bethlehem;Feb-26;System performed well;;;;;
 Orthochem Bethlehem;Mar-26;System performed well;;;;;
 Orthochem Bethlehem;Apr-26;The system performed moderately due to load demand;;;;;
 Orthochem Bethlehem;May-26;Performing poorly due to slightly reduced load demand;;;;;
-Olievenhoutbosch 1;Jun-26;30 days ;0;None;None ;The energy production was limited by load demand & bad weather;N/A
-Olievenhoutbosch 1;Jul-26;31;0;None;Offline inverter comms;Energy production was limited by soiling;Inverter comms currently offline
-Orthochem Bethlehem;Aug-26;;;;;;
+Orthochem Bethlehem;Aug-26;30 days ;0;None;None;Energy production was limited by reduced load demand;N/A
+Orthochem Bethlehem;Jun-26;;;;;;
+Orthochem Bethlehem;Jul-26;31;;None;None;The system production was limited by soiling ;possible heavy soiling to confirm during O&M on the 27th august 
+Plastiplate ;Sept-24;;;;;;
+Plastiplate ;Oct-24;;;;;;
+Plastiplate ;Nov-24;;;;;;
+Plastiplate ;Dec-24;;;;;;
+Plastiplate ;Jan-25;;;;;;
+Plastiplate ;Feb-25;"The system is performance is affected by the weather 
+Load demand fluctuation
+An increase in the PV ramp rate will be done to improve performance";;;;;
+Plastiplate ;Mar-25;"System performance is >65% expected production 
+System performance increased by 0.23% compared to last month
+System performace decreased by 21% compared to march 2024  
+Load demand fluctuation
+An increase in the PV ramp rate will be done to improve performance";;;;;
+Plastiplate ;Apr-25;"1. Load demand fluctuating 
+2. Production is 67% of expected energy 
+3. Production is 2% less compared to April 2024";;;;;
+Plastiplate ;May-25;"1. Production is 96% of the expected energy.
+2. Production is 9% less compared to May 2024.
+3. Production is 37% compared to last month.
+4. The system is performing well. ";;;;;
+Plastiplate ;Jun-25;"1. Production is 98% of the expected energy.
+2. Production is 4% more compared to May 2024.
+3. Production is 2% more compared to last month.
+4. The system is performing well. ";;;;;
+Plastiplate ;Jul-25;31 days;0;None;None;Energy production was limited by reduced load demand;N/A
+Plastiplate ;Aug-25;31 days;0;None;None;Energy production was limited by reduced load demand;N/A
+Plastiplate ;Sept-25;30 days;0;None;None;Energy production was limited by reduced load demand;N/A
+Plastiplate ;Oct-25;31 days;0;None;None;Energy production was limited by reduced load demand;N/A
+Plastiplate ;Nov-25;30 days;0;None;None;Energy production was limited by reduced load demand;N/A
+Plastiplate ;Dec-25;31 days;0;None;None;Energy production was limited by reduced load demand due to business closure;N/A
+Plastiplate ;Jan-26;31 days;0;None;None;Energy production was limited by reduced load demand due to business closure;N/A
+Plastiplate ;Feb-26;28 days;0;None;None;System performed well;N/A
+Plastiplate ;Mar-26;31 days;0;None;None;System performed well;N/A
+Plastiplate ;Apr-26;30 days;0;None;None;Energy production was limited by reduced load demand;N/A
+Plastiplate ;May-26;31 days;0;None;None;Energy production was limited by reduced load demand;N/A
+Plastiplate ;Aug-26;30 days ;0;None;None;Energy production was limited by reduced load demand;N/A
+Plastiplate ;Jul-26;31;0;None;None;The  System performed as expected;N/A
+Plastiplate ;Jun-26;30 days;0;None;None;The system performed as expected;N/A
 PNB Unlimited;Sept-24;;;;;;
 PNB Unlimited;Oct-24;;;;;;
 PNB Unlimited;Nov-24;;;;;;
@@ -1631,47 +1725,9 @@ PNB Unlimited;Feb-26;Performed moderatlry due to controls malfunction, system co
 PNB Unlimited;Mar-26;The system performed poorly due to load inconsistent load demand;;;;;
 PNB Unlimited;Apr-26;The system performed poorly due to load inconsistent load demand;;;;;
 PNB Unlimited;May-26;The system perfomance is affected by load shedding ;;;;;
-Olievenhoutbosch 2;Jun-26;30 days ;0;None;None ;The energy production was limited by load demand & bad weather;N/A
-Olievenhoutbosch 2;Jul-26;31;0;None;Offline inverter comms;Energy production was limited by soiling;N/A
-PNB Unlimited;Aug-26;;;;;;
-Plastiplate ;Sept-24;;;;;;
-Plastiplate ;Oct-24;;;;;;
-Plastiplate ;Nov-24;;;;;;
-Plastiplate ;Dec-24;;;;;;
-Plastiplate ;Jan-25;;;;;;
-Plastiplate ;Feb-25;"The system is performance is affected by the weather 
-Load demand fluctuation
-An increase in the PV ramp rate will be done to improve performance";;;;;
-Plastiplate ;Mar-25;"System performance is >65% expected production 
-System performance increased by 0.23% compared to last month
-System performace decreased by 21% compared to march 2024  
-Load demand fluctuation
-An increase in the PV ramp rate will be done to improve performance";;;;;
-Plastiplate ;Apr-25;"1. Load demand fluctuating 
-2. Production is 67% of expected energy 
-3. Production is 2% less compared to April 2024";;;;;
-Plastiplate ;May-25;"1. Production is 96% of the expected energy.
-2. Production is 9% less compared to May 2024.
-3. Production is 37% compared to last month.
-4. The system is performing well. ";;;;;
-Plastiplate ;Jun-25;"1. Production is 98% of the expected energy.
-2. Production is 4% more compared to May 2024.
-3. Production is 2% more compared to last month.
-4. The system is performing well. ";;;;;
-Plastiplate ;Jul-25;31 days;0;None;None;Energy production was limited by reduced load demand;N/A
-Plastiplate ;Aug-25;31 days;0;None;None;Energy production was limited by reduced load demand;N/A
-Plastiplate ;Sept-25;30 days;0;None;None;Energy production was limited by reduced load demand;N/A
-Plastiplate ;Oct-25;31 days;0;None;None;Energy production was limited by reduced load demand;N/A
-Plastiplate ;Nov-25;30 days;0;None;None;Energy production was limited by reduced load demand;N/A
-Plastiplate ;Dec-25;31 days;0;None;None;Energy production was limited by reduced load demand due to business closure;N/A
-Plastiplate ;Jan-26;31 days;0;None;None;Energy production was limited by reduced load demand due to business closure;N/A
-Plastiplate ;Feb-26;28 days;0;None;None;System performed well;N/A
-Plastiplate ;Mar-26;31 days;0;None;None;System performed well;N/A
-Plastiplate ;Apr-26;30 days;0;None;None;Energy production was limited by reduced load demand;N/A
-Plastiplate ;May-26;31 days;0;None;None;Energy production was limited by reduced load demand;N/A
-Opal Students ;Jun-26;30 days;0;None;None;The energy production was limited by load demand & bad weather;N/A
-Opal Students ;Jul-26;31;0;None;None;The  System performed as expected;N/A
-Plastiplate ;Aug-26;;;;;;
+PNB Unlimited;Aug-26;28 days;2 days, 14-15th;None;None;Energy production was limited by reduced load demand and unavailability du to power outage;N/A
+PNB Unlimited;Jun-26;;;;;;
+PNB Unlimited;Jul-26;31;0;None;None;The system performance was limited by fluctuating load demand;N/A
 Q-lity Meat;Sept-24;;;;;;
 Q-lity Meat;Oct-24;;;;;;
 Q-lity Meat;Nov-24;;;;;;
@@ -1711,9 +1767,9 @@ Q-lity Meat;Feb-26;System performed well;;;;;
 Q-lity Meat;Mar-26;Performed moderately due to slightly reduced load;;;;;
 Q-lity Meat;Apr-26;The system was offline, energy reading to be retrieved on site;;;;;
 Q-lity Meat;May-26;The shop has shutdown, the system is not producing ;;;;;
-Orthochem Bethlehem;Jun-26;;;;;;
-Orthochem Bethlehem;Jul-26;31;;None;None;The system production was limited by soiling ;possible heavy soiling to confirm during O&M on the 27th august 
-Q-lity Meat;Aug-26;;;;;;
+Q-lity Meat;Aug-26;N/A;N/A;N/A;N/A;N/A;Business has shut down
+Q-lity Meat;Jun-26;;;;;;
+Q-lity Meat;Jul-26;N/A;N/A;Business Shutdown ;N/A;N/A;N/A
 Quintondale;Sept-24;;;;;;
 Quintondale;Oct-24;;;;;;
 Quintondale;Nov-24;;;;;;
@@ -1741,9 +1797,9 @@ Quintondale;Feb-26;System performed well;;;;;
 Quintondale;Mar-26;System performed well;;;;;
 Quintondale;Apr-26;Performed moderately due to slightly reduced load;;;;;
 Quintondale;May-26;Performing poorly due to slightly reduced load demand;;;;;
-Plastiplate ;Jul-26;31;0;None;None;The  System performed as expected;N/A
-Plastiplate ;Jun-26;30 days;0;None;None;The system performed as expected;N/A
-Quintondale;Aug-26;;;;;;
+Quintondale;Aug-26;30 days ;0;None;None;Energy production was limited by reduced load demand;N/A
+Quintondale;Jun-26;;;;;;
+Quintondale;Jul-26;31;0;None;None;Energy production was limited by reduced load demand;N/A
 Riverside Lodge ;Sept-24;;;;;;
 Riverside Lodge ;Oct-24;10 strings producing instead of 18 string , possible soiling or shading;;;;;
 Riverside Lodge ;Nov-24;;;;;;
@@ -1776,9 +1832,9 @@ Riverside Lodge ;Feb-26;28 days;0;None;None;The system performed as expected;N/A
 Riverside Lodge ;Mar-26;31 days;0;None;None;The system performed as expected;N/A
 Riverside Lodge ;Apr-26;30 days;0;None;None;The system performed as expected;N/A
 Riverside Lodge ;May-26;31 days;0;None;None;The system performed as expected;N/A
-PNB Unlimited;Jun-26;;;;;;
-PNB Unlimited;Jul-26;31;0;None;None;The system performance was limited by fluctuating load demand;N/A
-Riverside Lodge ;Aug-26;;;;;;
+Riverside Lodge ;Aug-26;30 days ;0;None;None;The system performed as expected;N/A
+Riverside Lodge ;Jun-26;30 days;0;None;None;The system performed as expected;N/A
+Riverside Lodge ;Jul-26;31;0;None;None;The  System performed as expected;N/A
 Roan Foods;Sept-24;;;;;;
 Roan Foods;Oct-24;;;;;;
 Roan Foods;Nov-24;;;;;;
@@ -1800,87 +1856,9 @@ Roan Foods;Feb-26;;;;;;
 Roan Foods;Mar-26;;;;;;
 Roan Foods;Apr-26;First month of commissioning;;;;;
 Roan Foods;May-26;Performend poorly due to load demand;;;;;
-Q-lity Meat;Jun-26;;;;;;
-Q-lity Meat;Jul-26;N/A;N/A;Business Shutdown ;N/A;N/A;N/A
-Roan Foods;Aug-26;;;;;;
-SR Morula TF 1;Sept-24;;;;;;
-SR Morula TF 1;Oct-24;;;;;;
-SR Morula TF 1;Nov-24;;;;;;
-SR Morula TF 1;Dec-24;;;;;;
-SR Morula TF 1;Jan-25;;;;;;
-SR Morula TF 1;Feb-25;;;;;;
-SR Morula TF 1;Mar-25;;;;;;
-SR Morula TF 1;Apr-25;;;;;;
-SR Morula TF 1;May-25;;;;;;
-SR Morula TF 1;Jun-25;;;;;;
-SR Morula TF 1;Jul-25;;;;;;
-SR Morula TF 1;Aug-25;11 days;01-20, 20 days ;The system was not commissioned;None;None;N/A
-SR Morula TF 1;Sept-25;30 days;0;None;None;The system performed as expected;N/A
-SR Morula TF 1;Oct-25;31 days;0;None;None;The system performed as expected;N/A
-SR Morula TF 1;Nov-25;30 days;0;None;None;The system performed as expected;N/A
-SR Morula TF 1;Dec-25;31 days;0;None;None;The system performed as expected;N/A
-SR Morula TF 1;Jan-26;31 days;0;None;None;The system performed as expected;N/A
-SR Morula TF 1;Feb-26;28 days;0;None;None;The system performed as expected;N/A
-SR Morula TF 1;Mar-26;31 days;0;None;None;The system performed moderately due to rainy weather;N/A
-SR Morula TF 1;Apr-26;30 days;0;None;None;The system performed moderately due to rainy weather;N/A
-SR Morula TF 1;May-26;31 days;0;None;None;The system performed as expected;N/A
-Quintondale;Jun-26;;;;;;
-Quintondale;Jul-26;31;0;None;None;Energy production was limited by reduced load demand;N/A
-SR Morula TF 1;Aug-26;;;;;;
-SR Morula TF 1 - Shoprite;Sept-24;;;;;;
-SR Morula TF 1 - Shoprite;Oct-24;;;;;;
-SR Morula TF 1 - Shoprite;Nov-24;;;;;;
-SR Morula TF 1 - Shoprite;Dec-24;;;;;;
-SR Morula TF 1 - Shoprite;Jan-25;;;;;;
-SR Morula TF 1 - Shoprite;Feb-25;;;;;;
-SR Morula TF 1 - Shoprite;Mar-25;;;;;;
-SR Morula TF 1 - Shoprite;Apr-25;;;;;;
-SR Morula TF 1 - Shoprite;May-25;;;;;;
-SR Morula TF 1 - Shoprite;Jun-25;;;;;;
-SR Morula TF 1 - Shoprite;Jul-25;;;;;;
-SR Morula TF 1 - Shoprite;Aug-25;;;;;;
-SR Morula TF 1 - Shoprite;Sept-25;"1. Production is 86% of the expected energy.
-2. Production is 28% less than last month.
-4. The system is performing well. ";;;;;
-SR Morula TF 1 - Shoprite;Oct-25;"1. Production is 94% of the expected energy.
-2. Production is 8% more than last month.
-3. The system is performing well. ";;;;;
-SR Morula TF 1 - Shoprite;Nov-25;"1. Production is 81% of the expected energy.
-2. Production is 13% less than last month.
-3. The system is performing well. System is affected by weather.";;;;;
-SR Morula TF 1 - Shoprite;Dec-25;System performed well;;;;;
-SR Morula TF 1 - Shoprite;Jan-26;The system performed as expected;;;;;
-SR Morula TF 1 - Shoprite;Feb-26;System performed well;;;;;
-SR Morula TF 1 - Shoprite;Mar-26;The system performed moderately due to rainy weather;;;;;
-SR Morula TF 1 - Shoprite;Apr-26;The system performed moderately due to rainy weather;;;;;
-SR Morula TF 1 - Shoprite;May-26;Performed as expected;;;;;
-Riverside Lodge ;Jun-26;30 days;0;None;None;The system performed as expected;N/A
-Riverside Lodge ;Jul-26;31;0;None;None;The  System performed as expected;N/A
-SR Morula TF 1 - Shoprite;Aug-26;;;;;;
-SR Morula TF 2;Sept-24;;;;;;
-SR Morula TF 2;Oct-24;;;;;;
-SR Morula TF 2;Nov-24;;;;;;
-SR Morula TF 2;Dec-24;;;;;;
-SR Morula TF 2;Jan-25;;;;;;
-SR Morula TF 2;Feb-25;;;;;;
-SR Morula TF 2;Mar-25;;;;;;
-SR Morula TF 2;Apr-25;;;;;;
-SR Morula TF 2;May-25;;;;;;
-SR Morula TF 2;Jun-25;;;;;;
-SR Morula TF 2;Jul-25;;;;;;
-SR Morula TF 2;Aug-25;11 days;01-20, 20 days ;The system was not commissioned;None;None;N/A
-SR Morula TF 2;Sept-25;30 days;0;None;None;The system performed as expected;N/A
-SR Morula TF 2;Oct-25;31 days;0;None;None;The system performed as expected;N/A
-SR Morula TF 2;Nov-25;30 days;0;None;None;The system performed as expected;N/A
-SR Morula TF 2;Dec-25;31 days;0;None;None;The system performed as expected;N/A
-SR Morula TF 2;Jan-26;31 days;0;None;None;The system performed as expected;N/A
-SR Morula TF 2;Feb-26;28 days;0;None;None;The system performed as expected;N/A
-SR Morula TF 2;Mar-26;31 days;0;None;None;The system performed moderately due to rainy weather;N/A
-SR Morula TF 2;Apr-26;30 days;0;None;None;The system performed moderately due to rainy weather;N/A
-SR Morula TF 2;May-26;31 days;0;None;None;The system performed as expected;N/A
+Roan Foods;Aug-26;30 days ;0;None;None;Energy production was limited by reduced load demand;N/A
 Roan Foods;Jun-26;;;;;;
 Roan Foods;Jul-26;31;0;None;None;Energy production was limited by reduced load demand;N/A
-SR Morula TF 2;Aug-26;;;;;;
 Sakhumnotho;Sept-24;;;;;;
 Sakhumnotho;Oct-24;;;;;;
 Sakhumnotho;Nov-24;;;;;;
@@ -1924,7 +1902,7 @@ Sakhumnotho;Apr-26;Decomissioned ;;;;;
 Sakhumnotho;May-26;System is decommissioned ;;;;;
 Sakhumnotho;Jun-26;;;;;;
 Sakhumnotho;Jul-26;N/A;N/A;Business shutdown ;N/A;N/A;N/A
-Sakhumnotho;Aug-26;;;;;;
+Sakhumnotho;Aug-26;N/A;N/A;N/A;N/A;N/A;Business has shut down
 SaveMore Alldays - Store;Sept-24;Low Demand, Panels Theft, 2x Inverter damage;;;;;
 SaveMore Alldays - Store;Oct-24;;;;;;
 SaveMore Alldays - Store;Nov-24;;;;;;
@@ -1973,7 +1951,7 @@ SaveMore Alldays - Store;Apr-26;System performed poorly, due to demand;;;;;
 SaveMore Alldays - Store;May-26;Performend poorly due to load demand;;;;;
 SaveMore Alldays - Store;Jun-26;;;;;;
 SaveMore Alldays - Store;Jul-26;31;0;None;Offline inverter comms ;Energy production was limited by reduced load demand;N/A
-SaveMore Alldays - Store;Aug-26;;;;;;
+SaveMore Alldays - Store;Aug-26;30 days ;0;None;None;Energy production was limited by reduced load demand;N/A
 Savemore Liquor Alldays ;Sept-24;Low Demand, Panels Theft;;;;;
 Savemore Liquor Alldays ;Oct-24;;;;;;
 Savemore Liquor Alldays ;Nov-24;;;;;;
@@ -2018,7 +1996,7 @@ Savemore Liquor Alldays ;Apr-26;System performed poorly, due to demand;;;;;
 Savemore Liquor Alldays ;May-26;Performend poorly due to load demand;;;;;
 Savemore Liquor Alldays ;Jun-26;;;;;;
 Savemore Liquor Alldays ;Jul-26;31;0;None;Offline inverter comms ;Energy production was limited by reduced load demand;N/A
-Savemore Liquor Alldays ;Aug-26;;;;;;
+Savemore Liquor Alldays ;Aug-26;30 days ;0;None;None;Energy production was limited by reduced load demand;N/A
 Saverite Durban;Sept-24;;;;;;
 Saverite Durban;Oct-24;Insufficient Information from Monitoring platform to identify;;;;;
 Saverite Durban;Nov-24;;;;;;
@@ -2066,7 +2044,7 @@ Saverite Durban;Apr-26;Performed as expected;;;;;
 Saverite Durban;May-26;Performed as expected;;;;;
 Saverite Durban;Jun-26;;;;;;
 Saverite Durban;Jul-26;31;0;None;None;The  System performed as expected;N/A
-Saverite Durban;Aug-26;;;;;;
+Saverite Durban;Aug-26;30 days ;0;None;None;The system performed as expected;N/A
 Saverite PMB;Sept-24;;;;;;
 Saverite PMB;Oct-24;;;;;;
 Saverite PMB;Nov-24;;;;;;
@@ -2113,52 +2091,9 @@ Saverite PMB;Apr-26;The system performed moderately due to the load demand;;;;;
 Saverite PMB;May-26;Performing poorly due to slightly reduced load demand;;;;;
 Saverite PMB;Jun-26;;;;;;
 Saverite PMB;Jul-26;31;0;None;Offline inverter comms ;Energy production was limited by reduced load demand;N/A
-Saverite PMB;Aug-26;;;;;;
-Secunda Plaza Shops;Sept-24;;;;;;
-Secunda Plaza Shops;Oct-24;;;;;;
-Secunda Plaza Shops;Nov-24;;;;;;
-Secunda Plaza Shops;Dec-24;;;;;;
-Secunda Plaza Shops;Jan-25;;;;;;
-Secunda Plaza Shops;Feb-25;System is performing well;;;;;
-Secunda Plaza Shops;Mar-25;System is performing well;;;;;
-Secunda Plaza Shops;Apr-25;System is performing well;;;;;
-Secunda Plaza Shops;May-25;"1. Production is 100% of the expected energy.
-2. Production is 4% less compared to May 2024.
-3. Production is 6% more compared to last month. 
-4. The system is performing well, Client experienced power outage for 2 days. ";;;;;
-Secunda Plaza Shops;Jun-25;"1. Production is 95% of the expected energy.
-2. Production is 1% less compared to May 2024.
-3. Production is 5% more compared to last month. 
-4. The system is performing well.";;;;;
-Secunda Plaza Shops;Jul-25;"1. Production is 90% of the expected energy.
-2. Production is 14% less compared to Jul 2024.
-3. Production is 5% more compared to last month. 
-4. The system is performing well.";;;;;
-Secunda Plaza Shops;Aug-25;"1. Production is 95% of the expected energy.
-2. Production is 1% less compared to Aug 2024.
-3. Production is 5% more compared to last month. 
-4. The system is performing well.";;;;;
-Secunda Plaza Shops;Sept-25;"1. Production is 95% of the expected energy.
-2. Production is 8% more compared to Sep 2024.
-3. Production is same compared to last month. 
-4. The system is performing well.";;;;;
-Secunda Plaza Shops;Oct-25;"1. Production is 107% of the expected energy.
-2. Production is 34% more compared to Oct 2024.
-3. Production 12% more compared to last month. 
-4. The system performed more that expected.";;;;;
-Secunda Plaza Shops;Nov-25;"1. Production is 87% of the expected energy.
-2. Production is 20% less compared to Nov 2024.
-3. Production 20% more compared to last month. 
-4. The system performed well.";;;;;
-Secunda Plaza Shops;Dec-25;There was no PV production from the 9 - 31 due to business closure ;;;;;
-Secunda Plaza Shops;Jan-26;Performed poorly due to reduced demand;;;;;
-Secunda Plaza Shops;Feb-26;System performed well;;;;;
-Secunda Plaza Shops;Mar-26;System performed well;;;;;
-Secunda Plaza Shops;Apr-26;Performed as expected;;;;;
-Secunda Plaza Shops;May-26;Performed as expected;;;;;
+Saverite PMB;Aug-26;30 days ;0;None;None;The system performed as expected;N/A
 Secunda Plaza choppies;Jul-26;0;31;Business grid supply disconnected  ;None;No production from the solar system;Client running on generator 
 Secunda Plaza choppies;Jun-26;;;;;;
-Secunda Plaza Shops;Aug-26;;;;;;
 Secunda Plaza choppies;Sept-24;;;;;;
 Secunda Plaza choppies;Oct-24;Load demand Low, at 80kW or slightly low;;;;;
 Secunda Plaza choppies;Nov-24;;;;;;
@@ -2203,9 +2138,52 @@ Secunda Plaza choppies;Feb-26;The shop has been shut down, no load demand;;;;;
 Secunda Plaza choppies;Mar-26;The client is running on generator, that is no genset, the PV is not producing ;;;;;
 Secunda Plaza choppies;Apr-26;The client is running on generator, that is no genset, the PV is not producing ;;;;;
 Secunda Plaza choppies;May-26;There is no grid on-site, the system is not producing ;;;;;
+Secunda Plaza choppies;Aug-26;N/A;N/A;N/A;N/A;N/A;Grid unavailable
+Secunda Plaza Shops;Sept-24;;;;;;
+Secunda Plaza Shops;Oct-24;;;;;;
+Secunda Plaza Shops;Nov-24;;;;;;
+Secunda Plaza Shops;Dec-24;;;;;;
+Secunda Plaza Shops;Jan-25;;;;;;
+Secunda Plaza Shops;Feb-25;System is performing well;;;;;
+Secunda Plaza Shops;Mar-25;System is performing well;;;;;
+Secunda Plaza Shops;Apr-25;System is performing well;;;;;
+Secunda Plaza Shops;May-25;"1. Production is 100% of the expected energy.
+2. Production is 4% less compared to May 2024.
+3. Production is 6% more compared to last month. 
+4. The system is performing well, Client experienced power outage for 2 days. ";;;;;
+Secunda Plaza Shops;Jun-25;"1. Production is 95% of the expected energy.
+2. Production is 1% less compared to May 2024.
+3. Production is 5% more compared to last month. 
+4. The system is performing well.";;;;;
+Secunda Plaza Shops;Jul-25;"1. Production is 90% of the expected energy.
+2. Production is 14% less compared to Jul 2024.
+3. Production is 5% more compared to last month. 
+4. The system is performing well.";;;;;
+Secunda Plaza Shops;Aug-25;"1. Production is 95% of the expected energy.
+2. Production is 1% less compared to Aug 2024.
+3. Production is 5% more compared to last month. 
+4. The system is performing well.";;;;;
+Secunda Plaza Shops;Sept-25;"1. Production is 95% of the expected energy.
+2. Production is 8% more compared to Sep 2024.
+3. Production is same compared to last month. 
+4. The system is performing well.";;;;;
+Secunda Plaza Shops;Oct-25;"1. Production is 107% of the expected energy.
+2. Production is 34% more compared to Oct 2024.
+3. Production 12% more compared to last month. 
+4. The system performed more that expected.";;;;;
+Secunda Plaza Shops;Nov-25;"1. Production is 87% of the expected energy.
+2. Production is 20% less compared to Nov 2024.
+3. Production 20% more compared to last month. 
+4. The system performed well.";;;;;
+Secunda Plaza Shops;Dec-25;There was no PV production from the 9 - 31 due to business closure ;;;;;
+Secunda Plaza Shops;Jan-26;Performed poorly due to reduced demand;;;;;
+Secunda Plaza Shops;Feb-26;System performed well;;;;;
+Secunda Plaza Shops;Mar-26;System performed well;;;;;
+Secunda Plaza Shops;Apr-26;Performed as expected;;;;;
+Secunda Plaza Shops;May-26;Performed as expected;;;;;
+Secunda Plaza Shops;Aug-26;30 days ;0;None;None;The system performed as expected;N/A
 Secunda Plaza Shops;Jun-26;;;;;;
 Secunda Plaza Shops;Jul-26;31;0;None;None;Energy production was limited by reduced load demand;N/A
-Secunda Plaza choppies;Aug-26;;;;;;
 Shoprite Dube ;Sept-24;;;;;;
 Shoprite Dube ;Oct-24;;;;;;
 Shoprite Dube ;Nov-24;;;;;;
@@ -2243,7 +2221,7 @@ Shoprite Dube ;Apr-26;System performed well;;;;;
 Shoprite Dube ;May-26;Performed as expected;;;;;
 Shoprite Dube ;Jun-26;;;;;;
 Shoprite Dube ;Jul-26;31;0;None;None;The  System performed as expected;N/A
-Shoprite Dube ;Aug-26;;;;;;
+Shoprite Dube ;Aug-26;30 days ;0;None;None;Energy production was limited by reduced load demand;N/A
 Shoprite Ekhaya;Sept-24;;;;;;
 Shoprite Ekhaya;Oct-24;;;;;;
 Shoprite Ekhaya;Nov-24;;;;;;
@@ -2302,7 +2280,7 @@ Shoprite Hillbrow;Apr-26;The system performed poorly due to modules mismatch fro
 Shoprite Hillbrow;May-26;System perfomed poorly due to winter shading ;;;;;
 Shoprite Hillbrow;Jun-26;;;;;;
 Shoprite Hillbrow;Jul-26;31;0;None;None;The system production was limited by heavy shading ;N/A
-Shoprite Hillbrow;Aug-26;;;;;;
+Shoprite Hillbrow;Aug-26;30 days ;0;None;None;The system production was limited by heavy shading ;N/A
 Shoprite Ladybrand ;Sept-24;;;;;;
 Shoprite Ladybrand ;Oct-24;"Customer Load demand sometime lower that usual, 
 2 under performing MPPTs need to be checked";;;;;
@@ -2343,7 +2321,7 @@ Shoprite Ladybrand ;Apr-26;System performance moderately  ;;;;;
 Shoprite Ladybrand ;May-26;Performing poorly due to slightly reduced load demand;;;;;
 Shoprite Ladybrand ;Jun-26;;;;;;
 Shoprite Ladybrand ;Jul-26;31;0;None;None;The Energy production was limited by due O&M to be made by the end of August;N/A
-Shoprite Ladybrand ;Aug-26;;;;;;
+Shoprite Ladybrand ;Aug-26;30 days ;0;None;None;Energy production was limited by reduced load demand;N/A
 Shoprite Mini Ganyesa;Sept-24;;;;;;
 Shoprite Mini Ganyesa;Oct-24;Load demand is low at 150kW   ;;;;;
 Shoprite Mini Ganyesa;Nov-24;;;;;;
@@ -2384,7 +2362,7 @@ Shoprite Mini Ganyesa;Apr-26;The system is performing moderately, reduced demand
 Shoprite Mini Ganyesa;May-26;Performing poorly due to slightly reduced load demand;;;;;
 Shoprite Mini Ganyesa;Jun-26;;;;;;
 Shoprite Mini Ganyesa;Jul-26;31;0;None;None;The Energy production was limited by due O&M to be made by the end of August;N/A
-Shoprite Mini Ganyesa;Aug-26;;;;;;
+Shoprite Mini Ganyesa;Aug-26;30 days ;0;None;None;Energy production was limited by reduced load demand;N/A
 Shoprite Naledi;Sept-24;;;;;;
 Shoprite Naledi;Oct-24;Power cuts, slightly low demand on some other days;;;;;
 Shoprite Naledi;Nov-24;;;;;;
@@ -2425,7 +2403,7 @@ Shoprite Naledi;Apr-26;Performed as expected;;;;;
 Shoprite Naledi;May-26;Performed as expected;;;;;
 Shoprite Naledi;Jun-26;;;;;;
 Shoprite Naledi;Jul-26;31;0;None;Inverter comms offline ;The energy production was affected by heavy soiling;N/A
-Shoprite Naledi;Aug-26;;;;;;
+Shoprite Naledi;Aug-26;30 days ;0;None;None;The system performed as expected;N/A
 Shoprite Newlands;Sept-24;;;;;;
 Shoprite Newlands;Oct-24;;;;;;
 Shoprite Newlands;Nov-24;;;;;;
@@ -2449,7 +2427,7 @@ Shoprite Newlands;Apr-26;Performed as expected;;;;;
 Shoprite Newlands;May-26;Performed as expected;;;;;
 Shoprite Newlands;Jun-26;;;;;;
 Shoprite Newlands;Jul-26;31;0;None;None;The  System performed as expected;N/A
-Shoprite Newlands;Aug-26;;;;;;
+Shoprite Newlands;Aug-26;30 days ;0;None;None;The system performed as expected;N/A
 Shoprite Thokoza;Sept-24;;;;;;
 Shoprite Thokoza;Oct-24;;;;;;
 Shoprite Thokoza;Nov-24;;;;;;
@@ -2483,7 +2461,7 @@ Shoprite Thokoza;Apr-26;Performed as expected;;;;;
 Shoprite Thokoza;May-26;Performed as expected;;;;;
 Shoprite Thokoza;Jun-26;;;;;;
 Shoprite Thokoza;Jul-26;31;0;None;Inverter comms offline ;The energy production was affected by heavy soiling;N/A
-Shoprite Thokoza;Aug-26;;;;;;
+Shoprite Thokoza;Aug-26;30 days;0;None;None;The energy production was affected by heavy soiling;N/A
 Spring Glade;Sept-24;load reduction, inconsistant load ;;;;;
 Spring Glade;Oct-24;;;;;;
 Spring Glade;Nov-24;;;;;;
@@ -2528,53 +2506,85 @@ Spring Glade;Apr-26;The system performed poorely, and client load was reduced. ;
 Spring Glade;May-26;Performing poorly due to slightly reduced load demand;;;;;
 Spring Glade;Jun-26;;;;;;
 Spring Glade;Jul-26;31;0;None;None;Energy production was limited by reduced load demand;N/A
-Spring Glade;Aug-26;;;;;;
-TPF Foods ;Sept-24;;;;;;
-TPF Foods ;Oct-24;;;;;;
-TPF Foods ;Nov-24;;;;;;
-TPF Foods ;Dec-24;;;;;;
-TPF Foods ;Jan-25;;;;;;
-TPF Foods ;Feb-25;"The system is performed well in January
-February performance reduced due rainy weather";;;;;
-TPF Foods ;Mar-25;System performing well;;;;;
-TPF Foods ;Apr-25;System modaratly perfomed, load reduced slignificantly on some days ;;;;;
-TPF Foods ;May-25;"1. Production is 102% of the expected energy.
-2. Production is 1% more compared to May 2024.
-3. Production is 29% more compared to last month.
-4. The system is performing well. Client load slightly increased.";;;;;
-TPF Foods ;Jun-25;"1. Production is 94% of the expected energy.
-2. Production is 2% more compared to Jun 2024.
-3. Production is 8% less compared to last month.
-4. The system is performing well. Client load slightly increased.";;;;;
-TPF Foods ;Jul-25;"1. Production is 92% of the expected energy.
-2. Production is 8% less compared to Jul 2024.
-3. Production is 2% less compared to last month.
-4. The system is performing well. Client load slightly increased.";;;;;
-TPF Foods ;Aug-25;"1. Production is 91% of the expected energy.
-2. Production is 7% more compared to Aug 2024.
-3. Production is 1% less compared to last month.
-4. The system is performing well.";;;;;
-TPF Foods ;Sept-25;"1. Production is 83% of the expected energy.
-2. Production is 3% more compared to Aug 2024.
-3. Production is 8% more compared to last month.
-4. The system is performing well.";;;;;
-TPF Foods ;Oct-25;"1. Production is 92% of the expected energy.
-2. Production is 11% less compared to Oct 2024.
-3. Production is 9% more compared to last month.
-4. The system is performing well.";;;;;
-TPF Foods ;Nov-25;"1. Production is 74% of the expected energy.
-2. Production is 31% less compared to Nov 2024.
-3. Production is 18% less compared to last month.
-4. The system is performing moderately, load reduced, system affected by weather. ";;;;;
-TPF Foods ;Dec-25;The system performed well;;;;;
-TPF Foods ;Jan-26;The system performed as expected;;;;;
-TPF Foods ;Feb-26;System performed well;;;;;
-TPF Foods ;Mar-26;The system performed moderately due to reduced load ;;;;;
-TPF Foods ;Apr-26;The system performed poorely, and client load was reduced. ;;;;;
-TPF Foods ;May-26;Performing poorly due to slightly reduced load demand;;;;;
+Spring Glade;Aug-26;30 days ;0;None;None;Energy production was limited by reduced load demand;N/A
+SR Morula TF 1;Sept-24;;;;;;
+SR Morula TF 1;Oct-24;;;;;;
+SR Morula TF 1;Nov-24;;;;;;
+SR Morula TF 1;Dec-24;;;;;;
+SR Morula TF 1;Jan-25;;;;;;
+SR Morula TF 1;Feb-25;;;;;;
+SR Morula TF 1;Mar-25;;;;;;
+SR Morula TF 1;Apr-25;;;;;;
+SR Morula TF 1;May-25;;;;;;
+SR Morula TF 1;Jun-25;;;;;;
+SR Morula TF 1;Jul-25;;;;;;
+SR Morula TF 1;Aug-25;11 days;01-20, 20 days ;The system was not commissioned;None;None;N/A
+SR Morula TF 1;Sept-25;30 days;0;None;None;The system performed as expected;N/A
+SR Morula TF 1;Oct-25;31 days;0;None;None;The system performed as expected;N/A
+SR Morula TF 1;Nov-25;30 days;0;None;None;The system performed as expected;N/A
+SR Morula TF 1;Dec-25;31 days;0;None;None;The system performed as expected;N/A
+SR Morula TF 1;Jan-26;31 days;0;None;None;The system performed as expected;N/A
+SR Morula TF 1;Feb-26;28 days;0;None;None;The system performed as expected;N/A
+SR Morula TF 1;Mar-26;31 days;0;None;None;The system performed moderately due to rainy weather;N/A
+SR Morula TF 1;Apr-26;30 days;0;None;None;The system performed moderately due to rainy weather;N/A
+SR Morula TF 1;May-26;31 days;0;None;None;The system performed as expected;N/A
+SR Morula TF 1;Aug-26;30 days ;0;None;None;The system performed as expected;N/A
 SR Morula TF 1;Jun-26;30 days;0;None;None;The system performed as expected;N/A
 SR Morula TF 1;Jul-26;20;11 days, 16-27th;Client Transformer was getting serviced ;None;The energy production was affected by system unavailability and heavy soiling;CT has been swapped around after transformer maintenance 
-TPF Foods ;Aug-26;;;;;;
+SR Morula TF 1 - Shoprite;Sept-24;;;;;;
+SR Morula TF 1 - Shoprite;Oct-24;;;;;;
+SR Morula TF 1 - Shoprite;Nov-24;;;;;;
+SR Morula TF 1 - Shoprite;Dec-24;;;;;;
+SR Morula TF 1 - Shoprite;Jan-25;;;;;;
+SR Morula TF 1 - Shoprite;Feb-25;;;;;;
+SR Morula TF 1 - Shoprite;Mar-25;;;;;;
+SR Morula TF 1 - Shoprite;Apr-25;;;;;;
+SR Morula TF 1 - Shoprite;May-25;;;;;;
+SR Morula TF 1 - Shoprite;Jun-25;;;;;;
+SR Morula TF 1 - Shoprite;Jul-25;;;;;;
+SR Morula TF 1 - Shoprite;Aug-25;;;;;;
+SR Morula TF 1 - Shoprite;Sept-25;"1. Production is 86% of the expected energy.
+2. Production is 28% less than last month.
+4. The system is performing well. ";;;;;
+SR Morula TF 1 - Shoprite;Oct-25;"1. Production is 94% of the expected energy.
+2. Production is 8% more than last month.
+3. The system is performing well. ";;;;;
+SR Morula TF 1 - Shoprite;Nov-25;"1. Production is 81% of the expected energy.
+2. Production is 13% less than last month.
+3. The system is performing well. System is affected by weather.";;;;;
+SR Morula TF 1 - Shoprite;Dec-25;System performed well;;;;;
+SR Morula TF 1 - Shoprite;Jan-26;The system performed as expected;;;;;
+SR Morula TF 1 - Shoprite;Feb-26;System performed well;;;;;
+SR Morula TF 1 - Shoprite;Mar-26;The system performed moderately due to rainy weather;;;;;
+SR Morula TF 1 - Shoprite;Apr-26;The system performed moderately due to rainy weather;;;;;
+SR Morula TF 1 - Shoprite;May-26;Performed as expected;;;;;
+SR Morula TF 1 - Shoprite;Aug-26;28 days;2 days, 11-12th;Power outage ;None;Energy production was limited by reduced load demand and grid unavailability ;N/A
+SR Morula TF 1 - Shoprite;Jun-26;;;;;;
+SR Morula TF 1 - Shoprite;Jul-26;20;11 days, 16-27th;Client Transformer was getting serviced ;None;The energy production was affected by system unavailability and heavy soiling;N/A
+SR Morula TF 2;Sept-24;;;;;;
+SR Morula TF 2;Oct-24;;;;;;
+SR Morula TF 2;Nov-24;;;;;;
+SR Morula TF 2;Dec-24;;;;;;
+SR Morula TF 2;Jan-25;;;;;;
+SR Morula TF 2;Feb-25;;;;;;
+SR Morula TF 2;Mar-25;;;;;;
+SR Morula TF 2;Apr-25;;;;;;
+SR Morula TF 2;May-25;;;;;;
+SR Morula TF 2;Jun-25;;;;;;
+SR Morula TF 2;Jul-25;;;;;;
+SR Morula TF 2;Aug-25;11 days;01-20, 20 days ;The system was not commissioned;None;None;N/A
+SR Morula TF 2;Sept-25;30 days;0;None;None;The system performed as expected;N/A
+SR Morula TF 2;Oct-25;31 days;0;None;None;The system performed as expected;N/A
+SR Morula TF 2;Nov-25;30 days;0;None;None;The system performed as expected;N/A
+SR Morula TF 2;Dec-25;31 days;0;None;None;The system performed as expected;N/A
+SR Morula TF 2;Jan-26;31 days;0;None;None;The system performed as expected;N/A
+SR Morula TF 2;Feb-26;28 days;0;None;None;The system performed as expected;N/A
+SR Morula TF 2;Mar-26;31 days;0;None;None;The system performed moderately due to rainy weather;N/A
+SR Morula TF 2;Apr-26;30 days;0;None;None;The system performed moderately due to rainy weather;N/A
+SR Morula TF 2;May-26;31 days;0;None;None;The system performed as expected;N/A
+SR Morula TF 2;Aug-26;11 days ;19 days, 1-19th ;Power outage ;transfomer repairs ;Energy production was limited by unavailability due to power outage due to transformer repairs;N/A
+SR Morula TF 2;Jun-26;30 days;0;None;None;The system performed as expected;N/A
+SR Morula TF 2;Jul-26;31;0;None;None;The energy production was affected by heavy soiling;N/A
 Thakadu Industrial;Sept-24;;;;;;
 Thakadu Industrial;Oct-24;;;;;;
 Thakadu Industrial;Nov-24;;;;;;
@@ -2596,9 +2606,9 @@ Thakadu Industrial;Feb-26;;;;;;
 Thakadu Industrial;Mar-26;;;;;;
 Thakadu Industrial;Apr-26;;;;;;
 Thakadu Industrial;May-26;No monitoring onsite ;;;;;
-SR Morula TF 1 - Shoprite;Jun-26;;;;;;
-SR Morula TF 1 - Shoprite;Jul-26;20;11 days, 16-27th;Client Transformer was getting serviced ;None;The energy production was affected by system unavailability and heavy soiling;N/A
 Thakadu Industrial;Aug-26;;;;;;
+Thakadu Industrial;Jun-26;;;;;;
+Thakadu Industrial;Jul-26;N/A;N/A;N/A;The system comms are offline;N/A;N/A
 The Alec;Sept-24;;;;;;
 The Alec;Oct-24;;;;;;
 The Alec;Nov-24;;;;;;
@@ -2632,9 +2642,9 @@ The Alec;Feb-26;28 days;0;None;None;The system performed as expected;N/A
 The Alec;Mar-26;31 days;0;None;None;Energy production was limited by reduced load demand;N/A
 The Alec;Apr-26;30 days;0;None;None;Energy production was limited by reduced load demand;N/A
 The Alec;May-26;31 days;0;None;None;Energy production was limited by reduced load demand;N/A
-SR Morula TF 2;Jun-26;30 days;0;None;None;The system performed as expected;N/A
-SR Morula TF 2;Jul-26;31;0;None;None;The energy production was affected by heavy soiling;N/A
-The Alec;Aug-26;;;;;;
+The Alec;Aug-26;30 days ;0;None;None;Energy production was limited by reduced load demand;N/A
+The Alec;Jul-26;28;"3 days; 8th, 23rd,28th";Grid power outage ;None;The system energy production has been affected by grid unavailability and reduced load demand;N/A
+The Alec;Jun-26;30 days;0;None;None;The energy production was limited by load demand & bad weather;N/A
 Three Peaks;Sept-24;;;;;;
 Three Peaks;Oct-24;;;;;;
 Three Peaks;Nov-24;;;;;;
@@ -2682,9 +2692,55 @@ Three Peaks;Feb-26;System performed well;;;;;
 Three Peaks;Mar-26;System performed well;;;;;
 Three Peaks;Apr-26;Performed as expected;;;;;
 Three Peaks;May-26;Performed as expected;;;;;
-Thakadu Industrial;Jun-26;;;;;;
-Thakadu Industrial;Jul-26;N/A;N/A;N/A;The system comms are offline;N/A;N/A
-Three Peaks;Aug-26;;;;;;
+Three Peaks;Aug-26;30 days ;0;None;None;The system performed as expected;N/A
+Three Peaks;Jun-26;;;;;;
+Three Peaks;Jul-26;31;0;None;None;The  System performed as expected;N/A
+TPF Foods ;Sept-24;;;;;;
+TPF Foods ;Oct-24;;;;;;
+TPF Foods ;Nov-24;;;;;;
+TPF Foods ;Dec-24;;;;;;
+TPF Foods ;Jan-25;;;;;;
+TPF Foods ;Feb-25;"The system is performed well in January
+February performance reduced due rainy weather";;;;;
+TPF Foods ;Mar-25;System performing well;;;;;
+TPF Foods ;Apr-25;System modaratly perfomed, load reduced slignificantly on some days ;;;;;
+TPF Foods ;May-25;"1. Production is 102% of the expected energy.
+2. Production is 1% more compared to May 2024.
+3. Production is 29% more compared to last month.
+4. The system is performing well. Client load slightly increased.";;;;;
+TPF Foods ;Jun-25;"1. Production is 94% of the expected energy.
+2. Production is 2% more compared to Jun 2024.
+3. Production is 8% less compared to last month.
+4. The system is performing well. Client load slightly increased.";;;;;
+TPF Foods ;Jul-25;"1. Production is 92% of the expected energy.
+2. Production is 8% less compared to Jul 2024.
+3. Production is 2% less compared to last month.
+4. The system is performing well. Client load slightly increased.";;;;;
+TPF Foods ;Aug-25;"1. Production is 91% of the expected energy.
+2. Production is 7% more compared to Aug 2024.
+3. Production is 1% less compared to last month.
+4. The system is performing well.";;;;;
+TPF Foods ;Sept-25;"1. Production is 83% of the expected energy.
+2. Production is 3% more compared to Aug 2024.
+3. Production is 8% more compared to last month.
+4. The system is performing well.";;;;;
+TPF Foods ;Oct-25;"1. Production is 92% of the expected energy.
+2. Production is 11% less compared to Oct 2024.
+3. Production is 9% more compared to last month.
+4. The system is performing well.";;;;;
+TPF Foods ;Nov-25;"1. Production is 74% of the expected energy.
+2. Production is 31% less compared to Nov 2024.
+3. Production is 18% less compared to last month.
+4. The system is performing moderately, load reduced, system affected by weather. ";;;;;
+TPF Foods ;Dec-25;The system performed well;;;;;
+TPF Foods ;Jan-26;The system performed as expected;;;;;
+TPF Foods ;Feb-26;System performed well;;;;;
+TPF Foods ;Mar-26;The system performed moderately due to reduced load ;;;;;
+TPF Foods ;Apr-26;The system performed poorely, and client load was reduced. ;;;;;
+TPF Foods ;May-26;Performing poorly due to slightly reduced load demand;;;;;
+TPF Foods ;Aug-26;30 days ;0;None;None;Energy production was limited by reduced load demand;N/A
+TPF Foods ;Jun-26;;;;;;
+TPF Foods ;Jul-26;31;0;None;None;Energy production was limited by reduced load demand;N/A
 Trouw Nutrition;Sept-24;;;;;;
 Trouw Nutrition;Oct-24;;;;;;
 Trouw Nutrition;Nov-24;;;;;;
@@ -2725,9 +2781,9 @@ Trouw Nutrition;Feb-26;System performed well;;;;;
 Trouw Nutrition;Mar-26;The system performed moderately due to bad weather ;;;;;
 Trouw Nutrition;Apr-26;The system performed moderately due to the load demand;;;;;
 Trouw Nutrition;May-26;Performing poorly due to slightly reduced load demand;;;;;
-The Alec;Jul-26;28;"3 days; 8th, 23rd,28th";Grid power outage ;None;The system energy production has been affected by grid unavailability and reduced load demand;N/A
-The Alec;Jun-26;30 days;0;None;None;The energy production was limited by load demand & bad weather;N/A
-Trouw Nutrition;Aug-26;;;;;;
+Trouw Nutrition;Aug-26;30 days ;0;None;None;Energy production was limited by reduced load demand;N/A
+Trouw Nutrition;Jun-26;;;;;;
+Trouw Nutrition;Jul-26;31;0;None;None;Energy production was limited by reduced load demand;N/A
 U Save Botrivier ;Sept-24;;;;;;
 U Save Botrivier ;Oct-24;;;;;;
 U Save Botrivier ;Nov-24;;;;;;
@@ -2755,9 +2811,10 @@ U Save Botrivier ;Feb-26;System performed moderately due to load demand;;;;;
 U Save Botrivier ;Mar-26;The system performed well;;;;;
 U Save Botrivier ;Apr-26;The is missing data fron 22-30 on the monitoring platform, data will be retrieved ;;;;;
 U Save Botrivier ;May-26;Performend poorly due to load demand;;;;;
-Three Peaks;Jun-26;;;;;;
-Three Peaks;Jul-26;31;0;None;None;The  System performed as expected;N/A
-U Save Botrivier ;Aug-26;;;;;;
+U Save Botrivier ;Aug-26;30 days ;0;None;None;Energy production was limited by reduced load demand;N/A
+U Save Botrivier ;Jun-26;;;;;;
+U Save Botrivier ;Jul-26;23;"8 days;5-9th,27-31st";Unknown;None;Energy production was limited by system unavailability ;N/A
+Usave Naboomspruit;Jul-26;31;0;None;None;The energy production was limited by load demand;N/A
 Watt Place Rotoflo;Sept-24;;;;;;
 Watt Place Rotoflo;Oct-24;;;;;;
 Watt Place Rotoflo;Nov-24;;;;;;
@@ -2796,9 +2853,9 @@ Watt Place Rotoflo;Feb-26;28 days;0;None;None;There system produced as expected 
 Watt Place Rotoflo;Mar-26;31 days;0;None;None;Energy production was limited by reduced load demand;N/A
 Watt Place Rotoflo;Apr-26;30 days;0;None;None;Energy production was limited by reduced load demand;N/A
 Watt Place Rotoflo;May-26;31 days;0;None;None;There system produced as expected ;N/A
-TPF Foods ;Jun-26;;;;;;
-TPF Foods ;Jul-26;31;0;None;None;Energy production was limited by reduced load demand;N/A
-Watt Place Rotoflo;Aug-26;;;;;;
+Watt Place Rotoflo;Aug-26;30 days;0;None;None;Energy production was limited by reduced load demand;N/A
+Watt Place Rotoflo;Jun-26;30 days;0;None;None;There system produced as expected ;N/A
+Watt Place Rotoflo;Jul-26;31;0;None;None;Energy production was limited by reduced load demand;N/A
 Zwartop Golf Course;Sept-24;;;;;;
 Zwartop Golf Course;Oct-24;;;;;;
 Zwartop Golf Course;Nov-24;;;;;;
@@ -2820,63 +2877,6 @@ Zwartop Golf Course;Feb-26;;;;;;
 Zwartop Golf Course;Mar-26;N/A;;;;;
 Zwartop Golf Course;Apr-26;N/A;;;;;
 Zwartop Golf Course;May-26;The system monitoring is offline ;;;;;
-Trouw Nutrition;Jun-26;;;;;;
-Trouw Nutrition;Jul-26;31;0;None;None;Energy production was limited by reduced load demand;N/A
-Zwartop Golf Course;Aug-26;;;;;;
-Checkers Lichtenburg;May-26;Performed as expected;;;;;
-Engen Kaalfontein;Sept-24;;;;;;
-Engen Kaalfontein;Oct-24;;;;;;
-Engen Kaalfontein;Nov-24;;;;;;
-Engen Kaalfontein;Dec-24;;;;;;
-Engen Kaalfontein;Jan-25;;;;;;
-Engen Kaalfontein;Feb-25;;;;;;
-Engen Kaalfontein;Mar-25;;;;;;
-Engen Kaalfontein;Apr-25;;;;;;
-Engen Kaalfontein;May-25;;;;;;
-Engen Kaalfontein;Jun-25;;;;;;
-Engen Kaalfontein;Jul-25;N/A;N/A;N/A;N/A;N/A;system not commissioned 
-Engen Kaalfontein;Aug-25;N/A;N/A;N/A;N/A;N/A;system not commissioned 
-Engen Kaalfontein;Sept-25;N/A;N/A;N/A;N/A;N/A;system not commissioned 
-Engen Kaalfontein;Oct-25;N/A;N/A;N/A;N/A;N/A;system not commissioned 
-Engen Kaalfontein;Nov-25;N/A;N/A;N/A;N/A;N/A;system not commissioned 
-Engen Kaalfontein;Dec-25;N/A;N/A;N/A;N/A;N/A;system not commissioned 
-Engen Kaalfontein;Jan-26;N/A;N/A;N/A;N/A;N/A;system not commissioned 
-Engen Kaalfontein;Feb-26;N/A;N/A;N/A;N/A;N/A;system not commissioned 
-Engen Kaalfontein;Mar-26;N/A;N/A;N/A;N/A;N/A;system not commissioned 
-Engen Kaalfontein;Apr-26;N/A;N/A;N/A;N/A;N/A;system not commissioned 
-Engen Kaalfontein;May-26;8 days;1-23, 23 days;system not commissioned ;N/A;N/A;
-U Save Botrivier ;Jun-26;;;;;;
-U Save Botrivier ;Jul-26;23;"8 days;5-9th,27-31st";Unknown;None;Energy production was limited by system unavailability ;N/A
-Engen Kaalfontein;Aug-26;;;;;;
-Alpine Heath Resort;Sept-24;;;;;;
-Alpine Heath Resort;Oct-24;;;;;;
-Alpine Heath Resort;Nov-24;;;;;;
-Alpine Heath Resort;Dec-24;;;;;;
-Alpine Heath Resort;Jan-25;;;;;;
-Alpine Heath Resort;Feb-25;;;;;;
-Alpine Heath Resort;Mar-25;;;;;;
-Alpine Heath Resort;Apr-25;;;;;;
-Alpine Heath Resort;May-25;;;;;;
-Alpine Heath Resort;Jun-25;;;;;;
-Alpine Heath Resort;Jul-25;31 days;N/A;N/A;N/A;N/A;system not commissioned 
-Alpine Heath Resort;Aug-25;31 days;N/A;N/A;N/A;N/A;system not commissioned 
-Alpine Heath Resort;Sept-25;30 days;N/A;N/A;N/A;N/A;system not commissioned 
-Alpine Heath Resort;Oct-25;31 days;N/A;N/A;N/A;N/A;system not commissioned 
-Alpine Heath Resort;Nov-25;30 days;N/A;N/A;N/A;N/A;system not commissioned 
-Alpine Heath Resort;Dec-25;31 days;N/A;N/A;N/A;N/A;system not commissioned 
-Alpine Heath Resort;Jan-26;31 days;N/A;N/A;N/A;N/A;system not commissioned 
-Alpine Heath Resort;Feb-26;28 days;N/A;N/A;N/A;N/A;system not commissioned 
-Alpine Heath Resort;Mar-26;31 days;N/A;N/A;N/A;N/A;system not commissioned 
-Alpine Heath Resort;Apr-26;2 days;01-28, 28 days;system not commissioned ;None;None;N/A
-Alpine Heath Resort;May-26;31 days;None;None;None;There system produced as expected ;N/A
-Usave Naboomspruit;Jul-26;31;0;None;None;The energy production was limited by load demand;N/A
-Watt Place Rotoflo;Jun-26;30 days;0;None;None;There system produced as expected ;N/A
-Alpine Heath Resort;Aug-26;;;;;;
-Watt Place Rotoflo;Jul-26;31;0;None;None;Energy production was limited by reduced load demand;N/A
+Zwartop Golf Course;Aug-26;N/A;N/A;N/A;N/A;N/A;N/A
 Zwartop Golf Course;Jun-26;N/A;N/A;N/A;N/A;N/A;N/A
-Checkers Lichtenburg;Aug-26;;;;;;
-Checkers Lichtenburg;Sept-26;;;;;;
-Checkers Lichtenburg;Oct-26;;;;;;
-Checkers Lichtenburg;Nov-26;;;;;;
-Checkers Lichtenburg;Dec-26;;;;;;
 Zwartop Golf Course;Jul-26;N/A;N/A;N/A;N/A;N/A;N/A
