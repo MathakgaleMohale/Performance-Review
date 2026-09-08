@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
+import * as XLSX from 'xlsx'
 import { supabase } from '@/lib/supabase'
 import { ZA_ZM_PROVINCES } from './za_zm_provinces'
 import { BW_PROVINCES } from './botswana_provinces'
@@ -281,9 +282,90 @@ export default function DashboardPage() {
     if (activePage === 'performance' && chartReady && perfData.length > 0) {
       setTimeout(() => buildPerfCharts(filteredPerf), 100)
     }
-  }, [activePage, chartReady, perfData, pfFilterInvestor, pfFilterDate, pfFilterBand, theme])
+  }, [activePage, chartReady, perfData, pfFilterInvestor, pfFilterDate, pfFilterBand, pfFilterDiscussion, theme])
 
   function signOut() { supabase.auth.signOut().then(() => { window.location.href = '/login' }) }
+
+  // Writes an array of plain objects to a single-sheet .xlsx and triggers a download.
+  function exportRowsToExcel(rows, sheetName, fileName) {
+    if (!rows || rows.length === 0) { setUpMsg('Nothing to export for the current filters.'); return }
+    const ws = XLSX.utils.json_to_sheet(rows)
+    // Auto-size columns from header + content length (capped so long text stays sane)
+    const cols = Object.keys(rows[0]).map(k => {
+      const maxLen = Math.max(k.length, ...rows.map(r => (r[k] == null ? 0 : String(r[k]).length)))
+      return { wch: Math.min(Math.max(maxLen + 2, 10), 48) }
+    })
+    ws['!cols'] = cols
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, sheetName.slice(0, 31))
+    XLSX.writeFile(wb, fileName)
+  }
+
+  const slug = (s) => (s || '').toString().trim().replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '') || 'All'
+
+  function exportInstallExcel() {
+    const rSites = sites.filter(s => !repInvestor || s.investment_party === repInvestor)
+      .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+    const rows = rSites.map(s => ({
+      'Site Name': s.name || '',
+      'Capacity (kWp)': s.capacity_kw != null ? s.capacity_kw : '',
+      'PV Inverter (kW)': s.pv_inverter_kw != null ? s.pv_inverter_kw : '',
+      'BESS (kWh)': s.battery_size_wh > 0 ? +(s.battery_size_wh / 1000).toFixed(2) : '',
+      'Battery': s.inverter_brand || '',
+      'Battery Inverter Size': s.battery_inverter_size || '',
+      'Generator': s.generator_size || '',
+      'Genset Kit': s.genset_setpoint_kit || '',
+      'Country': s.country || '',
+      'Province': s.province || '',
+      'Location': s.location || '',
+      'Meter': s.meter || '',
+      'Contract': s.system_type || '',
+      'Business Type': s.business_type || '',
+      'Operational Status': s.operational_status || '',
+      'Sales Type': s.sales_type || '',
+      'Investor': s.investment_party || '',
+      'Project #': s.project_number || '',
+      'Commissioned': s.commissioned_date || '',
+      'Installer': s.installer_name || '',
+      'Platform': s.platform || '',
+      'Offtake Guarantee': s.offtake_guarantee || '',
+      'Age (yrs)': s.age_years != null ? s.age_years : '',
+      'Soiling': s.soiling_intensity || '',
+      'Shading': s.shading || '',
+      'Power Limit': s.power_limit || '',
+      'Status': s.status || '',
+    }))
+    exportRowsToExcel(rows, 'Installations', `Sosimple_InstallationOverview_${slug(repInvestor)}.xlsx`)
+  }
+
+  function exportPerfExcel() {
+    const rows = perfData.filter(p => {
+      const mI = !repInvestor || getInvestor(p) === repInvestor
+      const mD = !repDate || dateKey(p) === repDate
+      return mI && mD
+    }).sort((a, b) => (parseInt(b.year) - parseInt(a.year)) || (parseInt(b.month) - parseInt(a.month)) || (a.site_name || '').localeCompare(b.site_name || ''))
+      .map(p => {
+        const d = (p.kwh_produced != null && p.expected_kwh) ? +(((p.kwh_produced - p.expected_kwh) / p.expected_kwh) * 100).toFixed(1) : ''
+        return {
+          'Site Name': p.site_name || '',
+          'Investor': getInvestor(p) || '',
+          'Period': fmtDate(p.month, p.year),
+          'Measured kWh': p.kwh_produced != null ? p.kwh_produced : '',
+          'Expected kWh': p.expected_kwh != null ? p.expected_kwh : '',
+          'Delta %': d,
+          'Performance %': p.performance_pct != null ? p.performance_pct : '',
+          'PF Band': p.pf_band || '',
+          'Availability': p.availability || '',
+          'Downtime (days)': p.downtime_days || '',
+          'Cause of Downtime': p.cause_of_downtime || '',
+          'Technical Events': p.technical_events || '',
+          'Energy Impact': p.energy_impact || '',
+          'Other Comments': p.other_comments || p.comment || '',
+        }
+      })
+    const period = repDate ? (() => { const [y, m] = repDate.split('-'); return `${monthNames[parseInt(m)-1]}-${y.slice(2)}` })() : 'AllPeriods'
+    exportRowsToExcel(rows, 'Performance', `Sosimple_SitePerformance_${slug(repInvestor)}_${slug(period)}.xlsx`)
+  }
 
   const investors = [...new Set(sites.map(s => s.investment_party).filter(Boolean))].sort()
   const installers = [...new Set(sites.map(s => s.installer_name).filter(Boolean))].sort()
@@ -392,11 +474,21 @@ export default function DashboardPage() {
     return site?.investment_party || ''
   }
 
+  // Robust truth test for the "discussion" flag — handles boolean true, or the
+  // string/number forms a database or CSV can produce ("YES", "true", "t", 1, …).
+  const isDiscuss = (p) => {
+    const v = p == null ? null : p.discussion
+    if (v === true) return true
+    if (typeof v === 'number') return v === 1
+    if (typeof v === 'string') return ['yes', 'true', 't', 'y', '1'].includes(v.trim().toLowerCase())
+    return false
+  }
+
   const filteredPerf = perfData.filter(p => {
     const mI = !pfFilterInvestor || getInvestor(p) === pfFilterInvestor
     const mD = !pfFilterDate || dateKey(p) === pfFilterDate
     const mB = !pfFilterBand || (p.pf_band || '').trim() === pfFilterBand
-    const mDisc = !pfFilterDiscussion || (pfFilterDiscussion === 'yes' ? p.discussion === true : p.discussion !== true)
+    const mDisc = !pfFilterDiscussion || (pfFilterDiscussion === 'yes' ? isDiscuss(p) : !isDiscuss(p))
     return mI && mD && mB && mDisc
   })
 
@@ -411,7 +503,7 @@ export default function DashboardPage() {
         case 'expected': return p.expected_kwh != null ? parseFloat(p.expected_kwh) : null
         case 'perf': return p.performance_pct != null ? parseFloat(p.performance_pct) : null
         case 'band': return (p.pf_band || '').toLowerCase()
-        case 'discussion': return p.discussion === true ? 1 : 0
+        case 'discussion': return isDiscuss(p) ? 1 : 0
         default: return 0
       }
     }
@@ -1582,7 +1674,7 @@ export default function DashboardPage() {
                       const cell = (v) => <td style={{ padding: '8px 10px', color: T.textSecondary, whiteSpace: 'nowrap' }}>{v != null && v !== '' ? v : '—'}</td>
                       const wear = (v) => <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', fontWeight: 600, color: /high/i.test(v||'') ? T.red : /medium/i.test(v||'') ? T.orange : /low/i.test(v||'') ? T.green : T.textMuted }}>{v || '--'}</td>
                       return (
-                      <tr key={site.id} className="tbl-row" style={{ cursor: 'pointer', borderBottom: `1px solid ${T.border}` }} onClick={() => window.location.href = `/sites/${site.id}`}>
+                      <tr key={site.name ?? site.id} className="tbl-row" style={{ cursor: 'pointer', borderBottom: `1px solid ${T.border}` }} onClick={() => window.location.href = `/sites/${site.id}`}>
                         <td style={{ padding: '8px 10px', fontWeight: 600, color: T.blue, whiteSpace: 'nowrap' }}>{site.name}</td>
                         <td style={{ padding: '8px 10px', color: T.textPrimary, whiteSpace: 'nowrap' }}>{site.capacity_kw != null ? `${site.capacity_kw} kWp` : '—'}</td>
                         {cell(site.pv_inverter_kw != null ? `${site.pv_inverter_kw} kW` : null)}
@@ -1712,7 +1804,7 @@ export default function DashboardPage() {
                         {filteredPerf.length === 0 ? (
                           <tr><td colSpan={8} style={{ padding: '32px', textAlign: 'center', color: T.textMuted }}>No records match the selected filters</td></tr>
                         ) : sortedPerf.map((p) => (
-                          <tr key={p.id} className="tbl-row" style={{ borderBottom: `1px solid ${T.border}` }}>
+                          <tr key={`${p.site_name}|${p.year}|${p.month}`} className="tbl-row" style={{ borderBottom: `1px solid ${T.border}` }}>
                             <td style={{ padding: '8px 10px', fontWeight: 600, color: T.blue }}>{p.site_name}</td>
                             <td style={{ padding: '8px 10px', color: T.textSecondary }}>{getInvestor(p) || '—'}</td>
                             <td style={{ padding: '8px 10px', color: T.textSecondary }}>{fmtDate(p.month, p.year)}</td>
@@ -1723,7 +1815,7 @@ export default function DashboardPage() {
                             </td>
                             <td style={{ padding: '8px 10px' }}>{pfBadge(p.pf_band)}</td>
                             <td style={{ padding: '8px 10px' }}>
-                              {p.discussion === true
+                              {isDiscuss(p)
                                 ? <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 700, background: 'transparent', color: '#a86a1a', border: `1px solid rgba(240,130,10,0.4)` }}>Discuss</span>
                                 : <span style={{ color: T.textMuted }}>—</span>}
                             </td>
@@ -2296,7 +2388,7 @@ export default function DashboardPage() {
                           const ach = g.performance_rate != null ? parseFloat(g.performance_rate)
                             : (g.correct_kwh > 0 && g.actual_kwh != null ? (g.actual_kwh / g.correct_kwh) * 100 : null)
                           return (
-                            <tr key={g.id} className="tbl-row" style={{ borderBottom: `1px solid ${T.border}` }}>
+                            <tr key={g.site_name ?? g.id} className="tbl-row" style={{ borderBottom: `1px solid ${T.border}` }}>
                               <td style={{ padding: '8px 10px', fontWeight: 600, color: T.blue, whiteSpace: 'nowrap', cursor: 'pointer', textDecoration: 'underline dotted' }}
                                 onClick={() => setOgSelected(g)}>
                                 {g.site_name}
@@ -2487,7 +2579,10 @@ export default function DashboardPage() {
                     })}
                   </select>
                 )}
-                <button onClick={() => window.print()} style={{ marginLeft: 'auto', padding: '8px 18px', background: T.blue, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>
+                <button onClick={() => repType === 'install' ? exportInstallExcel() : exportPerfExcel()} style={{ marginLeft: 'auto', padding: '8px 16px', background: 'transparent', color: T.green, border: `1px solid ${T.green}`, borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>
+                  <i className="ti ti-file-spreadsheet" style={{ marginRight: '6px' }} />Export Excel
+                </button>
+                <button onClick={() => window.print()} style={{ padding: '8px 18px', background: T.blue, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>
                   <i className="ti ti-printer" style={{ marginRight: '6px' }} />Print / Save PDF
                 </button>
               </div>
