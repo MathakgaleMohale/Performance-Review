@@ -692,6 +692,8 @@ export default function DashboardPage() {
             ctx.restore()
           }
         }
+        const _dataVals = features.map(f => +((normMap[featName(f)] || 0)).toFixed(decimals))
+        const _maxV = Math.max(..._dataVals, 0)
         chartsRef.current[canvasId] = new Chart(el, {
           type: 'choropleth',
           data: {
@@ -713,7 +715,7 @@ export default function DashboardPage() {
             },
             scales: {
               projection: { axis: 'x', projection: 'mercator' },
-              color: { axis: 'x', interpolate: blueRamp, legend: { display: false } }
+              color: { axis: 'x', interpolate: blueRamp, min: 0, max: _maxV > 0 ? _maxV : 1, legend: { display: false } }
             }
           }
         })
