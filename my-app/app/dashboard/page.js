@@ -369,6 +369,31 @@ export default function DashboardPage() {
 
   const genDateStr = () => new Date().toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' })
 
+  // Renders a Chart.js chart on an offscreen canvas (reusing the Chart.js
+  // instance already loaded for the dashboard's own charts) and returns it as
+  // a PNG data URL, ready to embed as an image in an exported workbook.
+  // Resolves to null if Chart.js hasn't loaded for some reason, so callers can
+  // skip the image gracefully instead of failing the whole export.
+  function renderChartImage({ type, data, options, width = 640, height = 320 }) {
+    return new Promise((resolve) => {
+      if (typeof window === 'undefined' || !window.Chart) { resolve(null); return }
+      try {
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        const chart = new window.Chart(canvas.getContext('2d'), {
+          type, data, options: { ...options, responsive: false, animation: false },
+        })
+        // Double rAF ensures the canvas has actually painted before we read it back.
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          const url = canvas.toDataURL('image/png')
+          chart.destroy()
+          resolve(url)
+        }))
+      } catch (e) { console.error('Chart render failed', e); resolve(null) }
+    })
+  }
+
   // Builds and downloads a branded 2-sheet workbook for one site: an "Overview"
   // sheet combining technical info with cumulative totals, and a "Monthly
   // History" sheet with every recorded month (oldest → newest) plus running
@@ -421,10 +446,16 @@ export default function DashboardPage() {
     ]]
 
     let cumMeas = 0, cumExp = 0
+    const periods = [], measSeries = [], expSeries = [], cumMeasSeries = [], cumExpSeries = []
     const monthlyHeaders = ['Period', 'Measured kWh', 'Expected kWh', 'Delta %', 'Performance %', 'PF Band', 'Availability', 'Downtime (days)', 'Cause of Downtime', 'Technical Events', 'Energy Impact', 'Other Comments', 'Cumulative Measured kWh', 'Cumulative Expected kWh']
     const monthlyRows = recs.length > 0 ? recs.map(p => {
       cumMeas += p.kwh_produced || 0
       cumExp += p.expected_kwh || 0
+      periods.push(fmtDate(p.month, p.year))
+      measSeries.push(p.kwh_produced || 0)
+      expSeries.push(p.expected_kwh || 0)
+      cumMeasSeries.push(cumMeas)
+      cumExpSeries.push(cumExp)
       const d = (p.kwh_produced != null && p.expected_kwh) ? +(((p.kwh_produced - p.expected_kwh) / p.expected_kwh) * 100).toFixed(1) : ''
       return [
         fmtDate(p.month, p.year), p.kwh_produced != null ? p.kwh_produced : '', p.expected_kwh != null ? p.expected_kwh : '', d,
@@ -439,8 +470,39 @@ export default function DashboardPage() {
     workbook.creator = 'Sosimple Energy'
     const logoId = workbook.addImage({ buffer: logoBuf, extension: 'png' })
     const meta = [`Generated: ${genDateStr()}`, `Site: ${site?.name || siteName}`]
-    addBrandedSheet(workbook, logoId, { sheetName: 'Overview', metaLines: meta, headers: overviewHeaders, dataRows: overviewRows })
+    const overviewWs = addBrandedSheet(workbook, logoId, { sheetName: 'Overview', metaLines: meta, headers: overviewHeaders, dataRows: overviewRows })
     addBrandedSheet(workbook, logoId, { sheetName: 'Monthly History', metaLines: meta, headers: monthlyHeaders, dataRows: monthlyRows })
+
+    if (periods.length > 0) {
+      const [barImg, lineImg] = await Promise.all([
+        renderChartImage({
+          type: 'bar',
+          data: { labels: periods, datasets: [
+            { label: 'Measured (kWh)', data: measSeries, backgroundColor: '#2B7FD4' },
+            { label: 'Expected (kWh)', data: expSeries, backgroundColor: '#8a9aae' },
+          ] },
+          options: { plugins: { title: { display: true, text: 'Monthly Measured vs Expected (kWh)', font: { size: 14 } }, legend: { position: 'top' } } },
+        }),
+        renderChartImage({
+          type: 'line',
+          data: { labels: periods, datasets: [
+            { label: 'Cumulative Measured (kWh)', data: cumMeasSeries, borderColor: '#2B7FD4', backgroundColor: '#2B7FD4', fill: false, tension: 0.15 },
+            { label: 'Cumulative Expected (kWh)', data: cumExpSeries, borderColor: '#7DC242', backgroundColor: '#7DC242', fill: false, tension: 0.15 },
+          ] },
+          options: { plugins: { title: { display: true, text: 'Cumulative Measured vs Expected (kWh)', font: { size: 14 } }, legend: { position: 'top' } } },
+        }),
+      ])
+      const chartStartRow = 4 + overviewRows.length + 2
+      if (barImg) {
+        const barId = workbook.addImage({ base64: barImg, extension: 'png' })
+        overviewWs.addImage(barId, { tl: { col: 0, row: chartStartRow }, ext: { width: 480, height: 240 } })
+      }
+      if (lineImg) {
+        const lineId = workbook.addImage({ base64: lineImg, extension: 'png' })
+        overviewWs.addImage(lineId, { tl: { col: 0, row: chartStartRow + 14 }, ext: { width: 480, height: 240 } })
+      }
+    }
+
     await downloadWorkbook(workbook, `Sosimple_SiteReport_${slug(site?.name || siteName)}.xlsx`)
   }
 
