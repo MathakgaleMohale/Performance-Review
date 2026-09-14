@@ -377,8 +377,30 @@ export default function DashboardPage() {
     const key = (siteName || '').trim().toLowerCase()
     if (!key) return
     const site = sites.find(s => s.name?.trim().toLowerCase() === key)
-    const recs = [...perfData.filter(p => p.site_name?.trim().toLowerCase() === key)]
+    let recs = [...perfData.filter(p => p.site_name?.trim().toLowerCase() === key)]
       .sort((a, b) => (parseInt(a.year) - parseInt(b.year)) || (parseInt(a.month) - parseInt(b.month)))
+
+    // Restrict to the site's actual operating window: from its commissioning
+    // month (if known) through the current month — drops any pre-commissioning
+    // or future-dated placeholder rows. If the site record has no
+    // commissioned_date on file, fall back to the first month that actually
+    // has a measured value (pre-commissioning rows typically only carry an
+    // Expected figure, with Measured left blank).
+    const now = new Date()
+    const curKey = now.getFullYear() * 100 + (now.getMonth() + 1)
+    let startKey = null
+    if (site?.commissioned_date) {
+      const c = new Date(site.commissioned_date)
+      if (!isNaN(c)) startKey = c.getFullYear() * 100 + (c.getMonth() + 1)
+    }
+    if (startKey == null) {
+      const firstMeasured = recs.find(p => p.kwh_produced != null)
+      if (firstMeasured) startKey = parseInt(firstMeasured.year) * 100 + parseInt(firstMeasured.month)
+    }
+    recs = recs.filter(p => {
+      const k = parseInt(p.year) * 100 + parseInt(p.month)
+      return (startKey == null || k >= startKey) && k <= curKey
+    })
 
     if (!site && recs.length === 0) { setUpMsg(`No data found for "${siteName}".`); return }
 
