@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
-import * as XLSX from 'xlsx'
+import ExcelJS from 'exceljs/dist/exceljs.min.js'
 import { supabase } from '@/lib/supabase'
 import { ZA_ZM_PROVINCES } from './za_zm_provinces'
 import { BW_PROVINCES } from './botswana_provinces'
@@ -286,85 +286,216 @@ export default function DashboardPage() {
 
   function signOut() { supabase.auth.signOut().then(() => { window.location.href = '/login' }) }
 
-  // Writes an array of plain objects to a single-sheet .xlsx and triggers a download.
-  function exportRowsToExcel(rows, sheetName, fileName) {
-    if (!rows || rows.length === 0) { setUpMsg('Nothing to export for the current filters.'); return }
-    const ws = XLSX.utils.json_to_sheet(rows)
-    // Auto-size columns from header + content length (capped so long text stays sane)
-    const cols = Object.keys(rows[0]).map(k => {
-      const maxLen = Math.max(k.length, ...rows.map(r => (r[k] == null ? 0 : String(r[k]).length)))
-      return { wch: Math.min(Math.max(maxLen + 2, 10), 48) }
-    })
-    ws['!cols'] = cols
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, sheetName.slice(0, 31))
-    XLSX.writeFile(wb, fileName)
-  }
-
   const slug = (s) => (s || '').toString().trim().replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '') || 'All'
 
-  function exportInstallExcel() {
-    const rSites = sites.filter(s => !repInvestor || s.investment_party === repInvestor)
-      .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
-    const rows = rSites.map(s => ({
-      'Site Name': s.name || '',
-      'Capacity (kWp)': s.capacity_kw != null ? s.capacity_kw : '',
-      'PV Inverter (kW)': s.pv_inverter_kw != null ? s.pv_inverter_kw : '',
-      'BESS (kWh)': s.battery_size_wh > 0 ? +(s.battery_size_wh / 1000).toFixed(2) : '',
-      'Battery': s.inverter_brand || '',
-      'Battery Inverter Size': s.battery_inverter_size || '',
-      'Generator': s.generator_size || '',
-      'Genset Kit': s.genset_setpoint_kit || '',
-      'Country': s.country || '',
-      'Province': s.province || '',
-      'Location': s.location || '',
-      'Meter': s.meter || '',
-      'Contract': s.system_type || '',
-      'Business Type': s.business_type || '',
-      'Operational Status': s.operational_status || '',
-      'Sales Type': s.sales_type || '',
-      'Investor': s.investment_party || '',
-      'Project #': s.project_number || '',
-      'Commissioned': s.commissioned_date || '',
-      'Installer': s.installer_name || '',
-      'Platform': s.platform || '',
-      'Offtake Guarantee': s.offtake_guarantee || '',
-      'Age (yrs)': s.age_years != null ? s.age_years : '',
-      'Soiling': s.soiling_intensity || '',
-      'Shading': s.shading || '',
-      'Power Limit': s.power_limit || '',
-      'Status': s.status || '',
-    }))
-    exportRowsToExcel(rows, 'Installations', `Sosimple_InstallationOverview_${slug(repInvestor)}.xlsx`)
+  // Fetches the Sosimple logo once and caches it at module scope so every
+  // export reuses the same bytes instead of re-fetching per download.
+  async function getLogoBuffer() {
+    if (getLogoBuffer._cache) return getLogoBuffer._cache
+    const res = await fetch('/sosimple-icon.png')
+    getLogoBuffer._cache = await res.arrayBuffer()
+    return getLogoBuffer._cache
   }
 
-  function exportPerfExcel() {
-    const rows = perfData.filter(p => {
+  function autoWidths(headers, rows) {
+    return headers.map((h, i) => {
+      const maxLen = Math.max(h.length, ...rows.map(r => (r[i] == null ? 0 : String(r[i]).length)))
+      return Math.min(Math.max(maxLen + 2, 10), 48)
+    })
+  }
+
+  // Builds one branded worksheet: Sosimple logo top-left, bold blue company
+  // name + green tagline, right-aligned meta lines (generated date, filters),
+  // then a solid-blue bold header row and the data rows beneath it.
+  function addBrandedSheet(workbook, logoImageId, { sheetName, metaLines, headers, dataRows }) {
+    const ws = workbook.addWorksheet(sheetName.slice(0, 31))
+    const widths = autoWidths(headers, dataRows)
+    widths.forEach((w, i) => { ws.getColumn(i + 1).width = w })
+
+    ws.addImage(logoImageId, { tl: { col: 0, row: 0 }, ext: { width: 62, height: 70 } })
+    ws.getRow(1).height = 20
+    ws.getRow(2).height = 16
+
+    const titleCell = ws.getCell(1, 3)
+    titleCell.value = 'Sosimple Energy'
+    titleCell.font = { bold: true, size: 15, color: { argb: 'FF2B7FD4' } }
+
+    const taglineCell = ws.getCell(2, 3)
+    taglineCell.value = 'Cheap energy. Clean business.'
+    taglineCell.font = { bold: true, size: 9, color: { argb: 'FF7DC242' } }
+
+    const lastCol = Math.max(headers.length, 6)
+    metaLines.forEach((line, i) => {
+      const cell = ws.getCell(i + 1, lastCol)
+      cell.value = line
+      cell.font = { size: 8, color: { argb: 'FF8A9AAE' } }
+      cell.alignment = { horizontal: 'right' }
+    })
+
+    const headerRowIdx = 4
+    headers.forEach((h, i) => {
+      const cell = ws.getCell(headerRowIdx, i + 1)
+      cell.value = h
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2B7FD4' } }
+      cell.alignment = { vertical: 'middle', wrapText: true }
+    })
+
+    dataRows.forEach((rowArr, idx) => {
+      const r = headerRowIdx + 1 + idx
+      rowArr.forEach((val, i) => {
+        const cell = ws.getCell(r, i + 1)
+        cell.value = val ?? ''
+        if (idx % 2 === 1) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF7FAFD' } }
+      })
+    })
+
+    ws.views = [{ state: 'frozen', ySplit: headerRowIdx }]
+    return ws
+  }
+
+  async function downloadWorkbook(workbook, fileName) {
+    const buffer = await workbook.xlsx.writeBuffer()
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = fileName
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
+  const genDateStr = () => new Date().toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' })
+
+  // Builds and downloads a branded 2-sheet workbook for one site: an "Overview"
+  // sheet combining technical info with cumulative totals, and a "Monthly
+  // History" sheet with every recorded month (oldest → newest) plus running
+  // cumulative measured/expected columns.
+  async function exportSiteExcel(siteName) {
+    const key = (siteName || '').trim().toLowerCase()
+    if (!key) return
+    const site = sites.find(s => s.name?.trim().toLowerCase() === key)
+    const recs = [...perfData.filter(p => p.site_name?.trim().toLowerCase() === key)]
+      .sort((a, b) => (parseInt(a.year) - parseInt(b.year)) || (parseInt(a.month) - parseInt(b.month)))
+
+    if (!site && recs.length === 0) { setUpMsg(`No data found for "${siteName}".`); return }
+
+    const totMeas = recs.reduce((s, p) => s + (p.kwh_produced || 0), 0)
+    const totExp = recs.reduce((s, p) => s + (p.expected_kwh || 0), 0)
+    const delta = totExp > 0 ? +(((totMeas - totExp) / totExp) * 100).toFixed(1) : ''
+    const perfVals = recs.filter(p => p.performance_pct != null)
+    const avgPerf = perfVals.length > 0 ? +(perfVals.reduce((s, p) => s + p.performance_pct, 0) / perfVals.length).toFixed(1) : ''
+    const firstPeriod = recs.length > 0 ? fmtDate(recs[0].month, recs[0].year) : ''
+    const lastPeriod = recs.length > 0 ? fmtDate(recs[recs.length - 1].month, recs[recs.length - 1].year) : ''
+
+    const overviewHeaders = ['Site Name', 'Investor', 'Province', 'Location', 'Capacity (kWp)', 'BESS (kWh)', 'Contract', 'Business Type', 'Installer', 'Commissioned', 'Status', 'Records (months)', 'First Period', 'Last Period', 'Cumulative Measured kWh', 'Cumulative Expected kWh', 'Cumulative Delta %', 'Average Performance %']
+    const overviewRows = [[
+      site?.name || siteName, site?.investment_party || '', site?.province || '', site?.location || '',
+      site?.capacity_kw != null ? site.capacity_kw : '', site?.battery_size_wh > 0 ? +(site.battery_size_wh / 1000).toFixed(2) : '',
+      site?.system_type || '', site?.business_type || '', site?.installer_name || '', site?.commissioned_date || '', site?.status || '',
+      recs.length, firstPeriod, lastPeriod, totMeas, totExp, delta, avgPerf,
+    ]]
+
+    let cumMeas = 0, cumExp = 0
+    const monthlyHeaders = ['Period', 'Measured kWh', 'Expected kWh', 'Delta %', 'Performance %', 'PF Band', 'Availability', 'Downtime (days)', 'Cause of Downtime', 'Technical Events', 'Energy Impact', 'Other Comments', 'Cumulative Measured kWh', 'Cumulative Expected kWh']
+    const monthlyRows = recs.length > 0 ? recs.map(p => {
+      cumMeas += p.kwh_produced || 0
+      cumExp += p.expected_kwh || 0
+      const d = (p.kwh_produced != null && p.expected_kwh) ? +(((p.kwh_produced - p.expected_kwh) / p.expected_kwh) * 100).toFixed(1) : ''
+      return [
+        fmtDate(p.month, p.year), p.kwh_produced != null ? p.kwh_produced : '', p.expected_kwh != null ? p.expected_kwh : '', d,
+        p.performance_pct != null ? p.performance_pct : '', p.pf_band || '', p.availability || '', p.downtime_days || '',
+        p.cause_of_downtime || '', p.technical_events || '', p.energy_impact || '', p.other_comments || p.comment || '',
+        cumMeas, cumExp,
+      ]
+    }) : [['No performance data recorded', '', '', '', '', '', '', '', '', '', '', '', '', '']]
+
+    const logoBuf = await getLogoBuffer()
+    const workbook = new ExcelJS.Workbook()
+    workbook.creator = 'Sosimple Energy'
+    const logoId = workbook.addImage({ buffer: logoBuf, extension: 'png' })
+    const meta = [`Generated: ${genDateStr()}`, `Site: ${site?.name || siteName}`]
+    addBrandedSheet(workbook, logoId, { sheetName: 'Overview', metaLines: meta, headers: overviewHeaders, dataRows: overviewRows })
+    addBrandedSheet(workbook, logoId, { sheetName: 'Monthly History', metaLines: meta, headers: monthlyHeaders, dataRows: monthlyRows })
+    await downloadWorkbook(workbook, `Sosimple_SiteReport_${slug(site?.name || siteName)}.xlsx`)
+  }
+
+  async function exportInstallExcel() {
+    const rSites = sites.filter(s => !repInvestor || s.investment_party === repInvestor)
+      .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+    if (rSites.length === 0) { setUpMsg('Nothing to export for the current filters.'); return }
+
+    const totCap = rSites.reduce((s, x) => s + (x.capacity_kw || 0), 0)
+    const totBess = rSites.reduce((s, x) => s + (x.battery_size_wh || 0), 0)
+    const active = rSites.filter(s => s.status === 'active').length
+    const ppa = rSites.filter(s => s.system_type === 'PPA').length
+    const rto = rSites.filter(s => s.system_type === 'RTO').length
+
+    const summaryHeaders = ['Investment Party', 'Total Sites', 'Active', 'Capacity (MWp)', 'BESS (MWh)', 'PPA Sites', 'RTO Sites']
+    const summaryRows = [[repInvestor || 'All investment parties', rSites.length, active, +(totCap / 1000).toFixed(2), +(totBess / 1000000).toFixed(2), ppa, rto]]
+
+    const detailHeaders = ['Site Name', 'Capacity (kWp)', 'PV Inverter (kW)', 'BESS (kWh)', 'Battery', 'Battery Inverter Size', 'Generator', 'Genset Kit', 'Country', 'Province', 'Location', 'Meter', 'Contract', 'Business Type', 'Operational Status', 'Sales Type', 'Investor', 'Project #', 'Commissioned', 'Installer', 'Platform', 'Offtake Guarantee', 'Age (yrs)', 'Soiling', 'Shading', 'Power Limit', 'Status']
+    const detailRows = rSites.map(s => [
+      s.name || '', s.capacity_kw != null ? s.capacity_kw : '', s.pv_inverter_kw != null ? s.pv_inverter_kw : '',
+      s.battery_size_wh > 0 ? +(s.battery_size_wh / 1000).toFixed(2) : '', s.inverter_brand || '', s.battery_inverter_size || '',
+      s.generator_size || '', s.genset_setpoint_kit || '', s.country || '', s.province || '', s.location || '', s.meter || '',
+      s.system_type || '', s.business_type || '', s.operational_status || '', s.sales_type || '', s.investment_party || '',
+      s.project_number || '', s.commissioned_date || '', s.installer_name || '', s.platform || '', s.offtake_guarantee || '',
+      s.age_years != null ? s.age_years : '', s.soiling_intensity || '', s.shading || '', s.power_limit || '', s.status || '',
+    ])
+
+    const logoBuf = await getLogoBuffer()
+    const workbook = new ExcelJS.Workbook()
+    workbook.creator = 'Sosimple Energy'
+    const logoId = workbook.addImage({ buffer: logoBuf, extension: 'png' })
+    const meta = [`Generated: ${genDateStr()}`, `Investment Party: ${repInvestor || 'All investment parties'}`]
+    addBrandedSheet(workbook, logoId, { sheetName: 'Summary', metaLines: meta, headers: summaryHeaders, dataRows: summaryRows })
+    addBrandedSheet(workbook, logoId, { sheetName: 'Installations', metaLines: meta, headers: detailHeaders, dataRows: detailRows })
+    await downloadWorkbook(workbook, `Sosimple_InstallationOverview_${slug(repInvestor)}.xlsx`)
+  }
+
+  async function exportPerfExcel() {
+    const filtered = perfData.filter(p => {
       const mI = !repInvestor || getInvestor(p) === repInvestor
       const mD = !repDate || dateKey(p) === repDate
       return mI && mD
-    }).sort((a, b) => (parseInt(b.year) - parseInt(a.year)) || (parseInt(b.month) - parseInt(a.month)) || (a.site_name || '').localeCompare(b.site_name || ''))
-      .map(p => {
-        const d = (p.kwh_produced != null && p.expected_kwh) ? +(((p.kwh_produced - p.expected_kwh) / p.expected_kwh) * 100).toFixed(1) : ''
-        return {
-          'Site Name': p.site_name || '',
-          'Investor': getInvestor(p) || '',
-          'Period': fmtDate(p.month, p.year),
-          'Measured kWh': p.kwh_produced != null ? p.kwh_produced : '',
-          'Expected kWh': p.expected_kwh != null ? p.expected_kwh : '',
-          'Delta %': d,
-          'Performance %': p.performance_pct != null ? p.performance_pct : '',
-          'PF Band': p.pf_band || '',
-          'Availability': p.availability || '',
-          'Downtime (days)': p.downtime_days || '',
-          'Cause of Downtime': p.cause_of_downtime || '',
-          'Technical Events': p.technical_events || '',
-          'Energy Impact': p.energy_impact || '',
-          'Other Comments': p.other_comments || p.comment || '',
-        }
-      })
+    })
+    if (filtered.length === 0) { setUpMsg('Nothing to export for the current filters.'); return }
+
+    const sorted = [...filtered].sort((a, b) => (parseInt(b.year) - parseInt(a.year)) || (parseInt(b.month) - parseInt(a.month)) || (a.site_name || '').localeCompare(b.site_name || ''))
     const period = repDate ? (() => { const [y, m] = repDate.split('-'); return `${monthNames[parseInt(m)-1]}-${y.slice(2)}` })() : 'AllPeriods'
-    exportRowsToExcel(rows, 'Performance', `Sosimple_SitePerformance_${slug(repInvestor)}_${slug(period)}.xlsx`)
+
+    const totMeas = filtered.reduce((s, p) => s + (p.kwh_produced || 0), 0)
+    const totExp = filtered.reduce((s, p) => s + (p.expected_kwh || 0), 0)
+    const delta = totExp > 0 ? +(((totMeas - totExp) / totExp) * 100).toFixed(1) : ''
+    const bandExp = filtered.filter(p => (p.pf_band || '').trim() === 'Expected').length
+    const bandMod = filtered.filter(p => (p.pf_band || '').trim() === 'Moderate').length
+    const bandPoor = filtered.filter(p => (p.pf_band || '').trim() === 'Poor').length
+
+    const summaryHeaders = ['Investment Party', 'Period', 'Records', 'Measured kWh', 'Expected kWh', 'Delta %', 'Expected Band', 'Moderate Band', 'Poor Band']
+    const summaryRows = [[repInvestor || 'All investment parties', repDate ? period : 'All periods', filtered.length, totMeas, totExp, delta, bandExp, bandMod, bandPoor]]
+
+    const detailHeaders = ['Site Name', 'Investor', 'Period', 'Measured kWh', 'Expected kWh', 'Delta %', 'Performance %', 'PF Band', 'Availability', 'Downtime (days)', 'Cause of Downtime', 'Technical Events', 'Energy Impact', 'Other Comments']
+    const detailRows = sorted.map(p => {
+      const d = (p.kwh_produced != null && p.expected_kwh) ? +(((p.kwh_produced - p.expected_kwh) / p.expected_kwh) * 100).toFixed(1) : ''
+      return [
+        p.site_name || '', getInvestor(p) || '', fmtDate(p.month, p.year), p.kwh_produced != null ? p.kwh_produced : '',
+        p.expected_kwh != null ? p.expected_kwh : '', d, p.performance_pct != null ? p.performance_pct : '', p.pf_band || '',
+        p.availability || '', p.downtime_days || '', p.cause_of_downtime || '', p.technical_events || '', p.energy_impact || '',
+        p.other_comments || p.comment || '',
+      ]
+    })
+
+    const logoBuf = await getLogoBuffer()
+    const workbook = new ExcelJS.Workbook()
+    workbook.creator = 'Sosimple Energy'
+    const logoId = workbook.addImage({ buffer: logoBuf, extension: 'png' })
+    const meta = [`Generated: ${genDateStr()}`, `Investment Party: ${repInvestor || 'All investment parties'}`, `Period: ${repDate ? period : 'All periods'}`]
+    addBrandedSheet(workbook, logoId, { sheetName: 'Summary', metaLines: meta, headers: summaryHeaders, dataRows: summaryRows })
+    addBrandedSheet(workbook, logoId, { sheetName: 'Performance', metaLines: meta, headers: detailHeaders, dataRows: detailRows })
+    await downloadWorkbook(workbook, `Sosimple_SitePerformance_${slug(repInvestor)}_${slug(period)}.xlsx`)
   }
 
   const investors = [...new Set(sites.map(s => s.investment_party).filter(Boolean))].sort()
@@ -1677,7 +1808,14 @@ export default function DashboardPage() {
                       const wear = (v) => <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', fontWeight: 600, color: /high/i.test(v||'') ? T.red : /medium/i.test(v||'') ? T.orange : /low/i.test(v||'') ? T.green : T.textMuted }}>{v || '--'}</td>
                       return (
                       <tr key={site.name ?? site.id} className="tbl-row" style={{ cursor: 'pointer', borderBottom: `1px solid ${T.border}` }} onClick={() => window.location.href = `/sites/${site.id}`}>
-                        <td style={{ padding: '8px 10px', fontWeight: 600, color: T.blue, whiteSpace: 'nowrap' }}>{site.name}</td>
+                        <td style={{ padding: '8px 10px', fontWeight: 600, color: T.blue, whiteSpace: 'nowrap' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                            {site.name}
+                            <i className="ti ti-file-spreadsheet" title="Download site Excel report"
+                              onClick={(e) => { e.stopPropagation(); exportSiteExcel(site.name) }}
+                              style={{ fontSize: '13px', color: T.green, cursor: 'pointer' }} />
+                          </span>
+                        </td>
                         <td style={{ padding: '8px 10px', color: T.textPrimary, whiteSpace: 'nowrap' }}>{site.capacity_kw != null ? `${site.capacity_kw} kWp` : '—'}</td>
                         {cell(site.pv_inverter_kw != null ? `${site.pv_inverter_kw} kW` : null)}
                         {cell(site.battery_size_wh > 0 ? (site.battery_size_wh/1000).toFixed(1) : null)}
@@ -1911,6 +2049,10 @@ export default function DashboardPage() {
                                 <select style={selectStyle} value={spYear || yrSel || ''} onChange={e => setSpYear(e.target.value)}>
                                   {spYears.map(y => <option key={y} value={y}>{y}</option>)}
                                 </select>
+                                <button onClick={() => exportSiteExcel(spSite)}
+                                  style={{ padding: '7px 14px', background: 'transparent', color: T.green, border: `1px solid ${T.green}`, borderRadius: '8px', fontSize: '12px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                  <i className="ti ti-file-spreadsheet" />Export Excel
+                                </button>
                               </div>
                             </div>
                             <div style={{ display: 'flex', gap: '10px', marginBottom: '14px', flexWrap: 'wrap' }}>
@@ -2058,7 +2200,7 @@ export default function DashboardPage() {
                   </button>
                 </div>
 
-                <div className="print-area" style={{ background: '#fff', color: navy, border: `1px solid ${T.border}`, borderRadius: '12px', padding: '32px', maxWidth: '1150px', margin: '0 auto' }}>
+                <div key="og-overview" className="print-area" style={{ background: '#fff', color: navy, border: `1px solid ${T.border}`, borderRadius: '12px', padding: '32px', maxWidth: '1150px', margin: '0 auto' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '3px solid #2B7FD4', paddingBottom: '18px', marginBottom: '22px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                       <img src="/sosimple-icon.png" alt="Sosimple" width="44" height="50" style={{ height: '50px', width: 'auto', display: 'block' }} />
@@ -2167,7 +2309,7 @@ export default function DashboardPage() {
                   </button>
                 </div>
 
-                <div className="print-area" style={{ background: '#fff', color: navy, border: `1px solid ${T.border}`, borderRadius: '12px', padding: '32px', maxWidth: '1150px', margin: '0 auto' }}>
+                <div key={`og-site-${g.site_name}`} className="print-area" style={{ background: '#fff', color: navy, border: `1px solid ${T.border}`, borderRadius: '12px', padding: '32px', maxWidth: '1150px', margin: '0 auto' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '3px solid #2B7FD4', paddingBottom: '18px', marginBottom: '22px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                       <img src="/sosimple-icon.png" alt="Sosimple" width="44" height="50" style={{ height: '50px', width: 'auto', display: 'block' }} />
@@ -2643,7 +2785,7 @@ export default function DashboardPage() {
                   ]
 
                   return (
-                    <div className="print-area" style={{ background: '#fff', color: navy, border: `1px solid ${T.border}`, borderRadius: '12px', padding: '32px' }}>
+                    <div key={`install-${repInvestor}`} className="print-area" style={{ background: '#fff', color: navy, border: `1px solid ${T.border}`, borderRadius: '12px', padding: '32px' }}>
                       <ReportHeader showPeriod={false} />
                       <div style={{ fontSize: '18px', fontWeight: 800, color: navy, marginBottom: '18px' }}>Installation Overview</div>
 
@@ -2669,7 +2811,14 @@ export default function DashboardPage() {
                             <tr><td colSpan={cols.length} style={{ padding: '28px', textAlign: 'center', color: '#9ab0c8' }}>No sites match the selected filter</td></tr>
                           ) : rSites.map((s, idx) => (
                             <tr key={s.id} style={{ background: idx % 2 === 1 ? '#f7fafd' : '#fff', borderBottom: '1px solid #eef3f8' }}>
-                              <td style={{ padding: '6px 8px', fontWeight: 600, color: navy, wordBreak: 'break-word' }}>{s.name}</td>
+                              <td style={{ padding: '6px 8px', fontWeight: 600, color: navy, wordBreak: 'break-word' }}>
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                  {s.name}
+                                  <i className="ti ti-file-spreadsheet no-print" title="Download site Excel report"
+                                    onClick={(e) => { e.stopPropagation(); exportSiteExcel(s.name) }}
+                                    style={{ fontSize: '12px', color: '#5FA82E', cursor: 'pointer' }} />
+                                </span>
+                              </td>
                               <td style={{ padding: '6px 8px', color: '#5a7aaa' }}>{s.province || '—'}</td>
                               <td style={{ padding: '6px 8px', textAlign: 'right', color: '#33475f' }}>{s.capacity_kw != null ? fmtN(s.capacity_kw) : '—'}</td>
                               <td style={{ padding: '6px 8px', textAlign: 'right', color: '#33475f' }}>{s.battery_size_wh > 0 ? fmtN(s.battery_size_wh / 1000) : '—'}</td>
@@ -2737,7 +2886,7 @@ export default function DashboardPage() {
                 ]
 
                 return (
-                  <div className="print-area" style={{ background: '#fff', color: navy, border: `1px solid ${T.border}`, borderRadius: '12px', padding: '32px' }}>
+                  <div key={`perf-${repInvestor}-${repDate}`} className="print-area" style={{ background: '#fff', color: navy, border: `1px solid ${T.border}`, borderRadius: '12px', padding: '32px' }}>
                     <ReportHeader showPeriod={true} />
                     <div style={{ fontSize: '18px', fontWeight: 800, color: navy, marginBottom: '18px' }}>Site Performance Report</div>
 
