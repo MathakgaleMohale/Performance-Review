@@ -1,0 +1,68 @@
+{
+  "groups": [
+    {
+      "category": "Inverters",
+      "items": [
+        { "name": "Sunsynk 8/10/12kW Hybrid", "file": "sunsynk-8-10-12-3ph-hybrid.pdf" },
+        { "name": "Sunsynk 30/35/40/50kW 3ph Hybrid", "file": "sunsynk-30-35-40-50-3ph-hybrid.pdf" },
+        { "name": "Deye 70/81/100/110kW Grid Tied", "file": "deye-sun-70-80-100-110-go3.pdf" },
+        { "name": "Deye 30/35/40/50kW Hybrid", "file": "deye-sun-30-35-40-50-sg01hp3.pdf" },
+        { "name": "Sungrow 125kW Grid Tied", "file": "sg125cx-p2.pdf" },
+        { "name": "Sungrow 110kW Grid Tied", "file": "sg110cx.pdf" },
+        { "name": "Sungrow 150kW Grid Tied", "file": "sg150cx-p2.pdf" },
+        { "name": "Sungrow 25/30/33kW Grid Tied", "file": "sg25-30-33cx-p2.pdf" },
+        { "name": "Sungrow 36/40/50kW Grid Tied", "file": "sg36-40-50cx-p2.pdf" },
+        { "name": "Solis 100/110kW Grid Tied", "file": "solis-100-110-5g-sa.pdf" },
+        { "name": "Solis 100/80kW Grid Tied", "file": "solis-100-80-5g-sa.pdf" },
+        { "name": "Solis 20/50kW Grid Tied", "file": "solis-25-50-5g-sa.pdf" },
+        { "name": "Atess PCS 100/250/500/630kW", "file": "atess-pcs100-250-500-630.pdf" },
+        { "name": "Atess HPS 30/50/100/120/150kW", "file": "atess-hps-30-50-100-120-150.pdf" },
+        { "name": "Sigen 50/60/80/100/110/125kW Hybrid", "file": "sigen-50-60-80-100-110-125-hybrid.pdf" },
+        { "name": "Sigen 50/60/80/100/110/125kW Grid Tied", "file": "sigen-50-60-80-100-110-125-grid-tied.pdf" }
+
+      ]
+    },
+    {
+      "category": "PV Modules",
+      "items": [
+        { "name": "JA Solar JAM66D45 LB 595/600/605/610/615/620W", "file": "jam66d45-lb-595-600-605-615-620.pdf" },
+        { "name": "Jinko Solar 788HL4-BDV 590/595/600/605/610W", "file": "jkm-590-595-600-605-610.pdf" }
+      ]
+    },
+    {
+      "category": "Batteries",
+      "items": [
+        { "name": "Sunsynk 5.12kWh", "file": "sunsynk-battery-5kwh.pdf" },
+        { "name": "Sunsynk HV Series 61.44kWh", "file": "sunsyk-hv-battery-61.44kWh.pdf" },
+        { "name": "SigenStack 48.24-84.42 kWh", "file": "sigenstack-4-5-6.pdf" },
+        { "name": "Sigen Energy Gateway", "file": "sigen-gateway.pdf" },
+        { "name": "Solar MD HV Range 114.4-243.31 kWh", "file": "solar-md-hv-batter-ss7013-ss7024.pdf" },
+        { "name": "Solar MD HV Range 14.4 kWh", "file": "solar-md-lv-battery-ss4143.pdf" },
+        { "name": "IES HV 114 kWh", "file": "ies-hv-battery-114kwh.pdf" },
+        { "name": "IES HV 129 kWh", "file": "ies-hv-battery-129kwh.pdf" },
+        { "name": "IES HV 143 kWh", "file": "ies-hv-battery-143kwh.pdf" },
+        { "name": "IES HV 157 kWh", "file": "ies-hv-battery-157kwh.pdf" },
+        { "name": "IES HV 200 kWh", "file": "ies-hv-battery-200kwh.pdf" },
+        { "name": "IES HV 215 kWh", "file": "ies-hv-battery-215kwh.pdf" },
+        { "name": "IES HV 229 kWh", "file": "ies-hv-battery-229kwh.pdf" },
+        { "name": "IES HV 500 kWh", "file": "ies-hv-battery-500kwh.pdf" }
+
+
+      ]
+    },
+    {
+      "category": "Meters",
+      "items": [
+        { "name": "Eastron SDM630", "file": "eastron-sdm630.pdf" }
+      ]
+    },
+    {
+      "category": "Other Accessories",
+      "items": [
+        { "name": "Solar MD V2 Logger", "file": "solar-md-v2-logger.pdf" }
+
+      ]
+    }
+
+  ]
+}
