@@ -1,0 +1,37 @@
+{
+  "groups": [
+    {
+      "category": "Inverter Certificates",
+      "items": [
+        { "name": "Sunsynk 5/6/8/10/12/15/20/25kW NRS 097-2-1", "file": "sunsynk-5-8-10-12-15-20-25-nrs097.pdf" },
+        { "name": "Sunsynk HP3 30/35/40/50kW NRS 097-2-1", "file": "sunsynk-30-35-40-50-nrs097.pdf" },
+        { "name": "Sungrow 33/40/50CX NRS 097-2-1", "file": "sugrow-cx-33-40-50-nrs097.pdf" },
+        { "name": "Sungrow 125CX-P2", "file": "sugrow-125cx-p2.pdf" },
+        { "name": "Sungrow 150CX", "file": "sugrow-150cx.pdf" },
+        { "name": "Deye HP3 30/50kW — NRS 097-2-1", "file": "deye-hp3-30-50-nrs097.pdf" },
+        { "name": "Atess HPS 30/50kW — NRS 097-2-1", "file": "atess-hps-30-50-nrs097.pdf" },
+        { "name": "Atess HPS 150/120/100kW — NRS 097-2-1", "file": "atess-hps-150-120-100-nrs097.pdf" },
+        { "name": "Atess PCS 100/250/500/630kW — NRS 097-2-1", "file": "atess-pcs-100-250-500-630-nrs097.pdf" }
+      ]
+    },
+    {
+      "category": "PV Module Certificates",
+      "items": [
+        { "name": "JA Solar JAM66D45 — IEC 61215 / 61730", "file": "ja-solar-jam66d45-iec.pdf" }
+      ]
+    },
+    {
+      "category": "Battery Certificates",
+      "items": [
+        { "name": "Sunsynk 5.12kWh — IEC 62619", "file": "sunsynk-5kwh-iec62619.pdf" }
+      ]
+    },
+    {
+      "category": "Company / Compliance",
+      "items": [
+        { "name": "PV GreenCard Installer Certificate", "file": "pv-greencard.pdf" },
+        { "name": "SAPVIA Membership", "file": "sapvia-membership.pdf" }
+      ]
+    }
+  ]
+}

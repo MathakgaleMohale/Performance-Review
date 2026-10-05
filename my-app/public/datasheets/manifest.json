@@ -53,13 +53,18 @@
     {
       "category": "Meters",
       "items": [
-        { "name": "Eastron SDM630", "file": "eastron-sdm630.pdf" }
+        { "name": "Eastron SDM630", "file": "eastron-sdm630.pdf" },
+        { "name": "Eastron SDM72CT-M", "file": "eastron-sdm721ct-m.pdf" },
+        { "name": "Acrel Meter DTSD1352-C/1 (6)A", "file": "acrel-meter-dtsd1352.pdf" }
       ]
     },
     {
       "category": "Other Accessories",
       "items": [
-        { "name": "Solar MD V2 Logger", "file": "solar-md-v2-logger.pdf" }
+        { "name": "Solar MD V2 Logger", "file": "solar-md-v2-logger.pdf" },
+        { "name": "Sungrow EyeM4C", "file": "sungrow-eyem4c.pdf" },
+        { "name": "Sungrow COM100E", "file": "sungrow-com100e.pdf" },
+        { "name": "Nuvo Genset Kit", "file": "ne-gik-100s.pdf" }
 
       ]
     }

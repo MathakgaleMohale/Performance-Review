@@ -212,11 +212,13 @@
   .photo-foot { display: flex; align-items: center; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
 
   /* datasheets */
+  .ds-collapse-caret { display: inline-block; width: 14px; color: var(--blue); }
+  .card.ds-collapsed { display: none; }
   .ds-library { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px 18px; margin-bottom: 14px; }
   .ds-group h4 { font-size: 11px; font-weight: 700; color: var(--blue); text-transform: uppercase; letter-spacing: 0.04em; margin: 0 0 6px; }
   .ds-item { display: flex; align-items: center; gap: 8px; padding: 3px 0; font-size: 12.5px; color: var(--ink); cursor: pointer; }
   .ds-item input { accent-color: var(--blue); width: 15px; height: 15px; cursor: pointer; flex-shrink: 0; }
-  .ds-item span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ds-item span.ds-item-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .ds-loading, .ds-empty { font-size: 12px; color: var(--light-grey); padding: 6px 0; }
   .ds-selected { display: flex; flex-direction: column; gap: 6px; }
   .ds-chip { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border: 1px solid var(--hairline); border-radius: 8px; background: #FFFFFF; font-size: 12.5px; }
@@ -228,6 +230,17 @@
   .ds-chip .ds-pages { font-size: 10.5px; color: var(--grey); white-space: nowrap; min-width: 46px; text-align: right; }
   .ds-chip .ds-remove { background: none; border: none; color: var(--light-grey); font-size: 13px; cursor: pointer; }
   .ds-chip .ds-remove:hover { color: var(--orange); }
+  .ds-chip .ds-name-input {
+    flex: 1; min-width: 0; border: none; border-bottom: 1px dashed var(--hairline); background: transparent;
+    font-family: var(--font); font-size: 12.5px; font-weight: 500; color: var(--ink); padding: 2px 0;
+  }
+  .ds-chip .ds-name-input:focus { outline: none; border-bottom: 1px solid var(--blue); }
+  .ds-preview, .ds-lib-preview {
+    background: none; border: 1px solid var(--hairline); border-radius: 5px; color: var(--grey);
+    font-size: 12px; line-height: 1; width: 22px; height: 22px; cursor: pointer; flex-shrink: 0;
+    display: inline-flex; align-items: center; justify-content: center; padding: 0;
+  }
+  .ds-preview:hover, .ds-lib-preview:hover { border-color: var(--blue); color: var(--blue); }
 </style>
 </head>
 <body>
@@ -324,18 +337,8 @@
       <input type="file" id="fileInput" accept="application/pdf,.pdf" multiple>
     </section>
 
-    <section>
-      <div class="section-label"><span>Datasheets</span><span class="hint" id="datasheetCount">0 selected</span></div>
-      <div class="card" style="padding:14px;">
-        <div class="field" style="margin-bottom:12px;padding:0;">
-          <label>Section heading</label>
-          <input id="datasheetHeading" value="Section D: Datasheets" style="font-size:14px;font-weight:600;color:var(--blue);width:100%;border:none;border-bottom:1px solid var(--hairline);padding:6px 2px;font-family:var(--font);">
-        </div>
-        <div id="datasheetLibrary" class="ds-library"><div class="ds-loading">Loading datasheet library…</div></div>
-        <div id="datasheetSelected" class="ds-selected"></div>
-        <span style="font-size:11px;color:var(--light-grey);display:block;margin-top:10px;">optional — tick components to pull in their datasheets · drag to reorder · added as a section at the end of the pack</span>
-      </div>
-    </section>
+    <!-- Attachment libraries (Datasheets, Certifications, …) are rendered here from the LIBRARIES config -->
+    <div id="librariesContainer"></div>
 
     <div class="compile-bar">
       <button class="primary" id="compileBtn" disabled>Compile Design Pack</button>
@@ -401,10 +404,15 @@
   let photoIdSeq = 1;
   let photoDragSrcIndex = null;
 
-  let datasheets = [];
-  let datasheetLibrary = [];
-  let dsIdSeq = 1;
-  let dsDragSrcIndex = null;
+  // Attachment libraries. Add a new one by adding an entry here + a public/<folder>/manifest.json.
+  // label   = short name shown on the collapsible header
+  // heading = default section heading used on the divider page + table of contents (editable in the UI)
+  // folder  = subfolder under public/ holding manifest.json and the PDFs
+  const LIBRARIES = [
+    { key: "datasheets",     label: "Datasheets",     heading: "Section D: Datasheets", folder: "datasheets" },
+    { key: "certifications", label: "Certifications", heading: "Certifications",        folder: "certifications" },
+  ];
+  const libState = {}; // key -> { def, library:[], selected:[], seq, dragSrc, collapsed, els{} }
 
   const registerBody = document.getElementById("registerBody");
   const emptyState = document.getElementById("emptyState");
@@ -418,10 +426,7 @@
   const photoCountEl = document.getElementById("photoCount");
   const photoInput = document.getElementById("photoInput");
   const photoHeadingInput = document.getElementById("photoHeading");
-  const datasheetLibraryEl = document.getElementById("datasheetLibrary");
-  const datasheetSelectedEl = document.getElementById("datasheetSelected");
-  const datasheetCountEl = document.getElementById("datasheetCount");
-  const datasheetHeadingInput = document.getElementById("datasheetHeading");
+  const librariesContainer = document.getElementById("librariesContainer");
 
   // ---- project fields ----
   document.querySelectorAll("#projectGrid input").forEach(inp => {
@@ -734,30 +739,95 @@
     });
   }
 
-  // ---- datasheets ----
-  async function loadDatasheetLibrary() {
+  // ================= attachment libraries (generic) =================
+  // Builds one collapsible section per entry in LIBRARIES, each with its own
+  // library grid, selected list, manual upload and preview. All state lives in libState.
+
+  function buildLibrarySections() {
+    librariesContainer.innerHTML = "";
+    LIBRARIES.forEach(def => {
+      const st = { def, library: [], selected: [], seq: 1, dragSrc: null, collapsed: false, els: {} };
+      libState[def.key] = st;
+
+      const section = document.createElement("section");
+      section.innerHTML = `
+        <div class="section-label lib-toggle" style="cursor:pointer;user-select:none;">
+          <span><span class="ds-collapse-caret">▾</span> <span class="lib-label"></span></span>
+          <span class="hint lib-count">0 selected</span>
+        </div>
+        <div class="card lib-card" style="padding:14px;">
+          <div class="field" style="margin-bottom:12px;padding:0;">
+            <label>Section heading</label>
+            <input class="lib-heading" style="font-size:14px;font-weight:600;color:var(--blue);width:100%;border:none;border-bottom:1px solid var(--hairline);padding:6px 2px;font-family:var(--font);">
+          </div>
+          <div class="ds-library lib-grid"><div class="ds-loading">Loading library…</div></div>
+          <div class="ds-selected lib-selected"></div>
+          <div class="photo-foot">
+            <button class="link-btn small lib-add-manual">+ Add PDF</button>
+            <span style="font-size:11px;color:var(--light-grey);">tick from the library or upload a one-off PDF · 👁 to preview · drag to reorder · added as a section at the end</span>
+          </div>
+        </div>
+        <input type="file" class="lib-manual-input" accept="application/pdf,.pdf" multiple>
+      `;
+      librariesContainer.appendChild(section);
+
+      st.els = {
+        section,
+        toggle: section.querySelector(".lib-toggle"),
+        caret: section.querySelector(".ds-collapse-caret"),
+        label: section.querySelector(".lib-label"),
+        card: section.querySelector(".lib-card"),
+        count: section.querySelector(".lib-count"),
+        grid: section.querySelector(".lib-grid"),
+        selected: section.querySelector(".lib-selected"),
+        addManual: section.querySelector(".lib-add-manual"),
+        manualInput: section.querySelector(".lib-manual-input"),
+        headingInput: section.querySelector(".lib-heading"),
+      };
+      st.els.label.textContent = def.label;
+      st.els.headingInput.value = def.heading;
+
+      st.els.toggle.addEventListener("click", () => {
+        st.collapsed = st.els.card.classList.toggle("ds-collapsed");
+        st.els.caret.textContent = st.collapsed ? "▸" : "▾";
+      });
+      st.els.addManual.addEventListener("click", () => st.els.manualInput.click());
+      st.els.manualInput.addEventListener("change", (e) => {
+        const files = Array.from(e.target.files || []);
+        files.forEach(f => addManualToLibrary(def.key, f));
+        st.els.manualInput.value = "";
+      });
+
+      loadLibrary(def.key);
+    });
+  }
+
+  async function loadLibrary(key) {
+    const st = libState[key];
     try {
-      const resp = await fetch("datasheets/manifest.json", { cache: "no-store" });
+      const resp = await fetch(st.def.folder + "/manifest.json", { cache: "no-store" });
       if (!resp.ok) throw new Error("manifest not found");
       const data = await resp.json();
-      datasheetLibrary = Array.isArray(data.groups) ? data.groups : [];
+      st.library = Array.isArray(data.groups) ? data.groups : [];
     } catch (err) {
-      datasheetLibrary = [];
+      st.library = [];
     }
-    renderDatasheetLibrary();
+    renderLibraryGrid(key);
   }
 
-  function isDatasheetSelected(file) {
-    return datasheets.some(d => d.file === file);
+  function isSelected(key, file) {
+    return libState[key].selected.some(d => d.file === file && !d.manual);
   }
 
-  function renderDatasheetLibrary() {
-    datasheetLibraryEl.innerHTML = "";
-    if (!datasheetLibrary.length) {
-      datasheetLibraryEl.innerHTML = '<div class="ds-empty">No datasheet library found. Add PDFs to <b>public/datasheets/</b> and list them in <b>manifest.json</b>.</div>';
+  function renderLibraryGrid(key) {
+    const st = libState[key];
+    const grid = st.els.grid;
+    grid.innerHTML = "";
+    if (!st.library.length) {
+      grid.innerHTML = `<div class="ds-empty">No library found. Add PDFs to <b>public/${st.def.folder}/</b> and list them in <b>manifest.json</b>.</div>`;
       return;
     }
-    datasheetLibrary.forEach(group => {
+    st.library.forEach(group => {
       const items = Array.isArray(group.items) ? group.items : [];
       if (!items.length) return;
       const g = document.createElement("div");
@@ -771,28 +841,37 @@
         label.className = "ds-item";
         const cb = document.createElement("input");
         cb.type = "checkbox";
-        cb.checked = isDatasheetSelected(item.file);
+        cb.checked = isSelected(key, item.file);
         cb.addEventListener("change", () => {
-          if (cb.checked) selectDatasheet(item, group.category);
-          else deselectDatasheet(item.file);
+          if (cb.checked) selectItem(key, item, group.category);
+          else deselectByFile(key, item.file);
         });
         const span = document.createElement("span");
+        span.className = "ds-item-name";
         span.textContent = item.name;
+        const pv = document.createElement("button");
+        pv.className = "ds-lib-preview";
+        pv.type = "button";
+        pv.title = "Preview";
+        pv.textContent = "👁";
+        pv.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); previewLibraryItem(key, item); });
         label.appendChild(cb);
         label.appendChild(span);
+        label.appendChild(pv);
         g.appendChild(label);
       });
-      datasheetLibraryEl.appendChild(g);
+      grid.appendChild(g);
     });
   }
 
-  async function selectDatasheet(item, category) {
-    if (isDatasheetSelected(item.file)) return;
-    const entry = { id: dsIdSeq++, name: item.name, file: item.file, category: category || "", bytes: null, numPages: null, state: "loading" };
-    datasheets.push(entry);
-    renderDatasheets();
+  async function selectItem(key, item, category) {
+    const st = libState[key];
+    if (isSelected(key, item.file)) return;
+    const entry = { id: st.seq++, name: item.name, file: item.file, category: category || "", manual: false, bytes: null, numPages: null, state: "loading" };
+    st.selected.push(entry);
+    renderSelected(key);
     try {
-      const resp = await fetch("datasheets/" + item.file, { cache: "no-store" });
+      const resp = await fetch(st.def.folder + "/" + item.file, { cache: "no-store" });
       if (!resp.ok) throw new Error("not found");
       const buf = await resp.arrayBuffer();
       entry.bytes = new Uint8Array(buf);
@@ -801,49 +880,126 @@
       entry.state = "ready";
     } catch (err) {
       entry.state = "error";
-      setStatus(`Could not load datasheet "${item.name}" — check it exists in public/datasheets/.`, "err");
+      setStatus(`Could not load "${item.name}" — check it exists in public/${st.def.folder}/.`, "err");
     }
-    renderDatasheets();
+    renderSelected(key);
   }
 
-  function deselectDatasheet(file) {
-    datasheets = datasheets.filter(d => d.file !== file);
-    renderDatasheets();
-    renderDatasheetLibrary();
+  function deselectByFile(key, file) {
+    const st = libState[key];
+    st.selected = st.selected.filter(d => !(d.file === file && !d.manual));
+    renderSelected(key);
+    renderLibraryGrid(key);
   }
 
-  function renderDatasheets() {
-    datasheetSelectedEl.innerHTML = "";
-    datasheetCountEl.textContent = `${datasheets.length} selected`;
-    datasheets.forEach((d, idx) => {
+  function removeSelectedById(key, id) {
+    const st = libState[key];
+    st.selected = st.selected.filter(d => d.id !== id);
+    renderSelected(key);
+    renderLibraryGrid(key);
+  }
+
+  async function addManualToLibrary(key, file) {
+    const st = libState[key];
+    const entry = {
+      id: st.seq++, name: stripExt(file.name), file: "__manual__" + Date.now() + "_" + file.name,
+      category: "Manual", manual: true, bytes: null, numPages: null, state: "loading"
+    };
+    st.selected.push(entry);
+    renderSelected(key);
+    try {
+      const buf = await file.arrayBuffer();
+      entry.bytes = new Uint8Array(buf);
+      const doc = await PDFDocument.load(entry.bytes, { ignoreEncryption: true });
+      entry.numPages = doc.getPageCount();
+      entry.state = "ready";
+    } catch (err) {
+      entry.state = "error";
+      setStatus(`Could not read "${file.name}" — is it a valid PDF?`, "err");
+    }
+    renderSelected(key);
+  }
+
+  function renderSelected(key) {
+    const st = libState[key];
+    st.els.selected.innerHTML = "";
+    st.els.count.textContent = `${st.selected.length} selected`;
+    st.selected.forEach((d, idx) => {
       const chip = document.createElement("div");
       chip.className = "ds-chip";
       chip.draggable = true;
       chip.dataset.index = idx;
       const pages = d.state === "loading" ? "…" : (d.state === "error" ? "error" : `${d.numPages} pg`);
+      const canPreview = d.state === "ready" && d.bytes;
+      const nameCell = d.manual
+        ? `<input class="ds-name-input" value="${escapeAttr(d.name)}" title="Click to rename" placeholder="Document name">`
+        : `<span class="ds-name">${escapeAttr(d.name)}</span>`;
       chip.innerHTML = `
         <span class="ds-drag" title="Drag to reorder">⠿</span>
-        <span class="ds-name">${escapeAttr(d.name)}</span>
+        ${nameCell}
         <span class="ds-cat">${escapeAttr(d.category || "")}</span>
         <span class="ds-pages">${pages}</span>
+        <button class="ds-preview" title="Preview" ${canPreview ? "" : "disabled style=\"opacity:0.35;cursor:default\""}>👁</button>
         <button class="ds-remove" title="Remove">✕</button>
       `;
-      chip.querySelector(".ds-remove").addEventListener("click", () => deselectDatasheet(d.file));
-      chip.addEventListener("dragstart", () => { dsDragSrcIndex = idx; chip.classList.add("dragging"); });
+      const nameInput = chip.querySelector(".ds-name-input");
+      if (nameInput) {
+        // let the field be edited without the chip's drag hijacking the click
+        nameInput.addEventListener("focus", () => { chip.draggable = false; });
+        nameInput.addEventListener("blur", () => { chip.draggable = true; });
+        nameInput.addEventListener("input", (e) => { d.name = e.target.value; });
+      }
+      chip.querySelector(".ds-preview").addEventListener("click", () => { if (canPreview) previewSelected(key, d.id); });
+      chip.querySelector(".ds-remove").addEventListener("click", () => removeSelectedById(key, d.id));
+      chip.addEventListener("dragstart", () => { st.dragSrc = idx; chip.classList.add("dragging"); });
       chip.addEventListener("dragend", () => chip.classList.remove("dragging"));
       chip.addEventListener("dragover", (e) => { e.preventDefault(); chip.classList.add("drag-over"); });
       chip.addEventListener("dragleave", () => chip.classList.remove("drag-over"));
       chip.addEventListener("drop", (e) => {
         e.preventDefault();
         chip.classList.remove("drag-over");
-        if (dsDragSrcIndex === null || dsDragSrcIndex === idx) return;
-        const [moved] = datasheets.splice(dsDragSrcIndex, 1);
-        datasheets.splice(idx, 0, moved);
-        dsDragSrcIndex = null;
-        renderDatasheets();
+        if (st.dragSrc === null || st.dragSrc === idx) return;
+        const [moved] = st.selected.splice(st.dragSrc, 1);
+        st.selected.splice(idx, 0, moved);
+        st.dragSrc = null;
+        renderSelected(key);
       });
-      datasheetSelectedEl.appendChild(chip);
+      st.els.selected.appendChild(chip);
     });
+  }
+
+  function previewSelected(key, id) {
+    const ds = libState[key].selected.find(x => x.id === id);
+    if (!ds || !ds.bytes) return;
+    previewCtx = { kind: "lib", key, id };
+    previewPageIndex = 0;
+    previewRotateBtn.style.display = "none";
+    previewModal.classList.remove("hidden");
+    renderPreviewPage();
+  }
+
+  async function previewLibraryItem(key, item) {
+    const st = libState[key];
+    const sel = st.selected.find(d => d.file === item.file && d.bytes);
+    if (sel) { showPreviewBytes(sel.bytes, item.name, st.def.label); return; }
+    setStatus(`Loading preview for "${item.name}"…`, "");
+    try {
+      const resp = await fetch(st.def.folder + "/" + item.file, { cache: "no-store" });
+      if (!resp.ok) throw new Error("not found");
+      const bytes = new Uint8Array(await resp.arrayBuffer());
+      showPreviewBytes(bytes, item.name, st.def.label);
+      setStatus("", "");
+    } catch (err) {
+      setStatus(`Could not preview "${item.name}" — check it exists in public/${st.def.folder}/.`, "err");
+    }
+  }
+
+  function showPreviewBytes(bytes, title, meta) {
+    previewCtx = { kind: "bytes", bytes, title, meta };
+    previewPageIndex = 0;
+    previewRotateBtn.style.display = "none";
+    previewModal.classList.remove("hidden");
+    renderPreviewPage();
   }
 
   // ---- render register ----
@@ -936,19 +1092,21 @@
   const previewRotateBtn = document.getElementById("previewRotateBtn");
   const previewCloseBtn = document.getElementById("previewCloseBtn");
 
-  let previewDrawingId = null;
+  // previewCtx.kind: "drawing" (id) | "datasheet" (id) | "bytes" (bytes,title,meta)
+  let previewCtx = null;
   let previewPageIndex = 0;
   let previewBusy = false;
 
   function openPreview(id) {
-    previewDrawingId = id;
+    previewCtx = { kind: "drawing", id };
     previewPageIndex = 0;
+    previewRotateBtn.style.display = "";
     previewModal.classList.remove("hidden");
     renderPreviewPage();
   }
   function closePreview() {
     previewModal.classList.add("hidden");
-    previewDrawingId = null;
+    previewCtx = null;
   }
   previewCloseBtn.addEventListener("click", closePreview);
   previewModal.addEventListener("click", (e) => { if (e.target === previewModal) closePreview(); });
@@ -958,7 +1116,8 @@
   prevPageBtn.addEventListener("click", () => { previewPageIndex--; renderPreviewPage(); });
   nextPageBtn.addEventListener("click", () => { previewPageIndex++; renderPreviewPage(); });
   previewRotateBtn.addEventListener("click", () => {
-    const d = drawings.find(x => x.id === previewDrawingId);
+    if (!previewCtx || previewCtx.kind !== "drawing") return;
+    const d = drawings.find(x => x.id === previewCtx.id);
     if (!d) return;
     d.rotation = (d.rotation + 90) % 360;
     render();
@@ -966,15 +1125,37 @@
   });
 
   async function renderPreviewPage() {
-    const d = drawings.find(x => x.id === previewDrawingId);
-    if (!d || !d.bytes || previewBusy) return;
+    if (!previewCtx || previewBusy) return;
+
+    // resolve the current preview source
+    let bytes = null, rotation = 0, title = "—", meta = "—";
+    if (previewCtx.kind === "drawing") {
+      const d = drawings.find(x => x.id === previewCtx.id);
+      if (!d || !d.bytes) return;
+      bytes = d.bytes; rotation = d.rotation || 0;
+      title = d.title || d.file.name;
+      meta = `${d.dwgNo || "no dwg no."} · Rev ${d.rev || "—"} · ${d.rotation ? d.rotation + "° rotated" : "no rotation"}`;
+    } else if (previewCtx.kind === "lib") {
+      const st = libState[previewCtx.key];
+      const ds = st && st.selected.find(x => x.id === previewCtx.id);
+      if (!ds || !ds.bytes) return;
+      bytes = ds.bytes; rotation = 0;
+      title = ds.name;
+      meta = ds.manual ? "Manual upload" : (ds.category || (st.def.label));
+    } else if (previewCtx.kind === "bytes") {
+      bytes = previewCtx.bytes; rotation = 0;
+      title = previewCtx.title || "Preview";
+      meta = previewCtx.meta || "";
+    } else {
+      return;
+    }
+
     previewBusy = true;
     try {
-      const pdf = await pdfjsLib.getDocument({ data: d.bytes.slice() }).promise;
+      const pdf = await pdfjsLib.getDocument({ data: bytes.slice() }).promise;
       const total = pdf.numPages;
       previewPageIndex = Math.max(0, Math.min(previewPageIndex, total - 1));
       const page = await pdf.getPage(previewPageIndex + 1);
-      const rotation = d.rotation || 0;
       const baseViewport = page.getViewport({ scale: 1, rotation });
       const scale = Math.min(800 / baseViewport.width, 900 / baseViewport.height, 3);
       const viewport = page.getViewport({ scale: Math.max(scale, 0.1), rotation });
@@ -982,8 +1163,8 @@
       previewCanvas.height = Math.round(viewport.height);
       await page.render({ canvasContext: previewCanvas.getContext("2d"), viewport }).promise;
 
-      previewTitle.textContent = d.title || d.file.name;
-      previewMeta.textContent = `${d.dwgNo || "no dwg no."} · Rev ${d.rev || "—"} · ${d.rotation ? d.rotation + "° rotated" : "no rotation"}`;
+      previewTitle.textContent = title;
+      previewMeta.textContent = meta;
       previewPageLabel.textContent = `Page ${previewPageIndex + 1} of ${total}`;
       prevPageBtn.disabled = previewPageIndex === 0;
       nextPageBtn.disabled = previewPageIndex >= total - 1;
@@ -1086,17 +1267,21 @@
         runningPage += (d.numPages || 0);
       });
 
-      // datasheets — appended as their own section at the end of the pack
-      const dsReady = datasheets.filter(x => x.state === "ready" && x.bytes && x.numPages);
-      let datasheetDivider = null;
-      if (dsReady.length) {
-        const dsHeadingText = (datasheetHeadingInput.value || "Datasheets").trim();
-        datasheetDivider = { text: dsHeadingText, page: runningPage };
-        const dsGroup = { label: dsHeadingText, page: runningPage, items: [] };
+      // attachment libraries — each appended as its own section at the end of the pack
+      const libPlans = [];
+      LIBRARIES.forEach(def => {
+        const st = libState[def.key];
+        if (!st) return;
+        const ready = st.selected.filter(x => x.state === "ready" && x.bytes && x.numPages);
+        if (!ready.length) return;
+        const headingText = (st.els.headingInput.value || def.label).trim();
+        const plan = { key: def.key, heading: headingText, dividerPage: runningPage, ready };
+        const group = { label: headingText, page: runningPage, items: [] };
         runningPage += 1; // divider page
-        dsReady.forEach(ds => { dsGroup.items.push({ label: ds.name, page: runningPage }); runningPage += ds.numPages; });
-        tocGroups.push(dsGroup);
-      }
+        ready.forEach(ds => { group.items.push({ label: ds.name, page: runningPage }); runningPage += ds.numPages; });
+        tocGroups.push(group);
+        libPlans.push(plan);
+      });
 
       const totalPackPages = runningPage - 1;
 
@@ -1148,7 +1333,6 @@
 
       // ---------- table of contents ----------
       const toc = finalDoc.addPage([PAGE_W, PAGE_H]);
-      drawLeftStripe(toc);
       drawSmallLogo(toc);
       let ty = PAGE_H - MARGIN - 70;
       toc.drawText("Table of Contents", { x: MARGIN, y: ty, size: 20, font: fontBold, color: BLUE });
@@ -1188,7 +1372,6 @@
 
       // ---------- project information page ----------
       const info = finalDoc.addPage([PAGE_W, PAGE_H]);
-      drawLeftStripe(info);
       drawSmallLogo(info);
       let py = PAGE_H - MARGIN - 70;
       {
@@ -1275,7 +1458,6 @@
 
         for (let p = 0; p < sitePhotosPageCount; p++) {
           const photoPage = finalDoc.addPage([PAGE_W, PAGE_H]);
-          drawLeftStripe(photoPage);
           drawSmallLogo(photoPage);
 
           const ruleW = PAGE_W - MARGIN * 2;
@@ -1335,7 +1517,6 @@
         if (dividerCursor < dividerBeforeIdx.length && dividerBeforeIdx[dividerCursor].atDrawing === d.id) {
           const div = dividerBeforeIdx[dividerCursor];
           const divPage = finalDoc.addPage([PAGE_W, PAGE_H]);
-          drawLeftStripe(divPage);
           drawSmallLogo(divPage);
           drawDivider(divPage, div.text, PAGE_W, PAGE_H, font, fontItalic, fontBold, BLUE, LINE);
           drawPageNumber(divPage, div.page);
@@ -1359,21 +1540,20 @@
         }
       }
 
-      // append datasheets section
-      if (datasheetDivider && dsReady.length) {
+      // append each attachment library as its own section
+      for (const plan of libPlans) {
         const divPage = finalDoc.addPage([PAGE_W, PAGE_H]);
-        drawLeftStripe(divPage);
         drawSmallLogo(divPage);
-        drawDivider(divPage, datasheetDivider.text, PAGE_W, PAGE_H, font, fontItalic, fontBold, BLUE, LINE);
-        drawPageNumber(divPage, datasheetDivider.page);
-        for (const ds of dsReady) {
-          setStatus(`Compiling — adding datasheet: ${ds.name}…`, "");
+        drawDivider(divPage, plan.heading, PAGE_W, PAGE_H, font, fontItalic, fontBold, BLUE, LINE);
+        drawPageNumber(divPage, plan.dividerPage);
+        for (const ds of plan.ready) {
+          setStatus(`Compiling — adding ${plan.heading}: ${ds.name}…`, "");
           try {
             const srcDoc = await PDFDocument.load(ds.bytes, { ignoreEncryption: true });
             const copied = await finalDoc.copyPages(srcDoc, srcDoc.getPageIndices());
             copied.forEach(cp => finalDoc.addPage(cp));
           } catch (err) {
-            throw new Error(`Could not merge datasheet "${ds.name}" — the file may be corrupted or encrypted.`);
+            throw new Error(`Could not merge "${ds.name}" — the file may be corrupted or encrypted.`);
           }
         }
       }
@@ -1410,24 +1590,26 @@
     const size1 = 22;
     const gap = 8;
     const anchorY = PAGE_H - 220; // block sits in the upper third of the page
+    const MARGIN = 46;            // match the site-photos rules — stop at the page margins
+    const ruleX0 = MARGIN, ruleX1 = PAGE_W - MARGIN;
 
     if (line2) {
       const lineSpacing = 26;
       const topRuleY = anchorY + size1 * 0.78 + gap;
       const bottomRuleY = anchorY - lineSpacing - size1 * 0.24 - gap;
-      page.drawLine({ start: { x: 0, y: topRuleY }, end: { x: PAGE_W, y: topRuleY }, thickness: 1, color: BLUE });
+      page.drawLine({ start: { x: ruleX0, y: topRuleY }, end: { x: ruleX1, y: topRuleY }, thickness: 1, color: BLUE });
       const w1 = fontItalic.widthOfTextAtSize(line1, size1);
       page.drawText(line1, { x: cx - w1 / 2, y: anchorY, size: size1, font: fontItalic, color: BLUE });
       const w2 = fontItalic.widthOfTextAtSize(line2, size1);
       page.drawText(line2, { x: cx - w2 / 2, y: anchorY - lineSpacing, size: size1, font: fontItalic, color: BLUE });
-      page.drawLine({ start: { x: 0, y: bottomRuleY }, end: { x: PAGE_W, y: bottomRuleY }, thickness: 1, color: BLUE });
+      page.drawLine({ start: { x: ruleX0, y: bottomRuleY }, end: { x: ruleX1, y: bottomRuleY }, thickness: 1, color: BLUE });
     } else {
       const topRuleY = anchorY + size1 * 0.78 + gap;
       const bottomRuleY = anchorY - size1 * 0.24 - gap;
-      page.drawLine({ start: { x: 0, y: topRuleY }, end: { x: PAGE_W, y: topRuleY }, thickness: 1, color: BLUE });
+      page.drawLine({ start: { x: ruleX0, y: topRuleY }, end: { x: ruleX1, y: topRuleY }, thickness: 1, color: BLUE });
       const w1 = fontItalic.widthOfTextAtSize(line1, size1);
       page.drawText(line1, { x: cx - w1 / 2, y: anchorY, size: size1, font: fontItalic, color: BLUE });
-      page.drawLine({ start: { x: 0, y: bottomRuleY }, end: { x: PAGE_W, y: bottomRuleY }, thickness: 1, color: BLUE });
+      page.drawLine({ start: { x: ruleX0, y: bottomRuleY }, end: { x: ruleX1, y: bottomRuleY }, thickness: 1, color: BLUE });
     }
   }
 
@@ -1539,7 +1721,7 @@
   }
 
   render();
-  loadDatasheetLibrary();
+  buildLibrarySections();
 })();
 </script>
 </body>
