@@ -199,7 +199,7 @@ export default function DashboardPage() {
   const [eqDeleting, setEqDeleting] = useState(false)
   const chartsRef = useRef({})
 
-  const EQUIPMENT_CATEGORIES = ['Inverters', 'PV Modules', 'Batteries', 'Meters', 'Other Accessories']
+  const EQUIPMENT_CATEGORIES = ['Inverters', 'PV Modules', 'Batteries', 'Meters', 'Electrical BOS', 'Structural BOS', 'Civil BOS', 'Containers', 'Other Accessories']
   const CURRENCY_SYMBOLS = { ZAR: 'R', USD: '$', EUR: '€', GBP: '£' }
 
   function formatCost(cost, currency) {
@@ -2880,57 +2880,71 @@ export default function DashboardPage() {
                         </div>
                       )
                     }
-                    const groups = {}
-                    filtered.forEach(it => { const c = it.category || 'Other Accessories'; (groups[c] = groups[c] || []).push(it) })
-                    const catOrder = [...EQUIPMENT_CATEGORIES, ...Object.keys(groups).filter(c => !EQUIPMENT_CATEGORIES.includes(c))]
-                    return catOrder.filter(c => groups[c]?.length).map(cat => (
-                      <div key={cat} style={{ marginBottom: '22px' }}>
-                        <div style={{ fontSize: '12px', fontWeight: 800, color: T.textSecondary, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '10px' }}>{cat} <span style={{ color: T.textMuted, fontWeight: 600 }}>({groups[cat].length})</span></div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '12px' }}>
-                          {groups[cat].map(item => (
-                            <div key={item.id} style={{ ...cardStyle, padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
-                                <div style={{ fontSize: '13px', fontWeight: 800, color: T.textPrimary }}>{item.name}</div>
-                                <div style={{ fontSize: '13px', fontWeight: 800, color: T.green, whiteSpace: 'nowrap' }}>{formatCost(item.cost, item.currency)}</div>
-                              </div>
-                              {item.description && (
-                                <div style={{ fontSize: '11px', color: T.textSecondary, lineHeight: 1.5 }}>{item.description}</div>
-                              )}
-                              {item.technical_spec && (
-                                <div style={{ fontSize: '11px', color: T.textMuted, lineHeight: 1.5, whiteSpace: 'pre-wrap', background: T.bgMuted, border: `1px solid ${T.border}`, borderRadius: '6px', padding: '8px' }}>{item.technical_spec}</div>
-                              )}
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
-                                {item.datasheet_url ? (
-                                  <a href={item.datasheet_url} target="_blank" rel="noopener noreferrer"
-                                    style={{ fontSize: '11px', fontWeight: 700, color: T.blue, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                    <i className="ti ti-file-text" />Datasheet
-                                  </a>
-                                ) : (
-                                  <span style={{ fontSize: '11px', color: T.textMuted }}>No datasheet</span>
-                                )}
-                                <div style={{ flex: 1 }} />
-                                {eqDeleteId === item.id ? (
-                                  <>
-                                    <span style={{ fontSize: '11px', color: T.textMuted }}>Remove?</span>
-                                    <button disabled={eqDeleting} onClick={() => deleteEquipment(item)} style={{ fontSize: '11px', fontWeight: 700, color: '#fff', background: T.red, border: 'none', borderRadius: '5px', padding: '4px 8px', cursor: 'pointer' }}>Yes</button>
-                                    <button disabled={eqDeleting} onClick={() => setEqDeleteId(null)} style={{ fontSize: '11px', fontWeight: 700, color: T.textSecondary, background: 'transparent', border: `1px solid ${T.border}`, borderRadius: '5px', padding: '4px 8px', cursor: 'pointer' }}>Cancel</button>
-                                  </>
-                                ) : (
-                                  <>
-                                    <button onClick={() => openEditEquipment(item)} title="Edit" style={{ background: 'transparent', border: `1px solid ${T.border}`, color: T.textSecondary, borderRadius: '5px', padding: '4px 8px', cursor: 'pointer', fontSize: '11px', display: 'flex', alignItems: 'center' }}>
-                                      <i className="ti ti-edit" />
-                                    </button>
-                                    <button onClick={() => setEqDeleteId(item.id)} title="Remove" style={{ background: 'transparent', border: `1px solid ${T.border}`, color: T.red, borderRadius: '5px', padding: '4px 8px', cursor: 'pointer', fontSize: '11px', display: 'flex', alignItems: 'center' }}>
-                                      <i className="ti ti-trash" />
-                                    </button>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          ))}
+                    const catRank = Object.fromEntries(EQUIPMENT_CATEGORIES.map((c, i) => [c, i]))
+                    const sorted = [...filtered].sort((a, b) => {
+                      const ra = catRank[a.category] ?? 999, rb = catRank[b.category] ?? 999
+                      if (ra !== rb) return ra - rb
+                      return (a.name || '').localeCompare(b.name || '')
+                    })
+                    return (
+                      <div>
+                        <div style={{ fontSize: '11px', color: T.textMuted, marginBottom: '8px' }}>{sorted.length} item{sorted.length !== 1 ? 's' : ''}</div>
+                        <div style={{ ...cardStyle, overflow: 'hidden' }}>
+                          <div style={{ overflowX: 'auto' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                              <thead>
+                                <tr style={{ background: T.bgMuted, borderBottom: `2px solid ${T.border}` }}>
+                                  {['Category', 'Equipment', 'Description', 'Technical Spec', 'Cost', 'Datasheet', ''].map((h, i) => (
+                                    <th key={h || i} style={{ textAlign: 'left', padding: '9px 10px', fontSize: '10px', color: T.textMuted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.7px', whiteSpace: 'nowrap' }}>{h}</th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {sorted.map(item => (
+                                  <tr key={item.id} className="tbl-row" style={{ borderBottom: `1px solid ${T.border}` }}>
+                                    <td style={{ padding: '8px 10px', color: T.textMuted, fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', whiteSpace: 'nowrap' }}>{item.category || '—'}</td>
+                                    <td style={{ padding: '8px 10px', fontWeight: 700, color: T.textPrimary, whiteSpace: 'nowrap' }}>{item.name}</td>
+                                    <td style={{ padding: '8px 10px', color: T.textSecondary, maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.description || ''}>{item.description || '—'}</td>
+                                    <td style={{ padding: '8px 10px', color: T.textMuted, maxWidth: '260px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.technical_spec || ''}>{item.technical_spec || '—'}</td>
+                                    <td style={{ padding: '8px 10px', fontWeight: 700, color: T.green, whiteSpace: 'nowrap' }}>{formatCost(item.cost, item.currency)}</td>
+                                    <td style={{ padding: '8px 10px', whiteSpace: 'nowrap' }}>
+                                      {item.datasheet_url ? (
+                                        <a href={item.datasheet_url} target="_blank" rel="noopener noreferrer"
+                                          style={{ fontSize: '11px', fontWeight: 700, color: T.blue, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                          <i className="ti ti-file-text" />View
+                                        </a>
+                                      ) : (
+                                        <span style={{ color: T.textMuted }}>—</span>
+                                      )}
+                                    </td>
+                                    <td style={{ padding: '8px 10px', whiteSpace: 'nowrap' }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
+                                        {eqDeleteId === item.id ? (
+                                          <>
+                                            <span style={{ fontSize: '11px', color: T.textMuted }}>Remove?</span>
+                                            <button disabled={eqDeleting} onClick={() => deleteEquipment(item)} style={{ fontSize: '11px', fontWeight: 700, color: '#fff', background: T.red, border: 'none', borderRadius: '5px', padding: '4px 8px', cursor: 'pointer' }}>Yes</button>
+                                            <button disabled={eqDeleting} onClick={() => setEqDeleteId(null)} style={{ fontSize: '11px', fontWeight: 700, color: T.textSecondary, background: 'transparent', border: `1px solid ${T.border}`, borderRadius: '5px', padding: '4px 8px', cursor: 'pointer' }}>Cancel</button>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <button onClick={() => openEditEquipment(item)} title="Edit" style={{ background: 'transparent', border: `1px solid ${T.border}`, color: T.textSecondary, borderRadius: '5px', padding: '4px 8px', cursor: 'pointer', fontSize: '11px', display: 'flex', alignItems: 'center' }}>
+                                              <i className="ti ti-edit" />
+                                            </button>
+                                            <button onClick={() => setEqDeleteId(item.id)} title="Remove" style={{ background: 'transparent', border: `1px solid ${T.border}`, color: T.red, borderRadius: '5px', padding: '4px 8px', cursor: 'pointer', fontSize: '11px', display: 'flex', alignItems: 'center' }}>
+                                              <i className="ti ti-trash" />
+                                            </button>
+                                          </>
+                                        )}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
                         </div>
                       </div>
-                    ))
+                    )
                   })()}
                 </div>
               ) : (
