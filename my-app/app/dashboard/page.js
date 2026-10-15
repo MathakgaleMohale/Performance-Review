@@ -189,7 +189,125 @@ export default function DashboardPage() {
   const [ogSort, setOgSort] = useState({ key: 'shortfall', dir: 'asc' })
   const [ogSelected, setOgSelected] = useState(null)
   const [ogOverview, setOgOverview] = useState(false)
+  const [equipment, setEquipment] = useState([])
+  const [equipmentLoaded, setEquipmentLoaded] = useState(false)
+  const [eqLoading, setEqLoading] = useState(false)
+  const [eqSearch, setEqSearch] = useState('')
+  const [eqCategory, setEqCategory] = useState('')
+  const [eqModal, setEqModal] = useState(null) // { mode: 'add' | 'edit', form, file, saving, error }
+  const [eqDeleteId, setEqDeleteId] = useState(null)
+  const [eqDeleting, setEqDeleting] = useState(false)
   const chartsRef = useRef({})
+
+  const EQUIPMENT_CATEGORIES = ['Inverters', 'PV Modules', 'Batteries', 'Meters', 'Other Accessories']
+  const CURRENCY_SYMBOLS = { ZAR: 'R', USD: '$', EUR: '€', GBP: '£' }
+
+  function formatCost(cost, currency) {
+    if (cost == null || cost === '') return '—'
+    const sym = CURRENCY_SYMBOLS[currency] || (currency ? `${currency} ` : '')
+    return `${sym}${Number(cost).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
+  }
+
+  async function loadEquipment() {
+    setEqLoading(true)
+    const { data, error } = await supabase.from('equipment_inventory').select('*').order('category').order('name')
+    if (!error) setEquipment(data || [])
+    setEquipmentLoaded(true)
+    setEqLoading(false)
+  }
+
+  function openAddEquipment() {
+    setEqModal({
+      mode: 'add',
+      form: { category: EQUIPMENT_CATEGORIES[0], name: '', description: '', technical_spec: '', cost: '', currency: 'ZAR' },
+      file: null,
+      saving: false,
+      error: '',
+    })
+  }
+
+  function openEditEquipment(item) {
+    setEqModal({
+      mode: 'edit',
+      id: item.id,
+      form: {
+        category: item.category || EQUIPMENT_CATEGORIES[0],
+        name: item.name || '',
+        description: item.description || '',
+        technical_spec: item.technical_spec || '',
+        cost: item.cost != null ? String(item.cost) : '',
+        currency: item.currency || 'ZAR',
+      },
+      existingDatasheetUrl: item.datasheet_url || '',
+      existingDatasheetFilename: item.datasheet_filename || '',
+      file: null,
+      saving: false,
+      error: '',
+    })
+  }
+
+  async function saveEquipment() {
+    if (!eqModal) return
+    const f = eqModal.form
+    if (!f.name.trim()) {
+      setEqModal(m => ({ ...m, error: 'Equipment name is required.' }))
+      return
+    }
+    setEqModal(m => ({ ...m, saving: true, error: '' }))
+
+    let datasheet_url = eqModal.existingDatasheetUrl || null
+    let datasheet_filename = eqModal.existingDatasheetFilename || null
+
+    if (eqModal.file) {
+      const safeName = eqModal.file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')
+      const path = `${Date.now()}-${safeName}`
+      const { error: upErr } = await supabase.storage.from('equipment-datasheets').upload(path, eqModal.file, { upsert: false })
+      if (upErr) {
+        setEqModal(m => ({ ...m, saving: false, error: `Datasheet upload failed: ${upErr.message}` }))
+        return
+      }
+      const { data: pub } = supabase.storage.from('equipment-datasheets').getPublicUrl(path)
+      datasheet_url = pub?.publicUrl || null
+      datasheet_filename = eqModal.file.name
+    }
+
+    const payload = {
+      category: f.category,
+      name: f.name.trim(),
+      description: f.description.trim() || null,
+      technical_spec: f.technical_spec.trim() || null,
+      cost: f.cost !== '' ? Number(f.cost) : null,
+      currency: f.currency || 'ZAR',
+      datasheet_url,
+      datasheet_filename,
+    }
+
+    let error
+    if (eqModal.mode === 'add') {
+      ;({ error } = await supabase.from('equipment_inventory').insert([payload]))
+    } else {
+      ;({ error } = await supabase.from('equipment_inventory').update(payload).eq('id', eqModal.id))
+    }
+
+    if (error) {
+      setEqModal(m => ({ ...m, saving: false, error: error.message }))
+      return
+    }
+    setEqModal(null)
+    loadEquipment()
+  }
+
+  async function deleteEquipment(item) {
+    setEqDeleting(true)
+    await supabase.from('equipment_inventory').delete().eq('id', item.id)
+    if (item.datasheet_url && item.datasheet_url.includes('/equipment-datasheets/')) {
+      const path = item.datasheet_url.split('/equipment-datasheets/')[1]
+      if (path) await supabase.storage.from('equipment-datasheets').remove([decodeURIComponent(path)])
+    }
+    setEqDeleting(false)
+    setEqDeleteId(null)
+    loadEquipment()
+  }
 
   useEffect(() => {
     function loadGeo() {
@@ -238,6 +356,12 @@ export default function DashboardPage() {
       loadOfftake()
     }
   }, [activePage])
+
+  useEffect(() => {
+    if (activePage === 'engineering' && engTool === 'inventory' && !equipmentLoaded) {
+      loadEquipment()
+    }
+  }, [activePage, engTool])
 
   async function loadOfftake() {
     setOgLoading(true)
@@ -2675,6 +2799,7 @@ export default function DashboardPage() {
                 {[
                   { id: 'quote', icon: 'ti-calculator', label: 'Quote Tool', desc: 'Build and price a customer quote', accent: T.blue },
                   { id: 'design', icon: 'ti-layout-grid', label: 'Design Pack Generator', desc: 'Generate a site design pack', accent: T.green },
+                  { id: 'inventory', icon: 'ti-package', label: 'Equipment Inventory', desc: 'Manage equipment, specs & costs', accent: T.orange },
                 ].map(tool => (
                   <button key={tool.id} onClick={() => setEngTool(tool.id)}
                     style={{
@@ -2704,7 +2829,7 @@ export default function DashboardPage() {
                   <i className="ti ti-arrow-left" />Back to Engineering Tools
                 </button>
                 <span style={{ fontSize: '16px', fontWeight: 800, color: T.textWhite }}>
-                  {engTool === 'quote' ? 'Quote Tool' : 'Design Pack Generator'}
+                  {engTool === 'quote' ? 'Quote Tool' : engTool === 'design' ? 'Design Pack Generator' : 'Equipment Inventory'}
                 </span>
               </div>
 
@@ -2717,6 +2842,97 @@ export default function DashboardPage() {
                     allow="clipboard-write"
                   />
                 </div>
+              ) : engTool === 'inventory' ? (
+                <div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+                    <input
+                      type="text"
+                      placeholder="Search equipment..."
+                      value={eqSearch}
+                      onChange={e => setEqSearch(e.target.value)}
+                      style={{ ...selectStyle, cursor: 'text', width: '240px' }}
+                    />
+                    <select value={eqCategory} onChange={e => setEqCategory(e.target.value)} style={selectStyle}>
+                      <option value="">All categories</option>
+                      {EQUIPMENT_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    <div style={{ flex: 1 }} />
+                    <button onClick={openAddEquipment} style={{ padding: '8px 16px', background: T.blue, color: '#fff', border: 'none', borderRadius: '7px', fontSize: '12px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <i className="ti ti-plus" />Add Equipment
+                    </button>
+                  </div>
+
+                  {eqLoading ? (
+                    <div style={{ padding: '40px', textAlign: 'center', color: T.textMuted, fontSize: '13px' }}>Loading equipment...</div>
+                  ) : (() => {
+                    const q = eqSearch.trim().toLowerCase()
+                    const filtered = equipment.filter(it => {
+                      if (eqCategory && it.category !== eqCategory) return false
+                      if (!q) return true
+                      return (it.name || '').toLowerCase().includes(q)
+                        || (it.description || '').toLowerCase().includes(q)
+                        || (it.technical_spec || '').toLowerCase().includes(q)
+                    })
+                    if (filtered.length === 0) {
+                      return (
+                        <div style={{ ...cardStyle, padding: '48px', textAlign: 'center', color: T.textMuted, fontSize: '13px' }}>
+                          {equipment.length === 0 ? 'No equipment yet. Click "Add Equipment" to create the first entry.' : 'No equipment matches your filters.'}
+                        </div>
+                      )
+                    }
+                    const groups = {}
+                    filtered.forEach(it => { const c = it.category || 'Other Accessories'; (groups[c] = groups[c] || []).push(it) })
+                    const catOrder = [...EQUIPMENT_CATEGORIES, ...Object.keys(groups).filter(c => !EQUIPMENT_CATEGORIES.includes(c))]
+                    return catOrder.filter(c => groups[c]?.length).map(cat => (
+                      <div key={cat} style={{ marginBottom: '22px' }}>
+                        <div style={{ fontSize: '12px', fontWeight: 800, color: T.textSecondary, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '10px' }}>{cat} <span style={{ color: T.textMuted, fontWeight: 600 }}>({groups[cat].length})</span></div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '12px' }}>
+                          {groups[cat].map(item => (
+                            <div key={item.id} style={{ ...cardStyle, padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                                <div style={{ fontSize: '13px', fontWeight: 800, color: T.textPrimary }}>{item.name}</div>
+                                <div style={{ fontSize: '13px', fontWeight: 800, color: T.green, whiteSpace: 'nowrap' }}>{formatCost(item.cost, item.currency)}</div>
+                              </div>
+                              {item.description && (
+                                <div style={{ fontSize: '11px', color: T.textSecondary, lineHeight: 1.5 }}>{item.description}</div>
+                              )}
+                              {item.technical_spec && (
+                                <div style={{ fontSize: '11px', color: T.textMuted, lineHeight: 1.5, whiteSpace: 'pre-wrap', background: T.bgMuted, border: `1px solid ${T.border}`, borderRadius: '6px', padding: '8px' }}>{item.technical_spec}</div>
+                              )}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                                {item.datasheet_url ? (
+                                  <a href={item.datasheet_url} target="_blank" rel="noopener noreferrer"
+                                    style={{ fontSize: '11px', fontWeight: 700, color: T.blue, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                    <i className="ti ti-file-text" />Datasheet
+                                  </a>
+                                ) : (
+                                  <span style={{ fontSize: '11px', color: T.textMuted }}>No datasheet</span>
+                                )}
+                                <div style={{ flex: 1 }} />
+                                {eqDeleteId === item.id ? (
+                                  <>
+                                    <span style={{ fontSize: '11px', color: T.textMuted }}>Remove?</span>
+                                    <button disabled={eqDeleting} onClick={() => deleteEquipment(item)} style={{ fontSize: '11px', fontWeight: 700, color: '#fff', background: T.red, border: 'none', borderRadius: '5px', padding: '4px 8px', cursor: 'pointer' }}>Yes</button>
+                                    <button disabled={eqDeleting} onClick={() => setEqDeleteId(null)} style={{ fontSize: '11px', fontWeight: 700, color: T.textSecondary, background: 'transparent', border: `1px solid ${T.border}`, borderRadius: '5px', padding: '4px 8px', cursor: 'pointer' }}>Cancel</button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <button onClick={() => openEditEquipment(item)} title="Edit" style={{ background: 'transparent', border: `1px solid ${T.border}`, color: T.textSecondary, borderRadius: '5px', padding: '4px 8px', cursor: 'pointer', fontSize: '11px', display: 'flex', alignItems: 'center' }}>
+                                      <i className="ti ti-edit" />
+                                    </button>
+                                    <button onClick={() => setEqDeleteId(item.id)} title="Remove" style={{ background: 'transparent', border: `1px solid ${T.border}`, color: T.red, borderRadius: '5px', padding: '4px 8px', cursor: 'pointer', fontSize: '11px', display: 'flex', alignItems: 'center' }}>
+                                      <i className="ti ti-trash" />
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))
+                  })()}
+                </div>
               ) : (
                 <div style={{ ...cardStyle, padding: '48px', textAlign: 'center', maxWidth: '720px' }}>
                   <div style={{ width: '72px', height: '72px', borderRadius: '16px', background: `${T.blue}1a`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
@@ -2728,6 +2944,89 @@ export default function DashboardPage() {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {eqModal && (
+            <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(10,16,28,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
+              onClick={() => !eqModal.saving && setEqModal(null)}>
+              <div onClick={e => e.stopPropagation()} style={{ ...cardStyle, width: '100%', maxWidth: '520px', maxHeight: '90vh', overflowY: 'auto', padding: '22px' }}>
+                <div style={{ fontSize: '16px', fontWeight: 800, color: T.textPrimary, marginBottom: '16px' }}>
+                  {eqModal.mode === 'add' ? 'Add Equipment' : 'Edit Equipment'}
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: T.textSecondary, marginBottom: '5px' }}>Category</div>
+                    <select value={eqModal.form.category} onChange={e => setEqModal(m => ({ ...m, form: { ...m.form, category: e.target.value } }))} style={{ ...selectStyle, width: '100%' }}>
+                      {EQUIPMENT_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: T.textSecondary, marginBottom: '5px' }}>Equipment Name *</div>
+                    <input type="text" value={eqModal.form.name} onChange={e => setEqModal(m => ({ ...m, form: { ...m.form, name: e.target.value } }))}
+                      placeholder="e.g. Sungrow 110kW Grid Tied" style={{ ...selectStyle, cursor: 'text', width: '100%' }} />
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: T.textSecondary, marginBottom: '5px' }}>Description</div>
+                    <textarea value={eqModal.form.description} onChange={e => setEqModal(m => ({ ...m, form: { ...m.form, description: e.target.value } }))}
+                      rows={2} placeholder="Short description of what this equipment is / is used for"
+                      style={{ ...selectStyle, cursor: 'text', width: '100%', resize: 'vertical', fontFamily: 'inherit' }} />
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: T.textSecondary, marginBottom: '5px' }}>Technical Spec</div>
+                    <textarea value={eqModal.form.technical_spec} onChange={e => setEqModal(m => ({ ...m, form: { ...m.form, technical_spec: e.target.value } }))}
+                      rows={4} placeholder="Key specs — voltage, capacity, dimensions, efficiency, etc."
+                      style={{ ...selectStyle, cursor: 'text', width: '100%', resize: 'vertical', fontFamily: 'inherit' }} />
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: T.textSecondary, marginBottom: '5px' }}>Cost</div>
+                      <input type="number" step="0.01" value={eqModal.form.cost} onChange={e => setEqModal(m => ({ ...m, form: { ...m.form, cost: e.target.value } }))}
+                        placeholder="0.00" style={{ ...selectStyle, cursor: 'text', width: '100%' }} />
+                    </div>
+                    <div style={{ width: '110px' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: T.textSecondary, marginBottom: '5px' }}>Currency</div>
+                      <select value={eqModal.form.currency} onChange={e => setEqModal(m => ({ ...m, form: { ...m.form, currency: e.target.value } }))} style={{ ...selectStyle, width: '100%' }}>
+                        {Object.keys(CURRENCY_SYMBOLS).map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: T.textSecondary, marginBottom: '5px' }}>Datasheet (PDF)</div>
+                    {eqModal.existingDatasheetFilename && !eqModal.file && (
+                      <div style={{ fontSize: '11px', color: T.textSecondary, marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <i className="ti ti-file-text" style={{ color: T.blue }} />
+                        <a href={eqModal.existingDatasheetUrl} target="_blank" rel="noopener noreferrer" style={{ color: T.blue, textDecoration: 'none' }}>{eqModal.existingDatasheetFilename}</a>
+                        <span style={{ color: T.textMuted }}>(choose a file below to replace)</span>
+                      </div>
+                    )}
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 14px', background: 'rgba(43,127,212,0.12)', border: `1px solid rgba(43,127,212,0.35)`, borderRadius: '8px', color: T.blue, fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>
+                      <i className="ti ti-upload" />{eqModal.file ? eqModal.file.name : 'Choose PDF'}
+                      <input type="file" accept="application/pdf" style={{ display: 'none' }}
+                        onChange={e => setEqModal(m => ({ ...m, file: e.target.files?.[0] || null }))} />
+                    </label>
+                  </div>
+
+                  {eqModal.error && (
+                    <div style={{ fontSize: '12px', color: T.red, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '6px', padding: '8px 10px' }}>{eqModal.error}</div>
+                  )}
+
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                    <button disabled={eqModal.saving} onClick={saveEquipment} style={{ padding: '8px 18px', background: T.blue, color: '#fff', border: 'none', borderRadius: '7px', fontSize: '12px', fontWeight: 700, cursor: eqModal.saving ? 'default' : 'pointer', opacity: eqModal.saving ? 0.6 : 1 }}>
+                      {eqModal.saving ? 'Saving...' : 'Save'}
+                    </button>
+                    <button disabled={eqModal.saving} onClick={() => setEqModal(null)} style={{ padding: '8px 18px', background: 'transparent', color: T.textSecondary, border: `1px solid ${T.border}`, borderRadius: '7px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
