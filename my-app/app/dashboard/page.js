@@ -5,6 +5,7 @@ import ExcelJS from 'exceljs/dist/exceljs.min.js'
 import { supabase } from '@/lib/supabase'
 import { ZA_ZM_PROVINCES } from './za_zm_provinces'
 import { BW_PROVINCES } from './botswana_provinces'
+import CableSizingTool from './CableSizingTool'
 
 // Parses semicolon-delimited CSV with quoted multiline fields
 function parseCSV(text) {
@@ -2800,6 +2801,7 @@ export default function DashboardPage() {
                   { id: 'quote', icon: 'ti-calculator', label: 'Quote Tool', desc: 'Build and price a customer quote', accent: T.blue },
                   { id: 'design', icon: 'ti-layout-grid', label: 'Design Pack Generator', desc: 'Generate a site design pack', accent: T.green },
                   { id: 'inventory', icon: 'ti-package', label: 'Equipment Inventory', desc: 'Manage equipment, specs & costs', accent: T.orange },
+                  { id: 'cable', icon: 'ti-plug-connected', label: 'Cable Sizing Calculator', desc: 'Size AC & DC/PV cables to SANS 10142-1', accent: T.yellow },
                 ].map(tool => (
                   <button key={tool.id} onClick={() => setEngTool(tool.id)}
                     style={{
@@ -2829,7 +2831,7 @@ export default function DashboardPage() {
                   <i className="ti ti-arrow-left" />Back to Engineering Tools
                 </button>
                 <span style={{ fontSize: '16px', fontWeight: 800, color: T.textWhite }}>
-                  {engTool === 'quote' ? 'Quote Tool' : engTool === 'design' ? 'Design Pack Generator' : 'Equipment Inventory'}
+                  {engTool === 'quote' ? 'Quote Tool' : engTool === 'design' ? 'Design Pack Generator' : engTool === 'cable' ? 'Cable Sizing Calculator' : 'Equipment Inventory'}
                 </span>
               </div>
 
@@ -2842,6 +2844,8 @@ export default function DashboardPage() {
                     allow="clipboard-write"
                   />
                 </div>
+              ) : engTool === 'cable' ? (
+                <CableSizingTool T={T} cardStyle={cardStyle} selectStyle={selectStyle} />
               ) : engTool === 'inventory' ? (
                 <div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
