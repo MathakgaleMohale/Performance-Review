@@ -1,11 +1,11 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import ExcelJS from 'exceljs/dist/exceljs.min.js'
 import {
-  calcAC, calcDC, AC_INSTALL_METHODS, AC_CORES, AC_PROTECTION, AC_INSULATION, AC_CONDUCTOR,
-  DC_TYPES, DC_METHODS, AC_NOTES, DC_NOTES, AC_FACTORS,
+  calcAC, calcDC, AC_INSTALL_METHODS, AC_CORES, AC_PROTECTION, AC_INSULATION, AC_CONDUCTOR, AC_SPACING,
+  DC_TYPES, DC_METHODS, AC_NOTES, DC_NOTES,
 } from '@/lib/cableSizing'
+import { buildCableScheduleWorkbook, CABLE_TEMPLATE_URL } from '@/lib/cableScheduleExport'
 
 const STORAGE_KEY = 'sosimple.cableSizing.v1'
 
@@ -15,15 +15,27 @@ const newId = () => `${Date.now().toString(36)}-${(_id++).toString(36)}`
 const blankAC = () => ({
   id: newId(), from: '', to: '', ib: '', method: 'Buried', distance: '', voltage: 400,
   protection: 'Armoured', insulation: 'PVC', conductor: 'Copper', cores: 'Four', derating: '',
+  spacing: '', faultKA: '', faultT: '',
 })
 const blankDC = () => ({
   id: newId(), from: '', to: '', type: 'PV String', current: '', strings: 1, method: 'Free Air (single)',
   distance: '', modules: '', vmp: '', systemV: '', derating: '',
 })
 
+const blankProject = () => ({
+  name: '', number: '', docNumber: '', client: '', address: '', coordinates: '',
+  date: new Date().toISOString().slice(0, 10), revision: '00', designed: '', checked: '', approved: '', revDescription: '',
+})
+
+const PROJECT_FIELDS = [
+  ['name', 'Project Name'], ['number', 'Project Number'], ['docNumber', 'Document Number'], ['client', 'Client'],
+  ['address', 'Address'], ['coordinates', 'Coordinates'], ['date', 'Date', 'date'], ['revision', 'Revision'],
+  ['designed', 'Designed'], ['checked', 'Checked'], ['approved', 'Approved'], ['revDescription', 'Rev. Description'],
+]
+
 const DEFAULT_STATE = () => ({
-  project: { name: '', number: '', engineer: '', date: new Date().toISOString().slice(0, 10), address: '', coordinates: '' },
-  ac: [{ ...blankAC(), from: 'Inverter', to: 'MSB', ib: 180, distance: 200, protection: 'Unarmoured', insulation: 'Rubber' }],
+  project: blankProject(),
+  ac: [{ ...blankAC(), from: 'Inverter', to: 'MSB', ib: 180, distance: 200, protection: 'Unarmoured' }],
   dc: [{ ...blankDC(), from: 'String 1', to: 'Inverter', type: 'PV String', current: 16, distance: 100, modules: 18, vmp: 50 }],
 })
 
@@ -50,7 +62,15 @@ export default function CableSizingTool({ T, cardStyle, selectStyle }) {
       const raw = localStorage.getItem(STORAGE_KEY)
       if (raw) {
         const saved = JSON.parse(raw)
-        if (saved && saved.project && Array.isArray(saved.ac) && Array.isArray(saved.dc)) setState(saved)
+        if (saved && saved.project && Array.isArray(saved.ac) && Array.isArray(saved.dc)) {
+          // older drafts: fill in fields added since (project header, spacing, fault level)
+          const legacyEngineer = saved.project.engineer
+          setState({
+            project: { ...blankProject(), ...(legacyEngineer && !saved.project.designed ? { designed: legacyEngineer } : {}), ...saved.project },
+            ac: saved.ac.map(r => ({ ...blankAC(), ...r })),
+            dc: saved.dc.map(r => ({ ...blankDC(), ...r })),
+          })
+        }
       }
     } catch (e) { /* ignore */ }
     setLoaded(true)
@@ -74,7 +94,7 @@ export default function CableSizingTool({ T, cardStyle, selectStyle }) {
   const delRow = (kind, id) => setState(s => ({ ...s, [kind]: s[kind].filter(r => r.id !== id) }))
   const resetAll = () => {
     if (typeof window !== 'undefined' && !window.confirm('Clear all project details and circuits?')) return
-    setState({ project: { ...DEFAULT_STATE().project }, ac: [blankAC()], dc: [blankDC()] })
+    setState({ project: blankProject(), ac: [blankAC()], dc: [blankDC()] })
   }
 
   // ── styles ──
@@ -97,8 +117,9 @@ export default function CableSizingTool({ T, cardStyle, selectStyle }) {
   const TxtIn = ({ kind, row, k, placeholder }) => (
     <input type="text" value={row[k]} placeholder={placeholder} onChange={e => updateRow(kind, row.id, k, e.target.value)} style={cellInput} />
   )
-  const Sel = ({ kind, row, k, options }) => (
+  const Sel = ({ kind, row, k, options, blankLabel }) => (
     <select value={row[k]} onChange={e => updateRow(kind, row.id, k, e.target.value)} style={cellSelect}>
+      {blankLabel ? <option value="">{blankLabel}</option> : null}
       {options.map(o => <option key={o} value={o}>{o}</option>)}
     </select>
   )
@@ -118,80 +139,27 @@ export default function CableSizingTool({ T, cardStyle, selectStyle }) {
   const results = tab === 'ac' ? acResults : dcResults
   const counts = results.reduce((a, r) => { const k = statusKind(r.status); if (!r.empty) a[k] = (a[k] || 0) + 1; return a }, {})
 
-  // ── Excel export ──
+  // ── Excel export: fills the company calculator workbook (same layout, formulas and reference sheets) ──
+  const [exportError, setExportError] = useState('')
   async function exportExcel() {
     setExporting(true)
+    setExportError('')
     try {
-      const wb = new ExcelJS.Workbook()
-      wb.creator = 'Sosimple Energy'
+      const res = await fetch(CABLE_TEMPLATE_URL)
+      if (!res.ok) throw new Error(`Template not found (${res.status})`)
+      const template = await res.arrayBuffer()
+      const data = await buildCableScheduleWorkbook(template, { project: state.project, ac: state.ac, dc: state.dc, acResults, dcResults })
       const p = state.project
-      const navy = 'FF1A2A4A', blue = 'FF1E6FC4'
-      const statusFill = s => ({ ok: 'FFE3F2D6', check: 'FFFFEFD0', fail: 'FFFBDADA' }[statusKind(s)])
-      const addSheet = (title, heading, headers, rows, notes) => {
-        const ws = wb.addWorksheet(title)
-        ws.addRow([heading]).font = { bold: true, size: 14, color: { argb: navy } }
-        ws.addRow([])
-        ;[['Project Name', p.name, 'Address', p.address], ['Project Number', p.number, 'Coordinates', p.coordinates], ['Engineer', p.engineer, 'Date', p.date]]
-          .forEach(r => { const row = ws.addRow(r); row.getCell(1).font = { bold: true }; row.getCell(3).font = { bold: true } })
-        ws.addRow([])
-        const hr = ws.addRow(headers.map(h => h.label))
-        hr.eachCell((c, i) => {
-          c.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 }
-          c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: headers[i - 1].out ? blue : navy } }
-          c.alignment = { wrapText: true, vertical: 'middle' }
-        })
-        hr.height = 32
-        rows.forEach(vals => {
-          const r = ws.addRow(vals)
-          headers.forEach((h, i) => { if (h.fmt) r.getCell(i + 1).numFmt = h.fmt })
-          const sc = r.getCell(headers.length)
-          const f = statusFill(sc.value)
-          if (f) sc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: f } }
-          sc.font = { bold: true }
-        })
-        headers.forEach((h, i) => { ws.getColumn(i + 1).width = h.w || 12 })
-        ws.addRow([])
-        ws.addRow(['Notes / Assumptions:']).font = { bold: true }
-        notes.forEach(n => ws.addRow([`• ${n}`]))
-        return ws
-      }
-      const nz = v => (v === '' || v === null || v === undefined ? null : v)
-
-      addSheet('AC Cable Sizes', 'AC Cable Sizing (SANS 10142-1)', [
-        { label: '#', w: 5 }, { label: 'Design Current Ib (A)' }, { label: 'Termination Point A', w: 16 }, { label: 'Termination Point B', w: 16 },
-        { label: 'Installation Method', w: 16 }, { label: 'Cable Distance (m)' }, { label: 'System Voltage (V)' }, { label: 'Cable Protection' },
-        { label: 'Conductor Insulation' }, { label: 'Conductor (Cu/Al)' }, { label: 'Cores' }, { label: 'Derating Ca x Cg' },
-        { label: 'Cables in Parallel', out: true }, { label: 'Recommended Size (mm²)', out: true }, { label: 'Cable CCC – total (A)', out: true, fmt: '0.0' },
-        { label: 'Voltage Drop (V)', out: true, fmt: '0.00' }, { label: 'Voltage Drop (%)', out: true, fmt: '0.00%' }, { label: 'Circuit Breaker (A)', out: true },
-        { label: 'Earth Conductor (mm²)', out: true }, { label: 'Status', out: true, w: 26 },
-      ], state.ac.map((r, i) => { const x = acResults[i]; return [
-        i + 1, nz(r.ib), r.from, r.to, r.method, nz(r.distance), nz(r.voltage), r.protection, r.insulation, r.conductor, r.cores, nz(r.derating) ?? AC_FACTORS.derate,
-        x.runs ?? null, x.size ?? (x.empty ? null : x.valid ? 'Exceeds range' : 'Check inputs'), x.cccTotal ?? null, x.vdV ?? null, x.vdPct ?? null,
-        x.breaker ?? (x.valid ? 'Exceeds range' : null), x.earth ?? null, x.status ?? '',
-      ] }), AC_NOTES)
-
-      addSheet('DC Cable Sizes', 'DC / PV Cable Sizing', [
-        { label: '#', w: 5 }, { label: 'Termination Point A', w: 16 }, { label: 'Termination Point B', w: 16 }, { label: 'Circuit Type', w: 13 },
-        { label: 'Current Input (A)' }, { label: 'Strings in Parallel' }, { label: 'Installation Method', w: 20 }, { label: 'Distance one-way (m)' },
-        { label: 'Modules per String' }, { label: 'Module Vmp (V)' }, { label: 'System Voltage (V DC) – manual' }, { label: 'Derating' },
-        { label: 'Total System Voltage (V DC)', out: true, fmt: '0.0' }, { label: 'Design Current Ib (A)', out: true, fmt: '0.00' }, { label: 'Cables in Parallel', out: true },
-        { label: 'Recommended Size (mm²)', out: true }, { label: 'Cable CCC – total (A)', out: true, fmt: '0.0' }, { label: 'Voltage Drop (V)', out: true, fmt: '0.00' },
-        { label: 'Voltage Drop (%)', out: true, fmt: '0.00%' }, { label: 'DC MCB / Fuse (A)', out: true }, { label: 'Status', out: true, w: 26 },
-      ], state.dc.map((r, i) => { const x = dcResults[i]; return [
-        i + 1, r.from, r.to, r.type, nz(r.current), nz(r.strings), r.method, nz(r.distance), nz(r.modules), nz(r.vmp), nz(r.systemV), nz(r.derating) ?? 1,
-        x.systemV ?? null, x.ib ?? null, x.runs ?? null, x.size ?? (x.empty ? null : x.valid ? 'Exceeds range' : 'Check inputs'),
-        x.cccTotal ?? null, x.vdV ?? null, x.vdPct ?? null, x.prot ?? (x.valid ? 'Exceeds range' : null), x.status ?? '',
-      ] }), DC_NOTES)
-
-      const buffer = await wb.xlsx.writeBuffer()
-      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+      const blob = new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
-      const safe = (p.number || p.name || 'Project').replace(/[^\w\- ]+/g, '').trim() || 'Project'
+      const ref = (p.docNumber || p.number || p.name || 'Project').replace(/[^\w\- .]+/g, '').trim() || 'Project'
       a.href = url
-      a.download = `Cable Sizing - ${safe} - ${p.date || new Date().toISOString().slice(0, 10)}.xlsx`
+      a.download = `${ref} - Cable Schedule - ${p.date || new Date().toISOString().slice(0, 10)}.xlsx`
       document.body.appendChild(a); a.click(); document.body.removeChild(a)
-      URL.revokeObjectURL(url)
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+    } catch (e) {
+      setExportError(`Could not create the Excel file: ${e.message || e}`)
     } finally {
       setExporting(false)
     }
@@ -212,11 +180,11 @@ export default function CableSizingTool({ T, cardStyle, selectStyle }) {
           <i className="ti ti-clipboard-text" style={{ color: T.blue }} />
           <span style={{ fontSize: '13px', fontWeight: 700, color: T.textPrimary }}>Project details</span>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '12px' }}>
-          {[['name', 'Project Name'], ['number', 'Project Number'], ['engineer', 'Engineer'], ['date', 'Date', 'date'], ['address', 'Address'], ['coordinates', 'Coordinates']].map(([k, l, type]) => (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px' }}>
+          {PROJECT_FIELDS.map(([k, l, type]) => (
             <label key={k} style={{ display: 'block' }}>
               <div style={labelStyle}>{l}</div>
-              <input type={type || 'text'} value={state.project[k]} onChange={e => setProject(k, e.target.value)}
+              <input type={type || 'text'} value={state.project[k] ?? ''} onChange={e => setProject(k, e.target.value)}
                 style={{ ...selectStyle, cursor: 'text', width: '100%', boxSizing: 'border-box' }} />
             </label>
           ))}
@@ -244,6 +212,10 @@ export default function CableSizingTool({ T, cardStyle, selectStyle }) {
         </button>
       </div>
 
+      {exportError && (
+        <div style={{ ...cardStyle, padding: '10px 14px', marginBottom: '12px', borderLeft: `3px solid ${T.red}`, color: T.red, fontSize: '12px', fontWeight: 600 }}>{exportError}</div>
+      )}
+
       {showNotes && (
         <div style={{ ...cardStyle, padding: '14px 18px', marginBottom: '12px', borderLeft: `3px solid ${T.yellow}` }}>
           <div style={{ fontSize: '12px', fontWeight: 700, color: T.textPrimary, marginBottom: '6px' }}>
@@ -269,12 +241,15 @@ export default function CableSizingTool({ T, cardStyle, selectStyle }) {
           ['Design current Ib (A)', NumIn({ kind, row, k: 'ib' })],
           ['Installation method', Sel({ kind, row, k: 'method', options: Object.keys(AC_INSTALL_METHODS) })],
           ['Cable length (m)', NumIn({ kind, row, k: 'distance' })],
-          ['System voltage (V)', NumIn({ kind, row, k: 'voltage' }), '230 V for 2-core (1ph), 400 V for 3/4-core (3ph)'],
-          ['Cores', Sel({ kind, row, k: 'cores', options: Object.keys(AC_CORES) })],
-          ['Insulation', Sel({ kind, row, k: 'insulation', options: AC_INSULATION })],
+          ['System voltage (V)', NumIn({ kind, row, k: 'voltage' }), '230 V for 2-core / single-core 1ph, 400 V for 3/4-core / trefoil (3ph)'],
+          ['Cores', Sel({ kind, row, k: 'cores', options: Object.keys(AC_CORES) }), 'Single-core (3ph trefoil) for large currents – free air, tray/ladder, clipped or surface only'],
+          ['Insulation', Sel({ kind, row, k: 'insulation', options: AC_INSULATION }), 'Rubber = H07RN-F flex: copper only, not in conduit or buried'],
           ['Conductor', Sel({ kind, row, k: 'conductor', options: AC_CONDUCTOR })],
           ['Cable protection', Sel({ kind, row, k: 'protection', options: AC_PROTECTION })],
-          ['Derating Ca × Cg', NumIn({ kind, row, k: 'derating', step: 0.01, placeholder: '1.00 (default)' }), 'Blank = 1.0. Include grouping, ambient, burial and parallel-run derating.'],
+          ['Spacing between runs', Sel({ kind, row, k: 'spacing', options: AC_SPACING.filter(o => o !== 'Touching'), blankLabel: 'Touching (default)' }), 'Air: Touching / 2 cable dia · Buried: Touching / 1 cable dia / 0.125 / 0.25 / 0.5 m · Ducts: Touching / 0.25 / 0.5 / 1.0 m'],
+          ['Other derating Ca', NumIn({ kind, row, k: 'derating', step: 0.01, placeholder: '1.00 (default)' }), 'Ambient / soil temperature and grouping with OTHER circuits. Grouping of this circuit\'s parallel runs (Cg) is applied automatically.'],
+          ['Fault level Ik (kA)', NumIn({ kind, row, k: 'faultKA', placeholder: 'Not checked' }), 'Prospective fault current for the short-circuit (adiabatic) check. Blank = not checked.'],
+          ['Fault clearing time t (s)', NumIn({ kind, row, k: 'faultT', step: 0.01, placeholder: 'Device default' }), 'Blank = device default (MCB/MCCB 0.1 s, ACB 0.4 s). Max 5 s.'],
         ]
         const dcFields = row => {
           const hasModules = row.modules !== '' && row.vmp !== ''
@@ -291,11 +266,14 @@ export default function CableSizingTool({ T, cardStyle, selectStyle }) {
           ]
         }
         const acOut = x => [
-          ['Cables in parallel', x.runs ?? '—'],
+          ['Cables in parallel', x.size ? x.runs : '—'],
+          ['Grouping factor Cg', x.size ? fmt(x.Cg, 2) : '—'],
           ['CCC – total', x.cccTotal != null ? `${fmt(x.cccTotal)} A` : '—'],
           ['Voltage drop', x.vdV != null ? `${fmt(x.vdV, 2)} V · ${pct(x.vdPct)}` : '—'],
-          ['Circuit breaker', x.breaker ? `${x.breaker} A` : '—'],
+          ['Circuit breaker', x.breaker ? `${x.breaker} A ${x.breakerType}` : x.valid ? 'Exceeds range' : '—'],
+          ['Trip setting Ir', x.ir ? `${fmt(x.ir, 0)} A` : '—'],
           ['Earth conductor', x.earth ? `${x.earth} mm²` : '—'],
+          ['SC withstand / run', x.size ? (x.scChecked ? `${fmt(x.scWithstand)} kA` : 'Not checked') : '—'],
           ['Ref. method', x.refMethod ? `${x.refMethod} · ${x.loaded === 2 ? '1ph' : '3ph'}` : '—'],
         ]
         const dcOut = x => [
@@ -332,7 +310,7 @@ export default function CableSizingTool({ T, cardStyle, selectStyle }) {
                     <div style={{ flex: '0 1 340px', minWidth: '260px', padding: '14px 16px', background: `${T.blue}0d`, borderLeft: `1px solid ${T.border}` }}>
                       <div style={labelStyle}>Recommended size</div>
                       <div style={{ fontSize: '28px', fontWeight: 800, color: x.size ? T.blue : T.textMuted, lineHeight: 1.1, marginBottom: '10px' }}>
-                        {x.size ? <>{x.runs > 1 ? `${x.runs} × ` : ''}{x.size}<span style={{ fontSize: '14px', fontWeight: 700 }}> mm²</span></> : x.empty ? '—' : x.valid ? 'Exceeds range' : 'Check inputs'}
+                        {x.size ? <>{x.runs > 1 ? `${x.runs} × ` : ''}{x.size}<span style={{ fontSize: '14px', fontWeight: 700 }}> mm²</span></> : x.empty ? '—' : x.valid ? (x.sizeLabel || 'Exceeds range') : 'Check inputs'}
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', rowGap: '5px', columnGap: '12px', fontSize: '12px' }}>
                         {(kind === 'ac' ? acOut(x) : dcOut(x)).map(([l, v]) => (
@@ -355,7 +333,7 @@ export default function CableSizingTool({ T, cardStyle, selectStyle }) {
       })()}
 
       <div style={{ fontSize: '11px', color: T.textMuted, marginTop: '10px', lineHeight: 1.6 }}>
-        Results update as you type. Your draft is kept in this browser until you reset it. Reference data follows the Electrical.xlsx “SANS Data” sheet — verify against your official SANS 10142-1 copy and manufacturer data.
+        Results update as you type. Your draft is kept in this browser until you reset it. Reference data follows the Electrical.xlsx “SANS Data” and “Cable Data” sheets — verify against your official SANS 10142-1 copy and manufacturer data.
       </div>
     </div>
   )
