@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { ZA_ZM_PROVINCES } from './za_zm_provinces'
 import { BW_PROVINCES } from './botswana_provinces'
 import CableSizingTool from './CableSizingTool'
+import BoqTool from './BoqTool'
 
 // Parses semicolon-delimited CSV with quoted multiline fields
 function parseCSV(text) {
@@ -359,7 +360,7 @@ export default function DashboardPage() {
   }, [activePage])
 
   useEffect(() => {
-    if (activePage === 'engineering' && engTool === 'inventory' && !equipmentLoaded) {
+    if (activePage === 'engineering' && (engTool === 'inventory' || engTool === 'boq') && !equipmentLoaded) {
       loadEquipment()
     }
   }, [activePage, engTool])
@@ -2802,6 +2803,7 @@ export default function DashboardPage() {
                   { id: 'design', icon: 'ti-layout-grid', label: 'Design Pack Generator', desc: 'Generate a site design pack', accent: T.green },
                   { id: 'inventory', icon: 'ti-package', label: 'Equipment Inventory', desc: 'Manage equipment, specs & costs', accent: T.orange },
                   { id: 'cable', icon: 'ti-plug-connected', label: 'Cable Sizing Calculator', desc: 'Size AC & DC/PV cables to SANS 10142-1', accent: T.yellow },
+                  { id: 'boq', icon: 'ti-file-invoice', label: 'BOQ / Costing', desc: 'Build a priced bill of quantities', accent: T.red },
                 ].map(tool => (
                   <button key={tool.id} onClick={() => setEngTool(tool.id)}
                     style={{
@@ -2831,7 +2833,7 @@ export default function DashboardPage() {
                   <i className="ti ti-arrow-left" />Back to Engineering Tools
                 </button>
                 <span style={{ fontSize: '16px', fontWeight: 800, color: T.textWhite }}>
-                  {engTool === 'quote' ? 'Quote Tool' : engTool === 'design' ? 'Design Pack Generator' : engTool === 'cable' ? 'Cable Sizing Calculator' : 'Equipment Inventory'}
+                  {engTool === 'quote' ? 'Quote Tool' : engTool === 'design' ? 'Design Pack Generator' : engTool === 'cable' ? 'Cable Sizing Calculator' : engTool === 'boq' ? 'BOQ / Costing Generator' : 'Equipment Inventory'}
                 </span>
               </div>
 
@@ -2846,6 +2848,8 @@ export default function DashboardPage() {
                 </div>
               ) : engTool === 'cable' ? (
                 <CableSizingTool T={T} cardStyle={cardStyle} selectStyle={selectStyle} />
+              ) : engTool === 'boq' ? (
+                <BoqTool T={T} cardStyle={cardStyle} selectStyle={selectStyle} equipment={equipment} equipmentLoading={eqLoading} />
               ) : engTool === 'inventory' ? (
                 <div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>

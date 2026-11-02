@@ -56,20 +56,22 @@ function statusKind(s) {
 
 // ── Sheet ("paper") colours – fixed so the schedule looks the same in light/dark mode and on paper ──
 const P = {
-  font: "Calibri, Carlito, 'Segoe UI', Arial, sans-serif",
-  ink: '#1a2a4a',          // Sosimple navy
-  line: '#8796ab',
-  lineDark: '#1a2a4a',
-  banner: '#1E6FC4',       // Sosimple blue
-  subHead: '#1E6FC4',
-  headFill: '#eaf1fa',
-  inputFill: '#f7faff',
-  inputInk: '#0b3fd6',     // Excel convention: blue = input
+  // Sosimple Brand Guide v2: primary typeface Axiforma, fall-back Avenir
+  font: "Axiforma, Avenir, 'Avenir Next', 'Segoe UI', Arial, sans-serif",
+  ink: '#505050',          // Sosimple Grey
+  line: '#AFAFAF',         // Sosimple Light Grey
+  lineDark: '#505050',
+  banner: '#0B74D7',       // Sosimple Blue
+  bannerAccent: '#FFE82C', // Sosimple Yellow
+  subHead: '#0B74D7',
+  headFill: '#E1EFF6',     // Light Blue (#B3D7E8) tint
+  inputFill: '#F3F8FC',
+  inputInk: '#0B74D7',     // blue = input
   status: {
-    ok: { fg: '#006100', bg: '#C6EFCE' },
-    check: { fg: '#9C5700', bg: '#FFEB9C' },
-    fail: { fg: '#9C0006', bg: '#FFC7CE' },
-    none: { fg: '#1a2a4a', bg: 'transparent' },
+    ok: { fg: '#3F6B12', bg: '#D9EBC5' },    // Light Green
+    check: { fg: '#6E5A00', bg: '#FAF5AF' }, // Light Yellow
+    fail: { fg: '#B0400D', bg: '#F6D7C1' },  // Light Orange
+    none: { fg: '#505050', bg: 'transparent' },
   },
 }
 
@@ -201,14 +203,14 @@ const SHEET_CSS = `
 .cs-sheet input, .cs-sheet select { width: 100%; box-sizing: border-box; border: none; background: transparent; font: inherit; color: ${P.inputInk}; text-align: center; text-align-last: center; padding: 3px 2px; outline: none; border-radius: 2px; }
 .cs-sheet select { cursor: pointer; }
 .cs-sheet input:focus, .cs-sheet select:focus { outline: 2px solid ${P.banner}; outline-offset: -1px; background: #fff; }
-.cs-sheet input::placeholder { color: #9aa8bb; }
+.cs-sheet input::placeholder { color: #AFAFAF; }
 .cs-sheet input[type=number]::-webkit-inner-spin-button, .cs-sheet input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 .cs-sheet input[type=number] { -moz-appearance: textfield; }
 .cs-sheet .cs-act { border: none !important; background: transparent; padding: 0 0 0 6px; }
-.cs-sheet .cs-act button { background: #fff; border: 1px solid ${P.line}; color: #5b6b80; border-radius: 4px; padding: 2px 5px; cursor: pointer; font-size: 12px; line-height: 1; }
+.cs-sheet .cs-act button { background: #fff; border: 1px solid ${P.line}; color: #505050; border-radius: 4px; padding: 2px 5px; cursor: pointer; font-size: 12px; line-height: 1; }
 .cs-sheet .cs-act button:hover { color: ${P.banner}; border-color: ${P.banner}; }
-.cs-sheet .cs-act button.del:hover { color: #c62828; border-color: #c62828; }
-.cs-sheet tbody tr:hover td.cs-in { background: #eef4fd; }
+.cs-sheet .cs-act button.del:hover { color: #F66524; border-color: #F66524; }
+.cs-sheet tbody tr:hover td.cs-in { background: #E1EFF6; }
 `
 
 const PRINT_CSS = `
@@ -410,7 +412,7 @@ export default function CableSizingTool({ T, cardStyle, selectStyle }) {
                   </td>
                 )}
                 {i === 0 && (
-                  <td rowSpan={6} style={{ fontSize: '1.9em', fontWeight: 800, lineHeight: 1.25, letterSpacing: '0.5px', color: P.ink }}>
+                  <td rowSpan={6} style={{ fontSize: '1.9em', fontWeight: 800, lineHeight: 1.25, letterSpacing: '0.5px', color: P.banner }}>
                     {titleName}<br />{cfg.title}
                   </td>
                 )}
@@ -424,7 +426,7 @@ export default function CableSizingTool({ T, cardStyle, selectStyle }) {
         </table>
 
         <div style={{ height: '6px' }} />
-        <div style={{ background: P.banner, color: '#fff', fontWeight: 800, fontSize: '1.25em', textAlign: 'center', padding: '7px 8px', letterSpacing: '0.4px', border: `1px solid ${P.lineDark}` }}>
+        <div style={{ background: P.banner, color: '#fff', fontWeight: 800, fontSize: '1.25em', textAlign: 'center', padding: '7px 8px', letterSpacing: '0.4px', borderBottom: `4px solid ${P.bannerAccent}` }}>
           {cfg.banner}
         </div>
         <div style={{ height: '6px' }} />
@@ -491,7 +493,7 @@ export default function CableSizingTool({ T, cardStyle, selectStyle }) {
           <div style={{ fontWeight: 800, color: P.subHead, marginBottom: '3px' }}>Notes / Assumptions:</div>
           {cfg.notes.map((n, i) => <div key={i}>• {n}</div>)}
           {!editable && (
-            <div style={{ marginTop: '8px', color: '#5b6b80' }}>
+            <div style={{ marginTop: '8px', color: P.ink }}>
               Reference data per Electrical.xlsx “SANS Data” and “Cable Data” sheets – verify against the official SANS 10142-1 and manufacturer data. Printed {new Date().toLocaleDateString('en-ZA')} from the Sosimple Energy Portal.
             </div>
           )}
@@ -521,7 +523,7 @@ export default function CableSizingTool({ T, cardStyle, selectStyle }) {
         <div style={{ flex: 1 }} />
         <button onClick={() => addRow(tab)} style={btn(T.blue)}><i className="ti ti-plus" />Add {tab === 'ac' ? 'AC' : 'DC'} circuit</button>
         <button onClick={resetAll} style={btn('transparent', T.textSecondary, `1px solid ${T.border}`)}><i className="ti ti-refresh" />Reset</button>
-        <button onClick={printSchedule} disabled={printing || printKinds.length === 0} style={btn(T.navy || '#1a2a4a')} title="A3 landscape – AC and DC schedules on separate pages">
+        <button onClick={printSchedule} disabled={printing || printKinds.length === 0} style={btn('#0B74D7')} title="A3 landscape – AC and DC schedules on separate pages">
           <i className="ti ti-printer" />{printing ? 'Preparing…' : 'Print / PDF'}
         </button>
         <button onClick={exportExcel} disabled={exporting} style={btn(T.green)}>
