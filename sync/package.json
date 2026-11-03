@@ -1,0 +1,17 @@
+{
+  "name": "sosimple-data-sync",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Syncs Data.xlsx into Supabase every time it is saved",
+  "main": "data-sync.js",
+  "scripts": {
+    "start": "node data-sync.js",
+    "once": "node data-sync.js --once",
+    "dry-run": "node data-sync.js --dry-run",
+    "full": "node data-sync.js --once --full"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "xlsx": "^0.18.5"
+  }
+}
