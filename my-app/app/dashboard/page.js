@@ -7,6 +7,7 @@ import { ZA_ZM_PROVINCES } from './za_zm_provinces'
 import { BW_PROVINCES } from './botswana_provinces'
 import CableSizingTool from './CableSizingTool'
 import BoqTool from './BoqTool'
+import TemplatesTool from './TemplatesTool'
 
 // Parses semicolon-delimited CSV with quoted multiline fields
 function parseCSV(text) {
@@ -200,6 +201,11 @@ export default function DashboardPage() {
   const [eqDeleteId, setEqDeleteId] = useState(null)
   const [eqDeleting, setEqDeleting] = useState(false)
   const chartsRef = useRef({})
+  // Live refresh (Supabase Realtime): only reload what has been loaded already
+  const perfLoadedRef = useRef(false)
+  const ogLoadedRef = useRef(false)
+  const [liveStatus, setLiveStatus] = useState('connecting')
+  const [liveUpdatedAt, setLiveUpdatedAt] = useState(null)
 
   const EQUIPMENT_CATEGORIES = ['Inverters', 'PV Modules', 'Batteries', 'Meters', 'Electrical BOS', 'Structural BOS', 'Civil BOS', 'Containers', 'Other Accessories']
   const CURRENCY_SYMBOLS = { ZAR: 'R', USD: '$', EUR: '€', GBP: '£' }
@@ -365,19 +371,21 @@ export default function DashboardPage() {
     }
   }, [activePage, engTool])
 
-  async function loadOfftake() {
-    setOgLoading(true)
+  async function loadOfftake(opts = {}) {
+    if (!opts.silent) setOgLoading(true)
     const { data, error } = await supabase
       .from('offtake_guarantees')
       .select('*')
       .order('site_name')
     if (error) console.error('Failed to load offtake guarantees', error)
+    if (error && opts.silent) return
+    ogLoadedRef.current = true
     setOgData(data || [])
     setOgLoading(false)
   }
 
-  async function loadPerformance() {
-    setPerfLoading(true)
+  async function loadPerformance(opts = {}) {
+    if (!opts.silent) setPerfLoading(true)
     let allData = []
     let from = 0
     const batchSize = 1000
@@ -393,10 +401,38 @@ export default function DashboardPage() {
       if (data.length < batchSize) break
       from += batchSize
     }
+    if (opts.silent && allData.length === 0) return allData // keep what is on screen if the reload failed
+    perfLoadedRef.current = true
     setPerfData(allData)
     setPerfLoading(false)
     return allData
   }
+
+  // ── Live refresh: when Data.xlsx is synced (or anyone uploads), Supabase Realtime
+  // notifies every open dashboard and the changed tables are reloaded quietly.
+  useEffect(() => {
+    if (!user?.id) return
+    const timers = {}
+    const later = (key, fn) => { clearTimeout(timers[key]); timers[key] = setTimeout(fn, 2000) }
+    const channel = supabase
+      .channel('live-portfolio-data')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sites' }, () => later('sites', async () => {
+        const { data, error } = await supabase.from('sites').select('*').order('name')
+        if (!error && data) { setSites(data); setLiveUpdatedAt(new Date()) }
+      }))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'performance' }, () => later('perf', async () => {
+        if (!perfLoadedRef.current) return
+        await loadPerformance({ silent: true })
+        setLiveUpdatedAt(new Date())
+      }))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'offtake_guarantees' }, () => later('og', async () => {
+        if (!ogLoadedRef.current) return
+        await loadOfftake({ silent: true })
+        setLiveUpdatedAt(new Date())
+      }))
+      .subscribe(status => setLiveStatus(status === 'SUBSCRIBED' ? 'live' : status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' ? 'offline' : 'connecting'))
+    return () => { Object.values(timers).forEach(clearTimeout); supabase.removeChannel(channel) }
+  }, [user?.id])
 
   useEffect(() => {
     if (!loading && sites.length > 0 && chartReady && activePage === 'overview') {
@@ -1733,6 +1769,13 @@ export default function DashboardPage() {
               {p.val}{p.label ? ` ${p.label}` : ''}
             </span>
           ))}
+          <span title={liveStatus === 'live'
+              ? `Live: the dashboard updates automatically when data changes${liveUpdatedAt ? ` (last update ${liveUpdatedAt.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' })})` : ''}`
+              : liveStatus === 'offline' ? 'Live updates unavailable – refresh the page to see new data' : 'Connecting to live updates…'}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 600, color: liveStatus === 'live' ? T.green : T.textMuted, padding: '4px 10px', borderRadius: '6px', border: `1px solid ${T.border}` }}>
+            <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: liveStatus === 'live' ? T.green : liveStatus === 'offline' ? T.red : T.textMuted }} />
+            {liveStatus === 'live' ? (liveUpdatedAt ? `Live · ${liveUpdatedAt.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' })}` : 'Live') : liveStatus === 'offline' ? 'Offline' : 'Connecting'}
+          </span>
           <span style={{ fontSize: '12px', color: T.textSecondary, marginLeft: '4px' }}>
             {user?.full_name || 'Employee'}
           </span>
@@ -2804,6 +2847,7 @@ export default function DashboardPage() {
                   { id: 'inventory', icon: 'ti-package', label: 'Equipment Inventory', desc: 'Manage equipment, specs & costs', accent: T.orange },
                   { id: 'cable', icon: 'ti-plug-connected', label: 'Cable Sizing Calculator', desc: 'Size AC & DC/PV cables to SANS 10142-1', accent: T.yellow },
                   { id: 'boq', icon: 'ti-file-invoice', label: 'BOQ / Costing', desc: 'Build a priced bill of quantities', accent: T.red },
+                  { id: 'templates', icon: 'ti-folders', label: 'Engineering Templates', desc: 'Commissioning, testing & O&M templates', accent: T.green },
                 ].map(tool => (
                   <button key={tool.id} onClick={() => setEngTool(tool.id)}
                     style={{
@@ -2833,7 +2877,7 @@ export default function DashboardPage() {
                   <i className="ti ti-arrow-left" />Back to Engineering Tools
                 </button>
                 <span style={{ fontSize: '16px', fontWeight: 800, color: T.textWhite }}>
-                  {engTool === 'quote' ? 'Quote Tool' : engTool === 'design' ? 'Design Pack Generator' : engTool === 'cable' ? 'Cable Sizing Calculator' : engTool === 'boq' ? 'BOQ / Costing Generator' : 'Equipment Inventory'}
+                  {engTool === 'quote' ? 'Quote Tool' : engTool === 'design' ? 'Design Pack Generator' : engTool === 'cable' ? 'Cable Sizing Calculator' : engTool === 'boq' ? 'BOQ / Costing Generator' : engTool === 'templates' ? 'Engineering Templates' : 'Equipment Inventory'}
                 </span>
               </div>
 
@@ -2848,6 +2892,8 @@ export default function DashboardPage() {
                 </div>
               ) : engTool === 'cable' ? (
                 <CableSizingTool T={T} cardStyle={cardStyle} selectStyle={selectStyle} />
+              ) : engTool === 'templates' ? (
+                <TemplatesTool T={T} cardStyle={cardStyle} selectStyle={selectStyle} userName={user?.full_name || user?.email || ''} sites={sites} />
               ) : engTool === 'boq' ? (
                 <BoqTool T={T} cardStyle={cardStyle} selectStyle={selectStyle} equipment={equipment} equipmentLoading={eqLoading} />
               ) : engTool === 'inventory' ? (
