@@ -2840,7 +2840,7 @@ export default function DashboardPage() {
               <div style={{ fontSize: '20px', fontWeight: 800, color: T.textWhite, marginBottom: '2px' }}>Engineering Tools</div>
               <div style={{ fontSize: '12px', color: T.textSecondary, marginBottom: '22px' }}>Pick a tool to get started</div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '18px', maxWidth: '940px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '18px', width: '100%' }}>
                 {[
                   { id: 'quote', icon: 'ti-calculator', label: 'Quote Tool', desc: 'Build and price a customer quote', accent: T.blue },
                   { id: 'design', icon: 'ti-layout-grid', label: 'Design Pack Generator', desc: 'Generate a site design pack', accent: T.green },
