@@ -395,12 +395,21 @@ export default function DashboardPage() {
         .select('*')
         .order('year', { ascending: false })
         .order('month', { ascending: false })
+        .order('site_name', { ascending: true }) // tie-breaker: without it Postgres can repeat/skip rows between pages
         .range(from, from + batchSize - 1)
       if (error || !data || data.length === 0) break
       allData = [...allData, ...data]
       if (data.length < batchSize) break
       from += batchSize
     }
+    // Safety net: drop any row that came back twice (same site + month + year)
+    const seen = new Set()
+    allData = allData.filter(p => {
+      const k = `${(p.site_name || '').trim().toLowerCase()}|${parseInt(p.year)}|${parseInt(p.month)}`
+      if (seen.has(k)) return false
+      seen.add(k)
+      return true
+    })
     if (opts.silent && allData.length === 0) return allData // keep what is on screen if the reload failed
     perfLoadedRef.current = true
     setPerfData(allData)
@@ -2200,7 +2209,7 @@ export default function DashboardPage() {
                         {filteredPerf.length === 0 ? (
                           <tr><td colSpan={8} style={{ padding: '32px', textAlign: 'center', color: T.textMuted }}>No records match the selected filters</td></tr>
                         ) : sortedPerf.map((p) => (
-                          <tr key={`${p.site_name}|${p.year}|${p.month}`} className="tbl-row" style={{ borderBottom: `1px solid ${T.border}` }}>
+                          <tr key={p.id ?? `${p.site_name}|${p.year}|${p.month}`} className="tbl-row" style={{ borderBottom: `1px solid ${T.border}` }}>
                             <td style={{ padding: '8px 10px', fontWeight: 600, color: T.blue }}>{p.site_name}</td>
                             <td style={{ padding: '8px 10px', color: T.textSecondary }}>{getInvestor(p) || '—'}</td>
                             <td style={{ padding: '8px 10px', color: T.textSecondary }}>{fmtDate(p.month, p.year)}</td>

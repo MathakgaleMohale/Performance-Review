@@ -167,6 +167,27 @@ export default function TemplatesTool({ T, cardStyle, selectStyle, userName, sit
     } catch (e) { setToast(`Download failed: ${e.message || e}`) } finally { setBusyId(null) }
   }
 
+  // Deleting needs the user's own portal password (re-checked with Supabase sign-in)
+  const [delPw, setDelPw] = useState('')
+  const [delErr, setDelErr] = useState('')
+  const [delChecking, setDelChecking] = useState(false)
+  const openDelete = d => { setDelPw(''); setDelErr(''); setConfirmDel(d) }
+  async function confirmDelete() {
+    if (!delPw) { setDelErr('Enter your password to delete.'); return }
+    setDelChecking(true); setDelErr('')
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user?.email) throw new Error('You are not signed in. Please sign in again.')
+      const { error } = await supabase.auth.signInWithPassword({ email: user.email, password: delPw })
+      if (error) { setDelErr('Incorrect password. Nothing was deleted.'); return }
+      setDelPw('')
+      if (confirmDel.type === 'report') await removeReport(confirmDel.item)
+      else await removeTemplate(confirmDel.item)
+    } catch (e) {
+      setDelErr(e.message || String(e))
+    } finally { setDelChecking(false) }
+  }
+
   async function removeTemplate(x) {
     setBusyId(x.id)
     const { error } = await supabase.from(TABLE).delete().eq('id', x.id)
@@ -398,7 +419,7 @@ export default function TemplatesTool({ T, cardStyle, selectStyle, userName, sit
                           <div style={{ flex: 1 }} />
                           {!editable && <button title="Upload a new version" onClick={() => openReplace(x)} style={iconBtn(T.textSecondary)}><i className="ti ti-refresh" /></button>}
                           <button title="Edit details" onClick={() => openEdit(x)} style={iconBtn(T.textSecondary)}><i className="ti ti-settings" /></button>
-                          <button title="Delete" onClick={() => setConfirmDel({ type: 'template', item: x })} style={iconBtn(T.red)}><i className="ti ti-trash" /></button>
+                          <button title="Delete" onClick={() => openDelete({ type: 'template', item: x })} style={iconBtn(T.red)}><i className="ti ti-trash" /></button>
                         </div>
                       </div>
                     )
@@ -442,7 +463,7 @@ export default function TemplatesTool({ T, cardStyle, selectStyle, userName, sit
                           <button title="Print / save PDF" onClick={() => quickDownload(r, 'pdf')} disabled={busyId === r.id} style={iconBtn(T.textSecondary)}><i className="ti ti-file-type-pdf" /></button>
                           <button title="Download Excel" onClick={() => quickDownload(r, 'xlsx')} disabled={busyId === r.id} style={iconBtn(T.textSecondary)}><i className="ti ti-file-spreadsheet" /></button>
                           <button title="Make a copy" onClick={() => duplicateReport(r)} disabled={busyId === r.id} style={iconBtn(T.textSecondary)}><i className="ti ti-copy" /></button>
-                          <button title="Delete" onClick={() => setConfirmDel({ type: 'report', item: r })} style={iconBtn(T.red)}><i className="ti ti-trash" /></button>
+                          <button title="Delete" onClick={() => openDelete({ type: 'report', item: r })} style={iconBtn(T.red)}><i className="ti ti-trash" /></button>
                         </div>
                       </td>
                     </tr>
@@ -530,17 +551,25 @@ export default function TemplatesTool({ T, cardStyle, selectStyle, userName, sit
 
       {/* Delete confirmation */}
       {confirmDel && (
-        <div onClick={() => setConfirmDel(null)} style={overlay}>
+        <div onClick={() => !delChecking && setConfirmDel(null)} style={overlay}>
           <div onClick={e => e.stopPropagation()} style={{ ...cardStyle, background: T.bgPanel, width: 'min(420px, 100%)', padding: '20px 22px' }}>
             <div style={{ fontSize: '15px', fontWeight: 800, color: T.textPrimary, marginBottom: '8px' }}>Delete {confirmDel.type === 'report' ? 'report' : 'template'}?</div>
             <div style={{ fontSize: '13px', color: T.textSecondary, lineHeight: 1.5 }}>
               <b>{confirmDel.item.title || confirmDel.item.name}</b> will be removed for everyone. This cannot be undone.
               {confirmDel.type === 'template' && confirmDel.item.content_html != null && ' Reports already filled in from it are kept.'}
             </div>
+            <label style={{ display: 'block', marginTop: '14px' }}>
+              <div style={labelStyle}>Your portal password</div>
+              <input type="password" autoFocus autoComplete="current-password" value={delPw}
+                onChange={e => { setDelPw(e.target.value); setDelErr('') }}
+                onKeyDown={e => { if (e.key === 'Enter') confirmDelete() }}
+                placeholder="Enter your password to confirm" style={inp} />
+            </label>
+            {delErr && <div style={{ marginTop: '8px', fontSize: '12px', color: T.red, fontWeight: 600 }}>{delErr}</div>}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '18px' }}>
               <button onClick={() => setConfirmDel(null)} style={ghost}>Cancel</button>
-              <button onClick={() => (confirmDel.type === 'report' ? removeReport(confirmDel.item) : removeTemplate(confirmDel.item))} disabled={busyId === confirmDel.item.id} style={btn(T.red)}>
-                <i className="ti ti-trash" />{busyId === confirmDel.item.id ? 'Deleting…' : 'Delete'}
+              <button onClick={confirmDelete} disabled={delChecking || busyId === confirmDel.item.id || !delPw} style={{ ...btn(T.red), opacity: delChecking || !delPw ? 0.6 : 1 }}>
+                <i className="ti ti-lock" />{delChecking ? 'Checking…' : busyId === confirmDel.item.id ? 'Deleting…' : 'Delete'}
               </button>
             </div>
           </div>
