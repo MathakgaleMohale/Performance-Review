@@ -9,6 +9,7 @@ import CableSizingTool from './CableSizingTool'
 import BoqTool from './BoqTool'
 import TemplatesTool from './TemplatesTool'
 import DocumentLibrary from './DocumentLibrary'
+import ProjectsTool from './ProjectsTool'
 
 // Parses semicolon-delimited CSV with quoted multiline fields
 function parseCSV(text) {
@@ -2852,6 +2853,7 @@ export default function DashboardPage() {
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '18px', width: '100%' }}>
                 {[
+                  { id: 'projects', icon: 'ti-briefcase', label: 'Projects', desc: 'Site visit to handover: notes, checklists, files & linked records per project', accent: T.blue },
                   { id: 'quote', icon: 'ti-calculator', label: 'Quote Tool', desc: 'Build and price a customer quote', accent: T.blue },
                   { id: 'design', icon: 'ti-layout-grid', label: 'Design Pack Generator', desc: 'Generate a site design pack', accent: T.green },
                   { id: 'inventory', icon: 'ti-package', label: 'Equipment Inventory', desc: 'Manage equipment, specs & costs', accent: T.orange },
@@ -2888,7 +2890,7 @@ export default function DashboardPage() {
                   <i className="ti ti-arrow-left" />Back to Engineering Tools
                 </button>
                 <span style={{ fontSize: '16px', fontWeight: 800, color: T.textWhite }}>
-                  {engTool === 'quote' ? 'Quote Tool' : engTool === 'design' ? 'Design Pack Generator' : engTool === 'cable' ? 'Cable Sizing Calculator' : engTool === 'boq' ? 'BOQ / Costing Generator' : engTool === 'templates' ? 'Engineering Templates' : engTool === 'library' ? 'Document Library' : 'Equipment Inventory'}
+                  {engTool === 'quote' ? 'Quote Tool' : engTool === 'design' ? 'Design Pack Generator' : engTool === 'cable' ? 'Cable Sizing Calculator' : engTool === 'boq' ? 'BOQ / Costing Generator' : engTool === 'templates' ? 'Engineering Templates' : engTool === 'library' ? 'Document Library' : engTool === 'projects' ? 'Projects' : 'Equipment Inventory'}
                 </span>
               </div>
 
@@ -2905,6 +2907,8 @@ export default function DashboardPage() {
                 <CableSizingTool T={T} cardStyle={cardStyle} selectStyle={selectStyle} />
               ) : engTool === 'templates' ? (
                 <TemplatesTool T={T} cardStyle={cardStyle} selectStyle={selectStyle} userName={user?.full_name || user?.email || ''} sites={sites} />
+              ) : engTool === 'projects' ? (
+                <ProjectsTool T={T} cardStyle={cardStyle} selectStyle={selectStyle} userName={user?.full_name || user?.email || ''} sites={sites} />
               ) : engTool === 'library' ? (
                 <DocumentLibrary T={T} cardStyle={cardStyle} selectStyle={selectStyle} userName={user?.full_name || user?.email || ''} />
               ) : engTool === 'boq' ? (
