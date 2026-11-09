@@ -60,7 +60,8 @@ const expiryState = d => {
   return 'valid'
 }
 
-export default function DocumentLibrary({ T, cardStyle, selectStyle, userName }) {
+// Project mode (opened from a project): project, linkedIds (ids already in the project) and onAddToProject(doc)
+export default function DocumentLibrary({ T, cardStyle, selectStyle, userName, project, linkedIds = [], onAddToProject }) {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -272,6 +273,12 @@ export default function DocumentLibrary({ T, cardStyle, selectStyle, userName })
       onDrop={e => { if (modal || loadError) return; e.preventDefault(); setDragOver(false); openAdd(e.dataTransfer.files) }}
       style={{ position: 'relative' }}>
 
+      {project && (
+        <div style={{ ...cardStyle, padding: '10px 14px', marginBottom: '12px', borderLeft: `3px solid ${T.blue}`, fontSize: '12px', color: T.textSecondary }}>
+          <i className="ti ti-briefcase" style={{ color: T.blue }} /> Adding documents to <b>{project.name}</b>. Click <b>Add to project</b> on any datasheet, certificate, manual or warranty; it is included when you compile the project archive.
+        </div>
+      )}
+
       {/* Type chips */}
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
         <button onClick={() => setType('All')} style={chip(type === 'All')}><i className="ti ti-books" />All <span style={{ opacity: 0.8 }}>{items.length}</span></button>
@@ -360,6 +367,9 @@ export default function DocumentLibrary({ T, cardStyle, selectStyle, userName })
                   {expiryBadge(x)}
                 </div>
                 <div style={{ display: 'flex', gap: '5px', marginLeft: 'auto' }}>
+                  {onAddToProject && (linkedIds.includes(x.id)
+                    ? <span style={{ ...badge(T.green), padding: '5px 9px' }}><i className="ti ti-check" />In project</span>
+                    : <button onClick={() => onAddToProject(x)} style={{ ...iconBtn(T.blue), fontWeight: 700, fontSize: '11px' }} title="Add to project"><i className="ti ti-briefcase" />Add to project</button>)}
                   <button onClick={() => viewDoc(x)} disabled={busyId === x.id} style={iconBtn(T.blue)} title="Open"><i className="ti ti-eye" /></button>
                   <button onClick={() => downloadDoc(x)} disabled={busyId === x.id} style={iconBtn(T.green)} title="Download"><i className="ti ti-download" /></button>
                   <button onClick={() => openEdit(x)} style={iconBtn(T.textSecondary)} title="Edit details"><i className="ti ti-pencil" /></button>

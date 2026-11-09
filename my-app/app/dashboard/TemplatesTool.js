@@ -51,7 +51,10 @@ const bumpVersion = v => {
 }
 const reportTitle = (site, name, date) => [site, name, fmtDate(date)].filter(Boolean).join(' – ')
 
-export default function TemplatesTool({ T, cardStyle, selectStyle, userName, sites = [] }) {
+// Project mode (opened from Engineering Tools → Projects):
+//   project: { name, site_name } pre-fills the site for new reports; onReportCreated(report) lets the project link it;
+//   openReportId opens that report straight away; onExit is called when a report is closed, to return to the project.
+export default function TemplatesTool({ T, cardStyle, selectStyle, userName, sites = [], project, onReportCreated, openReportId, onExit }) {
   const [view, setView] = useState('library') // library | reports
   const [items, setItems] = useState([])
   const [reports, setReports] = useState([])
@@ -85,6 +88,7 @@ export default function TemplatesTool({ T, cardStyle, selectStyle, userName, sit
     setLoading(false)
   }
   useEffect(() => { load() }, [])
+  useEffect(() => { if (openReportId) openReport({ id: openReportId }) }, [openReportId]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(''), 3500); return () => clearTimeout(t) }, [toast])
 
   const siteNames = useMemo(() => [...new Set((sites || []).map(s => (typeof s === 'string' ? s : s?.name)).filter(Boolean).map(s => s.trim()))].sort((a, b) => a.localeCompare(b)), [sites])
@@ -210,7 +214,7 @@ export default function TemplatesTool({ T, cardStyle, selectStyle, userName, sit
   }
   function startReport(x) {
     if (!docsReady) { setToast('Run supabase/template_documents.sql in Supabase first to save reports.'); return }
-    setNewReport({ template: x, site: '', date: today(), saving: false, error: '' })
+    setNewReport({ template: x, site: (project?.site_name || project?.name || '').trim(), date: today(), saving: false, error: '' })
   }
   async function createReport() {
     const nr = newReport
@@ -226,6 +230,7 @@ export default function TemplatesTool({ T, cardStyle, selectStyle, userName, sit
     const { data, error } = await supabase.from(REPORTS).insert([row]).select().single()
     if (error) { setNewReport(v => ({ ...v, saving: false, error: error.message })); return }
     setNewReport(null)
+    if (onReportCreated) { try { await onReportCreated(data) } catch (e) { /* ignore */ } }
     setDoc({ kind: 'report', id: data.id, title: data.title, site: data.site_name, date: data.report_date || '', status: data.status, templateName: data.template_name, html: data.content_html, updatedAt: data.updated_at })
     load()
   }
@@ -305,12 +310,17 @@ export default function TemplatesTool({ T, cardStyle, selectStyle, userName, sit
   if (doc) {
     return (
       <DocumentView key={doc.id} doc={doc} T={T} cardStyle={cardStyle} selectStyle={selectStyle} userName={userName} siteNames={siteNames}
-        uploadImage={uploadImage} onClose={() => { setDoc(null); load() }} btn={btn} ghost={ghost} labelStyle={labelStyle} inp={inp} />
+        uploadImage={uploadImage} onClose={() => { setDoc(null); load(); if (project && onExit) onExit() }} btn={btn} ghost={ghost} labelStyle={labelStyle} inp={inp} />
     )
   }
 
   return (
     <div>
+      {project && (
+        <div style={{ ...cardStyle, padding: '10px 14px', marginBottom: '12px', borderLeft: `3px solid ${T.blue}`, fontSize: '12px', color: T.textSecondary }}>
+          <i className="ti ti-briefcase" style={{ color: T.blue }} /> Working in project <b>{project.name}</b>. Pick a template and click <b>Fill in for a site</b>: the site is filled in for you and the report is linked to the project.
+        </div>
+      )}
       <div style={{ display: 'flex', gap: '4px', borderBottom: `1px solid ${T.border}`, marginBottom: '14px' }}>
         <button onClick={() => setView('library')} style={tabBtn(view === 'library')}><i className="ti ti-folders" />Templates <span style={{ fontWeight: 600, color: T.textMuted }}>{items.length}</span></button>
         <button onClick={() => setView('reports')} style={tabBtn(view === 'reports')}><i className="ti ti-file-check" />Completed reports <span style={{ fontWeight: 600, color: T.textMuted }}>{reports.length}</span></button>

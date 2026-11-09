@@ -202,6 +202,7 @@ export async function exportDocx(docJson, meta = {}) {
     }],
   })
   const blob = await Packer.toBlob(doc)
+  if (meta.returnBlob) return blob // used by the project archive (Projects → Download archive)
   saveBlob(blob, `${safeFileName(meta.fileName || meta.title)}.docx`)
 }
 

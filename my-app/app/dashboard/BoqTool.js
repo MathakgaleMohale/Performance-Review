@@ -98,7 +98,7 @@ export function calcBoq(state) {
 }
 
 // ── Print document (A4 portrait). mode: 'boq' (quantities only, no prices) | 'quote' (selling prices) | 'internal' (cost, markup, profit) ──
-function buildPrintHtml(state, r, mode) {
+export function buildPrintHtml(state, r, mode) {
   const p = state.project
   const s = state.settings
   const internal = mode === 'internal'
@@ -204,7 +204,7 @@ ${boq
 }
 
 // ── Excel (three sheets: BOQ – quantities only, Quote – selling prices, Internal Costing – live formulas) ──
-async function buildExcel(state, r) {
+export async function buildExcel(state, r) {
   const ExcelJS = (await import('exceljs/dist/exceljs.min.js')).default
   const wb = new ExcelJS.Workbook()
   wb.creator = 'Sosimple Energy Portal'
@@ -497,7 +497,8 @@ async function buildExcel(state, r) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-export default function BoqTool({ T, cardStyle, selectStyle, equipment = [], equipmentLoading = false, onLoadEquipment }) {
+// initialState / onStateChange: used by Projects to load and save a project's BOQ instead of this browser's draft
+export default function BoqTool({ T, cardStyle, selectStyle, equipment = [], equipmentLoading = false, onLoadEquipment, initialState, onStateChange }) {
   const [state, setState] = useState(DEFAULT_STATE)
   const [loaded, setLoaded] = useState(false)
   const [picker, setPicker] = useState(null) // { search, category, qty: {id: n} }
@@ -511,9 +512,9 @@ export default function BoqTool({ T, cardStyle, selectStyle, equipment = [], equ
 
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY)
-      if (raw) {
-        const saved = JSON.parse(raw)
+      const raw = initialState ? null : localStorage.getItem(STORAGE_KEY)
+      if (initialState || raw) {
+        const saved = initialState || JSON.parse(raw)
         if (saved && saved.project && Array.isArray(saved.lines)) {
           setState({
             project: { ...blankProject(), ...saved.project },
@@ -528,8 +529,9 @@ export default function BoqTool({ T, cardStyle, selectStyle, equipment = [], equ
   }, [])
   useEffect(() => {
     if (!loaded) return
+    if (onStateChange) { onStateChange(state); return }
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)) } catch (e) { /* ignore */ }
-  }, [state, loaded])
+  }, [state, loaded]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const r = useMemo(() => calcBoq(state), [state])
   const allSections = [...BOQ_SECTIONS, ...(state.extraSections || [])]
@@ -846,7 +848,7 @@ export default function BoqTool({ T, cardStyle, selectStyle, equipment = [], equ
       </div>
 
       <div style={{ fontSize: '11px', color: T.textMuted, marginTop: '10px', lineHeight: 1.6 }}>
-        Your BOQ draft is kept in this browser until you reset it. Download Excel gives three sheets: “BOQ” (items and quantities only, no prices), “Quote” (selling prices and totals) and “Internal Costing” (cost, markup, profit – live formulas). Print BOQ has no prices; Print quote is for the client; Print costing is internal.
+        {onStateChange ? 'This BOQ is saved to the project automatically.' : 'Your BOQ draft is kept in this browser until you reset it.'} Download Excel gives three sheets: “BOQ” (items and quantities only, no prices), “Quote” (selling prices and totals) and “Internal Costing” (cost, markup, profit – live formulas). Print BOQ has no prices; Print quote is for the client; Print costing is internal.
       </div>
 
       {/* Inventory picker */}

@@ -240,7 +240,7 @@ export default function ProjectsTool({ T, cardStyle, selectStyle, userName, site
   if (openProject) {
     return (
       <>
-        <ProjectPage key={openProject.id} project={openProject} T={T} cardStyle={cardStyle} selectStyle={selectStyle} userName={userName}
+        <ProjectPage key={openProject.id} project={openProject} T={T} cardStyle={cardStyle} selectStyle={selectStyle} userName={userName} sites={sites}
           onBack={() => { setOpenId(null); load() }} onEdit={() => openEdit(openProject)} onDelete={() => { setDelPw(''); setDelErr(''); setDelProject(openProject) }}
           onMoveStage={s => moveStage(openProject, s)} onChanged={load} />
         {modals}

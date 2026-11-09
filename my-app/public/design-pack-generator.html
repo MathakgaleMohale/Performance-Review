@@ -1689,6 +1689,8 @@
       document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(url), 4000);
       setStatus(`Design pack downloaded as "${filename}".`, "ok");
+      // Opened from a project (Engineering Tools → Projects): hand the PDF to the project so it is saved there too
+      if (window.parent !== window) { try { window.parent.postMessage({ type: "sos-design-pack:compiled", filename, blob }, location.origin); } catch (e) { /* ignore */ } }
     } catch (err) {
       setStatus("Couldn't start the download — check your browser's download settings.", "err");
     }
@@ -1723,6 +1725,17 @@
 
   render();
   buildLibrarySections();
+  // ---- Projects bridge: pre-fill project information when opened from a project ----
+  window.addEventListener("message", (e) => {
+    if (e.origin !== location.origin) return;
+    const m = e.data || {};
+    if (m.type !== "sos-design-pack:prefill" || !m.project) return;
+    Object.entries(m.project).forEach(([k, v]) => {
+      const inp = document.querySelector(`#projectGrid input[data-key="${k}"]`);
+      if (inp && v != null && v !== "" && !inp.value) { inp.value = String(v); project[k] = String(v); }
+    });
+  });
+  if (window.parent !== window) { try { window.parent.postMessage({ type: "sos-design-pack:ready" }, location.origin); } catch (e) { /* ignore */ } }
 })();
 </script>
 </body>

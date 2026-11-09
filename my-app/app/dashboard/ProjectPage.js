@@ -6,6 +6,9 @@ import { supabase } from '@/lib/supabase'
 import {
   STAGES, STAGE_META, STAGE_STATUSES, fmtDate, fmtShort, fmtSize, safeName, isOverdue, uiStyles, statusColor,
 } from './projectConfig'
+import { WorkItemsCard, ToolView, WORK_KINDS, newItemData, nextTitle, bumpTitle, EmbedBar, DesignPackView } from './ProjectWork'
+const TemplatesTool = dynamic(() => import('./TemplatesTool'), { ssr: false, loading: () => <div style={{ padding: 40, textAlign: 'center', fontSize: 13, color: '#8698ad' }}>Loading templates…</div> })
+const DocumentLibrary = dynamic(() => import('./DocumentLibrary'), { ssr: false, loading: () => <div style={{ padding: 40, textAlign: 'center', fontSize: 13, color: '#8698ad' }}>Loading library…</div> })
 
 // Same rich-text editor as Engineering Templates, loaded only when a project is opened
 const DocEditor = dynamic(() => import('./DocEditor'), { ssr: false, loading: () => <div style={{ padding: 30, textAlign: 'center', fontSize: 13, color: '#8698ad' }}>Loading editor…</div> })
@@ -16,7 +19,7 @@ const MAX_MB = 100
 const isImage = f => /^image\//.test(f.file_type || '') || /\.(png|jpe?g|gif|webp)$/i.test(f.file_name || '')
 const fileIcon = name => (/\.pdf$/i.test(name) ? ['ti-file-type-pdf', '#D93A3A'] : /\.(xlsx?|csv)$/i.test(name) ? ['ti-file-spreadsheet', '#3F8F2A'] : /\.docx?$/i.test(name) ? ['ti-file-text', '#0B74D7'] : /\.(dwg|dxf)$/i.test(name) ? ['ti-ruler-2', '#505050'] : /\.(png|jpe?g|gif|webp)$/i.test(name) ? ['ti-photo', '#579FE4'] : ['ti-file', '#505050'])
 
-export default function ProjectPage({ project: p, T, cardStyle, selectStyle, userName, onBack, onEdit, onDelete, onMoveStage, onChanged }) {
+export default function ProjectPage({ project: p, T, cardStyle, selectStyle, userName, sites = [], onBack, onEdit, onDelete, onMoveStage, onChanged }) {
   const S = uiStyles(T, selectStyle)
   const [stage, setStage] = useState(STAGES.includes(p.stage) ? p.stage : STAGES[0])
   const [stages, setStages] = useState({}) // stage -> row
@@ -33,21 +36,35 @@ export default function ProjectPage({ project: p, T, cardStyle, selectStyle, use
   const [uploading, setUploading] = useState('')
   const [picker, setPicker] = useState(null) // { type: 'template_report'|'library_doc', search }
   const [confirmFile, setConfirmFile] = useState(null)
+  const [items, setItems] = useState([])          // BOQs & cable schedules (without data)
+  const [itemsReady, setItemsReady] = useState(true)
+  const [openItem, setOpenItem] = useState(null)
+  const [archive, setArchive] = useState(null) // { zip, pdf, save, busy, progress, result, error }
+  const [embed, setEmbed] = useState(null) // { kind: 'design' | 'templates' | 'library', openReportId?, stage }
+  const [confirmItem, setConfirmItem] = useState(null)
+  const NOTES_KEY = 'sos-project-notes-open'
+  const [notesOpen, setNotesOpen] = useState(true)
   const [toast, setToast] = useState('')
   const pending = useRef(null) // { stage, html }
   const timer = useRef(null)
   const fileRef = useRef(null)
 
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(''), 3500); return () => clearTimeout(t) }, [toast])
+  useEffect(() => { try { if (localStorage.getItem(NOTES_KEY) === '0') setNotesOpen(false) } catch (e) { /* ignore */ } }, [])
+  async function toggleNotes() {
+    if (notesOpen) await flushNotes()
+    setNotesOpen(o => { try { localStorage.setItem(NOTES_KEY, o ? '0' : '1') } catch (e) { /* ignore */ } return !o })
+  }
 
   async function load() {
-    const [st, tk, fl, lk, rp, dc] = await Promise.all([
+    const [st, tk, fl, lk, rp, dc, it] = await Promise.all([
       supabase.from('project_stages').select('*').eq('project_id', p.id),
       supabase.from('project_tasks').select('*').eq('project_id', p.id).order('sort').order('created_at'),
       supabase.from('project_files').select('*').eq('project_id', p.id).order('created_at', { ascending: false }),
       supabase.from('project_links').select('*').eq('project_id', p.id).order('created_at'),
       supabase.from('template_reports').select('id, title, site_name, template_name, status, report_date, updated_at').order('updated_at', { ascending: false }),
       supabase.from('engineering_documents').select('id, title, doc_type, brand, category, file_path, file_url, file_name').order('title'),
+      supabase.from('project_items').select('id, project_id, stage, kind, title, created_by, updated_by, created_at, updated_at').eq('project_id', p.id).order('created_at'),
     ])
     const err = st.error || tk.error || fl.error || lk.error
     if (err) { setError(err.message); setLoading(false); return }
@@ -57,6 +74,8 @@ export default function ProjectPage({ project: p, T, cardStyle, selectStyle, use
     setLinks(lk.data || [])
     setReports(rp.error ? null : rp.data || [])
     setDocs(dc.error ? null : dc.data || [])
+    setItemsReady(!it.error)
+    setItems(it.error ? [] : it.data || [])
     setLoading(false)
     const imgs = (fl.data || []).filter(isImage).map(f => f.file_path)
     if (imgs.length) {
@@ -211,6 +230,78 @@ export default function ProjectPage({ project: p, T, cardStyle, selectStyle, use
   const siteKey = (p.site_name || '').trim().toLowerCase()
   const suggestedReports = useMemo(() => (reports || []).filter(r => siteKey && (r.site_name || '').trim().toLowerCase() === siteKey && !links.some(l => l.link_type === 'template_report' && l.ref_id === r.id)), [reports, links, siteKey])
 
+  // ── engineering work (BOQs & cable schedules) ──
+  async function createItem(kind) {
+    const row = { project_id: p.id, stage, kind, title: nextTitle(kind, items), data: newItemData(kind, p, userName), created_by: userName || null, updated_by: userName || null }
+    const { data, error: e } = await supabase.from('project_items').insert([row]).select('id, project_id, stage, kind, title, created_by, updated_by, created_at, updated_at').single()
+    if (e) { setToast(`Could not create: ${e.message}`); return }
+    setItems(l => [...l, data]); await flushNotes(); setOpenItem(data)
+  }
+  async function duplicateItem(i) {
+    const { data: src, error: e1 } = await supabase.from('project_items').select('data').eq('id', i.id).single()
+    if (e1) { setToast(`Could not copy: ${e1.message}`); return }
+    const d = JSON.parse(JSON.stringify(src.data || {}))
+    if (d.project && typeof d.project.revision === 'string' && /^\d+$/.test(d.project.revision)) d.project.revision = String(Number(d.project.revision) + 1).padStart(d.project.revision.length, '0')
+    const { data, error: e } = await supabase.from('project_items').insert([{ project_id: p.id, stage: i.stage, kind: i.kind, title: bumpTitle(i.title, items), data: d, created_by: userName || null, updated_by: userName || null }])
+      .select('id, project_id, stage, kind, title, created_by, updated_by, created_at, updated_at').single()
+    if (e) { setToast(`Could not copy: ${e.message}`); return }
+    setItems(l => [...l, data]); setToast(`${data.title} created`)
+  }
+  async function deleteItem(i) {
+    const { error: e } = await supabase.from('project_items').delete().eq('id', i.id)
+    setConfirmItem(null)
+    if (e) setToast(`Delete failed: ${e.message}`); else { setItems(l => l.filter(x => x.id !== i.id)); setToast(`${i.title} deleted`) }
+  }
+
+  // ── compiled archive (ZIP + merged PDF) ──
+  const saveBlobAs = (blob, name) => { const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000) }
+  async function buildArchive() {
+    const opt = archive
+    if (!opt.zip && !opt.pdf) { setArchive(a => ({ ...a, error: 'Choose the ZIP, the PDF or both.' })); return }
+    await flushNotes()
+    setArchive(a => ({ ...a, busy: true, error: '', result: null, progress: 'Starting…' }))
+    try {
+      const { buildProjectArchive } = await import('./projectArchive')
+      const res = await buildProjectArchive(p, { zip: opt.zip, pdf: opt.pdf, userName, onProgress: m => setArchive(a => (a ? { ...a, progress: m } : a)) })
+      if (opt.zip && !res.zipBlob) throw new Error(res.problems.join('; ') || 'The ZIP could not be built')
+      if (opt.pdf && !res.pdfBlob) throw new Error(res.problems.join('; ') || 'The PDF could not be built')
+      if (res.zipBlob) saveBlobAs(res.zipBlob, res.zipName)
+      if (res.pdfBlob) setTimeout(() => saveBlobAs(res.pdfBlob, res.pdfName), 600)
+      if (opt.save) {
+        setArchive(a => ({ ...a, progress: 'Saving a copy to the project (Handover → Files)…' }))
+        for (const [blob, name, type] of [[res.zipBlob, res.zipName, 'application/zip'], [res.pdfBlob, res.pdfName, 'application/pdf']]) {
+          if (!blob) continue
+          const path = `${p.id}/Handover/${Date.now()}-${safeName(name)}`
+          const { error: upErr } = await supabase.storage.from(FILES).upload(path, blob, { upsert: false, contentType: type })
+          if (upErr) { res.problems.push(`Saving ${name} to the project: ${upErr.message}`); continue }
+          await supabase.from('project_files').insert([{ project_id: p.id, stage: 'Handover', file_path: path, file_name: name, file_size: blob.size, file_type: type, caption: 'Project archive', uploaded_by: userName || null }])
+        }
+        load()
+      }
+      setArchive(a => ({ ...a, busy: false, progress: '', result: res }))
+    } catch (e) {
+      setArchive(a => ({ ...a, busy: false, progress: '', error: e.message || String(e) }))
+    }
+  }
+
+  // ── tools opened from the project ──
+  async function openEmbed(e) { await flushNotes(); setEmbed({ stage, ...e }) }
+  function closeEmbed() { setEmbed(null); load() }
+  async function saveDesignPack(filename, blob) {
+    const st = 'Design'
+    const path = `${p.id}/${safeName(st)}/${Date.now()}-${safeName(filename)}`
+    const { error: upErr } = await supabase.storage.from(FILES).upload(path, blob, { upsert: false, contentType: 'application/pdf' })
+    if (upErr) return false
+    const { error: e } = await supabase.from('project_files').insert([{ project_id: p.id, stage: st, file_path: path, file_name: filename, file_size: blob.size, file_type: 'application/pdf', caption: 'Design pack', uploaded_by: userName || null }])
+    if (e) { await supabase.storage.from(FILES).remove([path]); return false }
+    return true
+  }
+  async function linkRecord(type, rec, st) {
+    const { error: e } = await supabase.from('project_links').insert([{ project_id: p.id, stage: st || stage, link_type: type, ref_id: rec.id, label: rec.title, created_by: userName || null }])
+    if (e && !/duplicate|unique/i.test(e.message)) { setToast(`Could not link: ${e.message}`); return false }
+    return true
+  }
+
   // ── render helpers ──
   const meta = STAGE_META[stage]
   const idx = STAGES.indexOf(stage)
@@ -225,6 +316,42 @@ export default function ProjectPage({ project: p, T, cardStyle, selectStyle, use
   const stepColor = s => (stageStatus(s) === 'Done' ? T.green : stageStatus(s) === 'In progress' ? STAGE_META[s].color : T.textMuted)
 
   if (loading) return <div style={{ ...cardStyle, padding: '50px', textAlign: 'center', color: T.textSecondary, fontSize: '13px' }}>Loading project…</div>
+
+  if (embed?.kind === 'design') {
+    return <DesignPackView project={p} T={T} cardStyle={cardStyle} selectStyle={selectStyle} onBack={closeEmbed} onCompiled={saveDesignPack} />
+  }
+  if (embed?.kind === 'templates') {
+    return (
+      <div>
+        <EmbedBar project={p} icon="ti-folders" color={T.green} title="Checklists & reports (Engineering Templates)" note={`New reports are linked to ${embed.stage}`} T={T} cardStyle={cardStyle} selectStyle={selectStyle} onBack={closeEmbed} />
+        <TemplatesTool T={T} cardStyle={cardStyle} selectStyle={selectStyle} userName={userName} sites={sites} project={p}
+          openReportId={embed.openReportId} onExit={closeEmbed}
+          onReportCreated={r => linkRecord('template_report', r, embed.stage)} />
+      </div>
+    )
+  }
+  if (embed?.kind === 'library') {
+    const linkedIds = links.filter(l => l.link_type === 'library_doc' && l.stage === embed.stage).map(l => l.ref_id)
+    return (
+      <div>
+        <EmbedBar project={p} icon="ti-books" color={T.blue} title="Document Library" note={`Documents are added to ${embed.stage}`} T={T} cardStyle={cardStyle} selectStyle={selectStyle} onBack={closeEmbed} />
+        <DocumentLibrary T={T} cardStyle={cardStyle} selectStyle={selectStyle} userName={userName} project={p} linkedIds={linkedIds}
+          onAddToProject={async d => {
+            if (await linkRecord('library_doc', d, embed.stage)) {
+              setLinks(l => [...l, { id: `tmp-${d.id}`, project_id: p.id, stage: embed.stage, link_type: 'library_doc', ref_id: d.id, label: d.title }])
+            }
+          }} />
+      </div>
+    )
+  }
+
+  if (openItem) {
+    return (
+      <ToolView key={openItem.id} item={openItem} project={p} T={T} cardStyle={cardStyle} selectStyle={selectStyle} S={S} userName={userName}
+        onRenamed={t => setItems(l => l.map(x => (x.id === openItem.id ? { ...x, title: t } : x)))}
+        onClose={() => { setOpenItem(null); load() }} />
+    )
+  }
 
   return (
     <div>
@@ -246,6 +373,7 @@ export default function ProjectPage({ project: p, T, cardStyle, selectStyle, use
           {p.description && <div style={{ fontSize: '12px', color: T.textMuted, marginTop: '6px' }}>{p.description}</div>}
         </div>
         <div style={{ display: 'flex', gap: '6px' }}>
+          <button onClick={() => setArchive({ zip: true, pdf: true, save: false, busy: false, progress: '', result: null, error: '' })} style={S.btn(T.blue)} title="Compile everything in this project into a ZIP and a merged PDF"><i className="ti ti-file-zip" />Download archive</button>
           <button onClick={onEdit} style={S.ghost}><i className="ti ti-pencil" />Edit details</button>
           <button onClick={onDelete} style={S.iconBtn(T.red)} title="Delete project"><i className="ti ti-trash" /></button>
         </div>
@@ -299,12 +427,19 @@ export default function ProjectPage({ project: p, T, cardStyle, selectStyle, use
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: '14px', alignItems: 'start' }}>
         {/* Notes */}
         <div style={{ ...cardStyle, padding: '16px', gridColumn: '1 / -1', minWidth: 0 }}>
-          {sectionTitle('ti-notes', 'Notes', (
-            <span style={{ marginLeft: 'auto', fontSize: '11px', color: saveState === 'error' ? T.red : T.textMuted }}>
-              {saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? <><i className="ti ti-check" /> Saved</> : saveState === 'error' ? 'Not saved' : 'Saved automatically'}
+          <div onClick={toggleNotes} style={{ display: 'flex', alignItems: 'center', gap: '7px', cursor: 'pointer', marginBottom: notesOpen ? '12px' : 0, userSelect: 'none' }} title={notesOpen ? 'Hide notes' : 'Show notes'}>
+            <i className={`ti ${notesOpen ? 'ti-chevron-down' : 'ti-chevron-right'}`} style={{ color: T.textMuted, fontSize: '15px' }} />
+            <i className="ti ti-notes" style={{ color: T.blue, fontSize: '15px' }} />
+            <span style={{ fontSize: '13px', fontWeight: 800, color: T.textPrimary }}>Notes</span>
+            {!notesOpen && (() => {
+              const txt = (stages[stage]?.notes_html || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim()
+              return <span style={{ fontSize: '12px', color: T.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{txt ? `— ${txt}` : '— no notes yet'}</span>
+            })()}
+            <span style={{ marginLeft: 'auto', fontSize: '11px', color: saveState === 'error' ? T.red : T.textMuted, whiteSpace: 'nowrap' }}>
+              {notesOpen ? (saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? <><i className="ti ti-check" /> Saved</> : saveState === 'error' ? 'Not saved' : 'Saved automatically') : 'Show'}
             </span>
-          ))}
-          <DocEditor key={stage} T={T} content={stages[stage]?.notes_html || ''} onChange={onNotesChange} onImageUpload={uploadNoteImage} />
+          </div>
+          {notesOpen && <DocEditor key={stage} T={T} content={stages[stage]?.notes_html || ''} onChange={onNotesChange} onImageUpload={uploadNoteImage} />}
         </div>
 
         {/* Checklist */}
@@ -333,6 +468,11 @@ export default function ProjectPage({ project: p, T, cardStyle, selectStyle, use
             <button onClick={addTask} style={S.iconBtn(T.blue)} title="Add task"><i className="ti ti-plus" /></button>
           </div>
         </div>
+
+        {/* Engineering work: BOQs & cable schedules */}
+        <WorkItemsCard items={items} stage={stage} ready={itemsReady} T={T} cardStyle={cardStyle} S={S}
+          onOpen={async i => { await flushNotes(); setOpenItem(i) }} onCreate={createItem} onDuplicate={duplicateItem} onDelete={i => setConfirmItem(i)}
+          designPacks={files.filter(f => f.caption === 'Design pack')} onDesignPack={() => openEmbed({ kind: 'design' })} onOpenFile={openFile} />
 
         {/* Files & photos */}
         <div style={{ ...cardStyle, padding: '16px', minWidth: 0 }}
@@ -375,37 +515,37 @@ export default function ProjectPage({ project: p, T, cardStyle, selectStyle, use
           )}
         </div>
 
-        {/* Linked records */}
+        {/* Checklists & reports (Engineering Templates) */}
         <div style={{ ...cardStyle, padding: '16px', minWidth: 0 }}>
-          {sectionTitle('ti-link', 'Linked records', (
+          {sectionTitle('ti-file-check', 'Checklists & reports', (
             <div style={{ marginLeft: 'auto', display: 'flex', gap: '5px' }}>
-              <button onClick={() => setPicker({ type: 'template_report', search: '' })} disabled={reports === null} style={S.iconBtn(T.blue)} title={reports === null ? 'Engineering Templates is not set up' : 'Link a completed template report'}><i className="ti ti-file-check" />Report</button>
-              <button onClick={() => setPicker({ type: 'library_doc', search: '' })} disabled={docs === null} style={S.iconBtn(T.blue)} title={docs === null ? 'Document Library is not set up' : 'Link a Document Library file'}><i className="ti ti-books" />Library doc</button>
+              <button onClick={() => openEmbed({ kind: 'templates' })} disabled={reports === null} style={{ ...S.iconBtn(T.blue), opacity: reports === null ? 0.5 : 1 }} title="Fill in a template (QC, commissioning, site visit…) for this project"><i className="ti ti-plus" />Fill in checklist</button>
+              <button onClick={() => setPicker({ type: 'template_report', search: '' })} disabled={reports === null} style={{ ...S.iconBtn(T.textSecondary), opacity: reports === null ? 0.5 : 1 }} title="Link a report that already exists"><i className="ti ti-link" /></button>
             </div>
           ))}
-          {stageLinks.length === 0 && <div style={{ fontSize: '12px', color: T.textMuted, marginBottom: '8px' }}>Link completed reports from Engineering Templates (e.g. QC or commissioning sheets) and datasheets, certificates or warranties from the Document Library.</div>}
-          {stageLinks.map(l => {
+          {reports === null && <div style={{ fontSize: '12px', color: T.textSecondary, borderLeft: `3px solid ${T.orange}`, paddingLeft: '10px' }}>Engineering Templates is not set up yet (supabase/engineering_templates.sql and template_documents.sql).</div>}
+          {reports !== null && stageLinks.filter(l => l.link_type === 'template_report').length === 0 && (
+            <div style={{ fontSize: '12px', color: T.textMuted, marginBottom: '8px' }}>Fill in QC, commissioning or site-visit checklists from your Engineering Templates. They open here, save to the project and download as Word or PDF.</div>
+          )}
+          {stageLinks.filter(l => l.link_type === 'template_report').map(l => {
             const rec = resolve(l)
-            const isRep = l.link_type === 'template_report'
             return (
               <div key={l.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 0', borderBottom: `1px solid ${T.border}` }}>
-                <i className={`ti ${isRep ? 'ti-file-check' : 'ti-books'}`} style={{ color: isRep ? T.green : T.blue, fontSize: '17px' }} />
+                <i className="ti ti-file-check" style={{ color: T.green, fontSize: '17px' }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div onClick={() => !isRep && openLibraryDoc(rec)} style={{ fontSize: '12px', fontWeight: 600, color: rec ? T.textPrimary : T.textMuted, cursor: !isRep && rec ? 'pointer' : 'default', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {rec?.title || l.label || 'Record'}{!rec && ' (deleted)'}
+                  <div onClick={() => rec && openEmbed({ kind: 'templates', openReportId: rec.id })} style={{ fontSize: '12px', fontWeight: 600, color: rec ? T.textPrimary : T.textMuted, cursor: rec ? 'pointer' : 'default', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {rec?.title || l.label || 'Report'}{!rec && ' (deleted)'}
                   </div>
-                  <div style={{ fontSize: '10px', color: T.textMuted }}>
-                    {isRep ? ['Template report', rec?.template_name, rec?.status, rec?.report_date ? fmtShort(rec.report_date) : null].filter(Boolean).join(' · ') + ' · open it in Engineering Templates'
-                      : ['Library', rec?.doc_type, rec?.brand].filter(Boolean).join(' · ')}
-                  </div>
+                  <div style={{ fontSize: '10px', color: T.textMuted }}>{[rec?.template_name, rec?.status, rec?.report_date ? fmtShort(rec.report_date) : null].filter(Boolean).join(' · ')}</div>
                 </div>
-                <button onClick={() => removeLink(l)} title="Unlink" style={{ background: 'transparent', border: 'none', color: T.textMuted, cursor: 'pointer' }}><i className="ti ti-unlink" /></button>
+                {rec && <button onClick={() => openEmbed({ kind: 'templates', openReportId: rec.id })} style={S.iconBtn(T.blue)} title="Open, edit & download (Word / PDF)"><i className="ti ti-external-link" /></button>}
+                <button onClick={() => removeLink(l)} title="Unlink from project (the report itself is kept)" style={{ background: 'transparent', border: 'none', color: T.textMuted, cursor: 'pointer' }}><i className="ti ti-unlink" /></button>
               </div>
             )
           })}
           {suggestedReports.length > 0 && (
             <div style={{ marginTop: '12px' }}>
-              <div style={S.labelStyle}>Reports for {p.site_name}</div>
+              <div style={S.labelStyle}>Other reports for {p.site_name}</div>
               {suggestedReports.slice(0, 5).map(r => (
                 <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0' }}>
                   <span style={{ flex: 1, fontSize: '11px', color: T.textSecondary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</span>
@@ -414,6 +554,36 @@ export default function ProjectPage({ project: p, T, cardStyle, selectStyle, use
               ))}
             </div>
           )}
+        </div>
+
+        {/* Documents (Document Library) */}
+        <div style={{ ...cardStyle, padding: '16px', minWidth: 0 }}>
+          {sectionTitle('ti-books', 'Documents', (
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: '5px' }}>
+              <button onClick={() => openEmbed({ kind: 'library' })} disabled={docs === null} style={{ ...S.iconBtn(T.blue), opacity: docs === null ? 0.5 : 1 }} title="Open the Document Library and add documents to this project"><i className="ti ti-books" />Browse library</button>
+              <button onClick={() => setPicker({ type: 'library_doc', search: '' })} disabled={docs === null} style={{ ...S.iconBtn(T.textSecondary), opacity: docs === null ? 0.5 : 1 }} title="Quick search & link"><i className="ti ti-search" /></button>
+            </div>
+          ))}
+          {docs === null && <div style={{ fontSize: '12px', color: T.textSecondary, borderLeft: `3px solid ${T.orange}`, paddingLeft: '10px' }}>The Document Library is not set up yet (supabase/engineering_documents.sql).</div>}
+          {docs !== null && stageLinks.filter(l => l.link_type === 'library_doc').length === 0 && (
+            <div style={{ fontSize: '12px', color: T.textMuted }}>Add the datasheets, certificates, manuals and warranties for the equipment used on this project. They are included in the compiled project archive.</div>
+          )}
+          {stageLinks.filter(l => l.link_type === 'library_doc').map(l => {
+            const rec = resolve(l)
+            return (
+              <div key={l.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 0', borderBottom: `1px solid ${T.border}` }}>
+                <i className="ti ti-file-description" style={{ color: T.blue, fontSize: '17px' }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div onClick={() => openLibraryDoc(rec)} style={{ fontSize: '12px', fontWeight: 600, color: rec ? T.textPrimary : T.textMuted, cursor: rec ? 'pointer' : 'default', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {rec?.title || l.label || 'Document'}{!rec && ' (deleted)'}
+                  </div>
+                  <div style={{ fontSize: '10px', color: T.textMuted }}>{[rec?.doc_type, rec?.category, rec?.brand].filter(Boolean).join(' · ')}</div>
+                </div>
+                {rec && <button onClick={() => openLibraryDoc(rec)} style={S.iconBtn(T.blue)} title="Open"><i className="ti ti-eye" /></button>}
+                <button onClick={() => removeLink(l)} title="Remove from project (the library document is kept)" style={{ background: 'transparent', border: 'none', color: T.textMuted, cursor: 'pointer' }}><i className="ti ti-unlink" /></button>
+              </div>
+            )
+          })}
         </div>
       </div>
 
@@ -452,6 +622,63 @@ export default function ProjectPage({ project: p, T, cardStyle, selectStyle, use
           </div>
         )
       })()}
+
+      {archive && (
+        <div style={S.overlay} onClick={e => { if (e.target === e.currentTarget && !archive.busy) setArchive(null) }}>
+          <div style={{ ...cardStyle, width: '100%', maxWidth: '520px', padding: '22px' }}>
+            <div style={{ fontSize: '16px', fontWeight: 800, color: T.textPrimary, marginBottom: '6px' }}><i className="ti ti-file-zip" style={{ color: T.blue }} /> Download project archive</div>
+            <div style={{ fontSize: '12px', color: T.textSecondary, marginBottom: '14px' }}>Compiles everything in <b>{p.name}</b>, across all 8 stages: notes, checklists, BOQs, cable schedules, design packs, checklist reports, library documents and uploaded files.</div>
+            {[
+              ['zip', 'ZIP archive', 'A cover/summary PDF and checklist Excel, plus a folder per stage (01 Site Visit … 08 Handover) with every file in its original format: Word, Excel, PDF, photos, CAD.'],
+              ['pdf', 'Merged PDF', 'One PDF: cover, contents, stage summary, then each stage\'s checklist, notes, reports, BOQ quotes, cable schedules, design packs, PDFs and photos. Files that can\'t be shown in a PDF are listed at the end.'],
+              ['save', 'Also save a copy in this project', 'Stores the archive under Handover → Files & photos, so it stays with the project.'],
+            ].map(([k, label, desc]) => (
+              <label key={k} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', padding: '9px 0', borderTop: `1px solid ${T.border}`, cursor: archive.busy ? 'default' : 'pointer' }}>
+                <input type="checkbox" checked={!!archive[k]} disabled={archive.busy} onChange={e => setArchive(a => ({ ...a, [k]: e.target.checked }))} style={{ marginTop: '2px', accentColor: T.blue }} />
+                <span><span style={{ fontSize: '13px', fontWeight: 700, color: T.textPrimary }}>{label}</span><br /><span style={{ fontSize: '11px', color: T.textMuted }}>{desc}</span></span>
+              </label>
+            ))}
+            {archive.busy && (
+              <div style={{ marginTop: '12px', fontSize: '12px', color: T.textSecondary, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <i className="ti ti-loader-2" style={{ color: T.blue }} />{archive.progress || 'Working…'}
+              </div>
+            )}
+            {archive.error && <div style={{ marginTop: '12px', fontSize: '12px', color: T.red }}>{archive.error}</div>}
+            {archive.result && (
+              <div style={{ marginTop: '12px', fontSize: '12px', color: T.textSecondary, background: T.bgMuted, borderRadius: '8px', padding: '10px 12px' }}>
+                <div style={{ color: T.green, fontWeight: 700, marginBottom: '6px' }}><i className="ti ti-circle-check" /> Archive ready, your download has started.</div>
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                  {archive.result.zipBlob && <button onClick={() => saveBlobAs(archive.result.zipBlob, archive.result.zipName)} style={S.iconBtn(T.blue)}><i className="ti ti-download" />ZIP ({fmtSize(archive.result.zipBlob.size)})</button>}
+                  {archive.result.pdfBlob && <button onClick={() => saveBlobAs(archive.result.pdfBlob, archive.result.pdfName)} style={S.iconBtn(T.blue)}><i className="ti ti-download" />PDF ({fmtSize(archive.result.pdfBlob.size)})</button>}
+                </div>
+                {archive.result.problems.length > 0 && (
+                  <div style={{ marginTop: '8px', color: T.orange }}>
+                    <b>{archive.result.problems.length} item{archive.result.problems.length === 1 ? '' : 's'} could not be included:</b>
+                    <ul style={{ margin: '4px 0 0 16px', padding: 0 }}>{archive.result.problems.slice(0, 8).map((m, i) => <li key={i}>{m}</li>)}</ul>
+                  </div>
+                )}
+              </div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '16px' }}>
+              <button onClick={() => setArchive(null)} disabled={archive.busy} style={S.ghost}>{archive.result ? 'Close' : 'Cancel'}</button>
+              <button onClick={buildArchive} disabled={archive.busy} style={{ ...S.btn(T.blue), opacity: archive.busy ? 0.6 : 1 }}><i className="ti ti-file-zip" />{archive.busy ? 'Compiling…' : archive.result ? 'Compile again' : 'Compile & download'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmItem && (
+        <div style={S.overlay} onClick={e => { if (e.target === e.currentTarget) setConfirmItem(null) }}>
+          <div style={{ ...cardStyle, width: '100%', maxWidth: '400px', padding: '22px' }}>
+            <div style={{ fontSize: '15px', fontWeight: 800, color: T.textPrimary, marginBottom: '8px' }}>Delete {(WORK_KINDS[confirmItem.kind] || WORK_KINDS.boq).label}?</div>
+            <div style={{ fontSize: '12px', color: T.textSecondary, marginBottom: '16px' }}><b>{confirmItem.title}</b> will be permanently deleted from this project. Download it first if you need a copy.</div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button onClick={() => setConfirmItem(null)} style={S.ghost}>Cancel</button>
+              <button onClick={() => deleteItem(confirmItem)} style={S.btn(T.red)}><i className="ti ti-trash" />Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {confirmFile && (
         <div style={S.overlay} onClick={e => { if (e.target === e.currentTarget) setConfirmFile(null) }}>

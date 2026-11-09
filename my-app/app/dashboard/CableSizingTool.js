@@ -160,7 +160,7 @@ const DC_INPUTS = {
   systemV: ['num'], derating: ['num', null, null, '1.00', 0.01],
 }
 
-function acOutputs(x) {
+export function acOutputs(x) {
   if (!x || x.empty) return {}
   const sizeText = x.size ? (x.runs > 1 ? `${x.runs} × ${x.size}` : `${x.size}`) : x.valid ? (x.sizeLabel || 'Exceeds range') : 'Check inputs'
   return {
@@ -179,7 +179,7 @@ function acOutputs(x) {
     _sizeIsText: !x.size,
   }
 }
-function dcOutputs(x) {
+export function dcOutputs(x) {
   if (!x || x.empty) return {}
   return {
     o_sysV: x.systemV != null ? fmt(x.systemV, 0) : '',
@@ -228,7 +228,8 @@ ${SHEET_CSS}
 
 const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
 
-export default function CableSizingTool({ T, cardStyle, selectStyle }) {
+// initialState / onStateChange: used by Projects to load and save a project's cable schedule instead of this browser's draft
+export default function CableSizingTool({ T, cardStyle, selectStyle, initialState, onStateChange }) {
   const [state, setState] = useState(DEFAULT_STATE)
   const [tab, setTab] = useState('ac')
   const [loaded, setLoaded] = useState(false)
@@ -239,9 +240,9 @@ export default function CableSizingTool({ T, cardStyle, selectStyle }) {
   // Restore / autosave the working draft in this browser
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY)
-      if (raw) {
-        const saved = JSON.parse(raw)
+      const raw = initialState ? null : localStorage.getItem(STORAGE_KEY)
+      if (initialState || raw) {
+        const saved = initialState || JSON.parse(raw)
         if (saved && saved.project && Array.isArray(saved.ac) && Array.isArray(saved.dc)) {
           const legacyEngineer = saved.project.engineer
           setState({
@@ -256,8 +257,9 @@ export default function CableSizingTool({ T, cardStyle, selectStyle }) {
   }, [])
   useEffect(() => {
     if (!loaded) return
+    if (onStateChange) { onStateChange(state); return }
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)) } catch (e) { /* ignore */ }
-  }, [state, loaded])
+  }, [state, loaded]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Other derating, spacing and fault-level inputs were removed from the AC sheet: always use the defaults
   // (Ca = 1.00, touching, short-circuit not checked), even if an older saved draft still holds values.
@@ -543,7 +545,7 @@ export default function CableSizingTool({ T, cardStyle, selectStyle }) {
       </div>
 
       <div style={{ fontSize: '11px', color: T.textMuted, marginTop: '10px', lineHeight: 1.6 }}>
-        Blue cells are inputs; results update as you type. Your draft is kept in this browser until you reset it. Print / PDF prints the AC and DC schedules on A3 landscape (choose “Save as PDF” in the print dialog for a PDF).
+        Blue cells are inputs; results update as you type. {onStateChange ? 'This schedule is saved to the project automatically.' : 'Your draft is kept in this browser until you reset it.'} Print / PDF prints the AC and DC schedules on A3 landscape (choose “Save as PDF” in the print dialog for a PDF).
       </div>
 
       {/* Hidden static copy used for printing */}
