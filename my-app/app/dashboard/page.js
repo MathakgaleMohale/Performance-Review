@@ -8,6 +8,7 @@ import { BW_PROVINCES } from './botswana_provinces'
 import CableSizingTool from './CableSizingTool'
 import BoqTool from './BoqTool'
 import TemplatesTool from './TemplatesTool'
+import DocumentLibrary from './DocumentLibrary'
 
 // Parses semicolon-delimited CSV with quoted multiline fields
 function parseCSV(text) {
@@ -2857,6 +2858,7 @@ export default function DashboardPage() {
                   { id: 'cable', icon: 'ti-plug-connected', label: 'Cable Sizing Calculator', desc: 'Size AC & DC/PV cables to SANS 10142-1', accent: T.yellow },
                   { id: 'boq', icon: 'ti-file-invoice', label: 'BOQ / Costing', desc: 'Build a priced bill of quantities', accent: T.red },
                   { id: 'templates', icon: 'ti-folders', label: 'Engineering Templates', desc: 'Commissioning, testing & O&M templates', accent: T.green },
+                  { id: 'library', icon: 'ti-books', label: 'Document Library', desc: 'Datasheets, certificates, manuals, warranties & compliance docs', accent: T.blue },
                 ].map(tool => (
                   <button key={tool.id} onClick={() => setEngTool(tool.id)}
                     style={{
@@ -2886,7 +2888,7 @@ export default function DashboardPage() {
                   <i className="ti ti-arrow-left" />Back to Engineering Tools
                 </button>
                 <span style={{ fontSize: '16px', fontWeight: 800, color: T.textWhite }}>
-                  {engTool === 'quote' ? 'Quote Tool' : engTool === 'design' ? 'Design Pack Generator' : engTool === 'cable' ? 'Cable Sizing Calculator' : engTool === 'boq' ? 'BOQ / Costing Generator' : engTool === 'templates' ? 'Engineering Templates' : 'Equipment Inventory'}
+                  {engTool === 'quote' ? 'Quote Tool' : engTool === 'design' ? 'Design Pack Generator' : engTool === 'cable' ? 'Cable Sizing Calculator' : engTool === 'boq' ? 'BOQ / Costing Generator' : engTool === 'templates' ? 'Engineering Templates' : engTool === 'library' ? 'Document Library' : 'Equipment Inventory'}
                 </span>
               </div>
 
@@ -2903,6 +2905,8 @@ export default function DashboardPage() {
                 <CableSizingTool T={T} cardStyle={cardStyle} selectStyle={selectStyle} />
               ) : engTool === 'templates' ? (
                 <TemplatesTool T={T} cardStyle={cardStyle} selectStyle={selectStyle} userName={user?.full_name || user?.email || ''} sites={sites} />
+              ) : engTool === 'library' ? (
+                <DocumentLibrary T={T} cardStyle={cardStyle} selectStyle={selectStyle} userName={user?.full_name || user?.email || ''} />
               ) : engTool === 'boq' ? (
                 <BoqTool T={T} cardStyle={cardStyle} selectStyle={selectStyle} equipment={equipment} equipmentLoading={eqLoading} />
               ) : engTool === 'inventory' ? (
