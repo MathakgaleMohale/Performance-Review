@@ -101,6 +101,7 @@ export default async function SiteDetailPage({ params }) {
         {performance?.length === 0 ? (
           <p style={styles.empty}>No performance data available yet.</p>
         ) : (
+          <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', borderRadius: '10px' }}>
           <table style={styles.table}>
             <thead>
               <tr style={styles.thead}>
@@ -125,6 +126,7 @@ export default async function SiteDetailPage({ params }) {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </main>
     </div>
@@ -139,24 +141,24 @@ function getMonthName(monthNumber) {
 
 const styles = {
   page: { minHeight: '100vh', background: '#F5F5F5' },
-  header: { background: '#2E7D32', padding: '0 24px' },
-  headerInner: { maxWidth: '1100px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '24px', height: '60px' },
+  header: { background: '#2E7D32', padding: '0 clamp(12px, 4vw, 24px)' },
+  headerInner: { maxWidth: '1100px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: 'clamp(12px, 4vw, 24px)', height: '60px' },
   back: { color: '#A5D6A7', fontSize: '14px', textDecoration: 'none' },
   brand: { color: '#fff', fontWeight: '700', fontSize: '18px' },
-  main: { maxWidth: '1100px', margin: '0 auto', padding: '32px 24px' },
-  overviewCard: { background: '#fff', borderRadius: '12px', padding: '28px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginBottom: '32px' },
-  overviewTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' },
+  main: { maxWidth: '1100px', margin: '0 auto', padding: 'clamp(16px, 4vw, 32px) clamp(12px, 4vw, 24px)' },
+  overviewCard: { background: '#fff', borderRadius: '12px', padding: 'clamp(16px, 4vw, 28px)', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginBottom: '32px' },
+  overviewTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '10px' },
   siteName: { fontSize: '24px', fontWeight: '700', marginBottom: '4px' },
   siteLocation: { color: '#555', fontSize: '15px' },
   badge: { fontSize: '13px', padding: '4px 14px', borderRadius: '20px', fontWeight: '500', whiteSpace: 'nowrap' },
-  detailsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px' },
+  detailsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 150px), 1fr))', gap: '12px' },
   detailItem: { background: '#F9F9F9', borderRadius: '8px', padding: '14px 16px' },
   detailLabel: { fontSize: '12px', color: '#888', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' },
   detailValue: { fontSize: '15px', fontWeight: '600', color: '#1A1A1A' },
   notes: { marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #F0F0F0' },
   sectionTitle: { fontSize: '20px', fontWeight: '700', marginBottom: '16px' },
   empty: { background: '#fff', borderRadius: '10px', padding: '32px', textAlign: 'center', color: '#666' },
-  table: { width: '100%', borderCollapse: 'collapse', borderRadius: '10px', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' },
+  table: { width: '100%', minWidth: '560px', borderCollapse: 'collapse', borderRadius: '10px', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' },
   thead: { background: '#2E7D32' },
   th: { padding: '12px 16px', textAlign: 'left', color: '#fff', fontSize: '13px', fontWeight: '600' },
   td: { padding: '12px 16px', fontSize: '14px', borderBottom: '1px solid #F0F0F0' },
