@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import ProjectPage from './ProjectPage'
 import {
   STAGES, STAGE_META, PROJECT_STATUSES, STARTER_TASKS, fmtDate, fmtShort, todayISO,
-  setupMessage, uiStyles, statusColor, checkPassword,
+  setupMessage, uiStyles, checkPassword, projectHealth, HEALTH_META, initials,
 } from './projectConfig'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -48,7 +48,7 @@ export default function ProjectsTool({ T, cardStyle, selectStyle, userName, site
 
   async function load() {
     setLoadError('')
-    const { data, error } = await supabase.from('projects').select('*, project_tasks(done)').order('target_date', { ascending: true, nullsFirst: false })
+    const { data, error } = await supabase.from('projects').select('*, project_tasks(done, due_date)').order('target_date', { ascending: true, nullsFirst: false })
     if (error) { setLoadError(setupMessage(error)); setProjects([]) } else setProjects(data || [])
     setLoading(false)
   }
@@ -249,27 +249,6 @@ export default function ProjectsTool({ T, cardStyle, selectStyle, userName, site
   }
 
   // ── list views ──
-  const progressBar = p => {
-    const { done, total } = progress(p)
-    if (!total) return null
-    const pct = Math.round((done / total) * 100)
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px' }}>
-        <div style={{ flex: 1, height: '5px', background: T.bgMuted, borderRadius: '3px', overflow: 'hidden' }}>
-          <div style={{ width: `${pct}%`, height: '100%', background: pct === 100 ? T.green : T.blue }} />
-        </div>
-        <span style={{ fontSize: '10px', color: T.textMuted, whiteSpace: 'nowrap' }}>{done}/{total}</span>
-      </div>
-    )
-  }
-
-  const dueBadge = p => {
-    if (!p.target_date || p.status === 'Complete') return null
-    const days = Math.ceil((new Date(p.target_date + 'T23:59:59') - new Date()) / 86400000)
-    const color = days < 0 ? T.red : days <= 14 ? T.orange : T.textMuted
-    return <span style={S.badge(color)}><i className="ti ti-calendar" />{days < 0 ? `${-days}d late` : fmtShort(p.target_date)}</span>
-  }
-
   return (
     <div>
       {/* Toolbar */}
@@ -315,7 +294,7 @@ export default function ProjectsTool({ T, cardStyle, selectStyle, userName, site
                 onDragOver={e => { e.preventDefault(); setDropStage(stage) }}
                 onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) setDropStage(null) }}
                 onDrop={e => { e.preventDefault(); setDropStage(null); const p = projects.find(x => x.id === dragId); setDragId(null); moveStage(p, stage) }}
-                style={{ flex: '0 0 250px', background: over ? `${meta.color}14` : T.bgMuted, border: `1px ${over ? 'dashed' : 'solid'} ${over ? meta.color : T.border}`, borderRadius: '10px', padding: '10px', minHeight: '160px' }}>
+                style={{ flex: '0 0 268px', background: over ? `${meta.color}14` : T.bgMuted, border: `1px ${over ? 'dashed' : 'solid'} ${over ? meta.color : T.border}`, borderRadius: '10px', padding: '10px', minHeight: '160px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '10px', padding: '2px 4px' }}>
                   <i className={`ti ${meta.icon}`} style={{ color: meta.color, fontSize: '15px' }} />
                   <span style={{ fontSize: '12px', fontWeight: 800, color: T.textPrimary }}>{stage}</span>
@@ -323,22 +302,10 @@ export default function ProjectsTool({ T, cardStyle, selectStyle, userName, site
                   <button onClick={() => openAdd(stage)} title={`New project in ${stage}`} style={{ marginLeft: 'auto', background: 'transparent', border: 'none', color: T.textMuted, cursor: 'pointer', fontSize: '15px', padding: 0 }}><i className="ti ti-plus" /></button>
                 </div>
                 {list.map(p => (
-                  <div key={p.id} draggable
+                  <ProjectCard key={p.id} p={p} T={T} cardStyle={cardStyle} S={S} dimmed={dragId === p.id}
                     onDragStart={e => { setDragId(p.id); e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', p.id) } catch (err) { /* ignore */ } }}
                     onDragEnd={() => { setDragId(null); setDropStage(null) }}
-                    onClick={() => setOpenId(p.id)}
-                    style={{ ...cardStyle, padding: '11px 12px', marginBottom: '8px', cursor: 'pointer', borderLeft: `3px solid ${meta.color}`, opacity: dragId === p.id ? 0.5 : 1 }}>
-                    <div style={{ fontSize: '13px', fontWeight: 700, color: T.textPrimary, lineHeight: 1.3 }}>{p.name}</div>
-                    <div style={{ fontSize: '11px', color: T.textMuted, marginTop: '3px' }}>
-                      {[p.client, p.capacity_kwp ? `${Number(p.capacity_kwp).toLocaleString()} kWp` : null, p.battery_kwh ? `${Number(p.battery_kwh).toLocaleString()} kWh` : null].filter(Boolean).join(' · ') || '—'}
-                    </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginTop: '8px', alignItems: 'center' }}>
-                      {p.status !== 'Active' && <span style={S.badge(statusColor(T, p.status))}>{p.status}</span>}
-                      {dueBadge(p)}
-                      {p.owner && <span style={{ fontSize: '10px', color: T.textSecondary, marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '3px' }}><i className="ti ti-user" />{p.owner}</span>}
-                    </div>
-                    {progressBar(p)}
-                  </div>
+                    onOpen={() => setOpenId(p.id)} />
                 ))}
                 {list.length === 0 && <div style={{ fontSize: '11px', color: T.textMuted, textAlign: 'center', padding: '18px 6px' }}>{dragId ? 'Drop here' : 'No projects'}</div>}
               </div>
@@ -400,10 +367,15 @@ function Timeline({ projects, T, cardStyle, onOpen }) {
           const meta = STAGE_META[p.stage] || STAGE_META['Site Visit']
           const stagePct = ((STAGES.indexOf(p.stage) + (p.status === 'Complete' ? 1 : 0.5)) / STAGES.length) * 100
           const late = p.target_date && end < today && p.status !== 'Complete'
+          const h = projectHealth(p)
+          const hm = HEALTH_META[h.key]
           return (
             <div key={p.id} className="tbl-row" onClick={() => onOpen(p.id)} style={{ display: 'flex', borderBottom: `1px solid ${T.border}`, cursor: 'pointer' }}>
               <div style={{ width: LABEL_W, flexShrink: 0, padding: '9px 14px', minWidth: 0 }}>
-                <div style={{ fontSize: '12px', fontWeight: 700, color: T.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: T.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span title={[hm.label, ...h.reasons].join(' · ')} style={{ width: 8, height: 8, borderRadius: '50%', background: hm.color(T), flexShrink: 0 }} />
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</span>
+                </div>
                 <div style={{ fontSize: '10px', color: T.textMuted, display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <i className={`ti ${meta.icon}`} style={{ color: meta.color }} />{p.stage}{p.owner ? ` · ${p.owner}` : ''}
                 </div>
@@ -423,7 +395,99 @@ function Timeline({ projects, T, cardStyle, onOpen }) {
         <span><span style={{ display: 'inline-block', width: 10, height: 2, background: T.red, verticalAlign: 'middle', marginRight: 4 }} />Today</span>
         <span>Filled part of a bar = how far through the 8 stages</span>
         <span>Dashed bar = no target date yet (60 days shown)</span>
+        {['ok', 'risk', 'late'].map(k => <span key={k}><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: HEALTH_META[k].color(T), marginRight: 4, verticalAlign: 'middle' }} />{HEALTH_META[k].label}</span>)}
       </div>
+    </div>
+  )
+}
+
+// ── Board card ───────────────────────────────────────────────────────────────
+function ProgressRing({ pct, color, track, size = 34, label }) {
+  const r = (size - 5) / 2
+  const c = 2 * Math.PI * r
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ flexShrink: 0 }} role="img" aria-label={label}>
+      <title>{label}</title>
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={track} strokeWidth="4" />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth="4" strokeLinecap="round"
+        strokeDasharray={`${(c * pct) / 100} ${c}`} transform={`rotate(-90 ${size / 2} ${size / 2})`} />
+      <text x="50%" y="50%" dominantBaseline="central" textAnchor="middle" style={{ fontSize: '9px', fontWeight: 800, fill: color }}>{pct}%</text>
+    </svg>
+  )
+}
+
+function ProjectCard({ p, T, cardStyle, S, dimmed, onDragStart, onDragEnd, onOpen }) {
+  const meta = STAGE_META[p.stage] || STAGE_META['Site Visit']
+  const h = projectHealth(p)
+  const hm = HEALTH_META[h.key]
+  const hColor = hm.color(T)
+  const taskPct = h.tasksTotal ? Math.round((h.tasksDone / h.tasksTotal) * 100) : 0
+  const complete = p.status === 'Complete'
+
+  let dueText = 'No target date'
+  let dueColor = T.textMuted
+  if (complete) { dueText = p.target_date ? `Target ${fmtShort(p.target_date)}` : 'Handed over'; dueColor = T.green }
+  else if (h.daysLeft != null) {
+    dueText = h.daysLeft < 0 ? `${-h.daysLeft}d late` : h.daysLeft === 0 ? 'Due today' : `${h.daysLeft}d left`
+    dueColor = h.daysLeft < 0 ? T.red : h.daysLeft <= 14 ? T.orange : T.textSecondary
+  }
+  const tip = [hm.label, ...h.reasons].join('\n')
+
+  return (
+    <div draggable onDragStart={onDragStart} onDragEnd={onDragEnd} onClick={onOpen}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen() } }}
+      role="button" tabIndex={0}
+      style={{ ...cardStyle, padding: '11px 12px', marginBottom: '8px', cursor: 'pointer', borderLeft: `3px solid ${hColor}`, opacity: dimmed ? 0.5 : 1 }}>
+
+      {/* Title + ring */}
+      <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: '13px', fontWeight: 700, color: T.textPrimary, lineHeight: 1.3, wordBreak: 'break-word' }}>{p.name}</div>
+          <div style={{ fontSize: '11px', color: T.textMuted, marginTop: '3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {[p.client, p.site_name && p.site_name !== p.client ? p.site_name : null].filter(Boolean).join(' · ') || '—'}
+          </div>
+        </div>
+        {h.tasksTotal > 0 && <ProgressRing pct={taskPct} color={taskPct === 100 ? T.green : T.blue} track={T.bgMuted} label={`${h.tasksDone} of ${h.tasksTotal} tasks done`} />}
+      </div>
+
+      {/* Size chips */}
+      {(p.capacity_kwp || p.battery_kwh || p.system_type) && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginTop: '8px' }}>
+          {p.capacity_kwp ? <span style={S.badge(T.blue)}><i className="ti ti-solar-panel" />{Number(p.capacity_kwp).toLocaleString()} kWp</span> : null}
+          {p.battery_kwh ? <span style={S.badge(T.green)}><i className="ti ti-battery-charging" />{Number(p.battery_kwh).toLocaleString()} kWh</span> : null}
+          {p.system_type ? <span style={S.badge(T.textSecondary)}>{p.system_type}</span> : null}
+        </div>
+      )}
+
+      {/* Stage strip */}
+      <div title={`Stage ${h.stageIdx + 1} of ${STAGES.length}: ${p.stage}`} style={{ display: 'flex', gap: '2px', marginTop: '10px' }}>
+        {STAGES.map((s, i) => {
+          const filled = complete || i < h.stageIdx
+          const current = !complete && i === h.stageIdx
+          return <div key={s} style={{ flex: 1, height: '4px', borderRadius: '2px', background: filled ? STAGE_META[s].color : current ? `${meta.color}88` : T.bgMuted }} />
+        })}
+      </div>
+
+      {/* Health, due, owner */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginTop: '9px', alignItems: 'center' }}>
+        <span title={tip} style={S.badge(hColor)}><i className={`ti ${hm.icon}`} />{hm.label}</span>
+        <span style={{ fontSize: '10px', fontWeight: 700, color: dueColor, display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+          <i className="ti ti-calendar" />{dueText}
+        </span>
+        {p.owner && (
+          <span title={p.owner} style={{ marginLeft: 'auto', width: '22px', height: '22px', borderRadius: '50%', background: `${T.blue}22`, color: T.blue, fontSize: '9px', fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            {initials(p.owner)}
+          </span>
+        )}
+      </div>
+
+      {/* Tasks line */}
+      {h.tasksTotal > 0 && (
+        <div style={{ fontSize: '10px', color: T.textMuted, marginTop: '7px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <i className="ti ti-checkbox" />{h.tasksDone}/{h.tasksTotal} tasks
+          {h.overdue > 0 && <span style={{ color: T.red, fontWeight: 700 }}>· {h.overdue} overdue</span>}
+        </div>
+      )}
     </div>
   )
 }

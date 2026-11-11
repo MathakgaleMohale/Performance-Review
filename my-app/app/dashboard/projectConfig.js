@@ -59,6 +59,52 @@ export function uiStyles(T, selectStyle) {
 
 export const statusColor = (T, s) => (s === 'Complete' ? T.green : s === 'On hold' ? T.orange : s === 'Cancelled' ? T.textMuted : T.blue)
 
+// ── Project health (agreed with Mathakgale 2026-11-11) ──
+//  Late     : target handover date has passed
+//  At risk  : any overdue checklist task, OR time used is more than gapPts ahead
+//             of stage progress, OR handover within soonDays and not yet at lateStage
+//  On track : otherwise.  On hold / Complete / Cancelled show their status instead.
+export const HEALTH_RULES = { gapPts: 20, soonDays: 14, lateStage: 'Quality Control' }
+
+export function projectHealth(p, now = new Date()) {
+  const tasks = p.project_tasks || []
+  const tasksDone = tasks.filter(t => t.done).length
+  const overdue = tasks.filter(t => isOverdue(t.due_date, t.done)).length
+  const idx = Math.max(0, STAGES.indexOf(p.stage))
+  const complete = p.status === 'Complete'
+  const stagePct = Math.round(((complete ? STAGES.length : idx + 1) / STAGES.length) * 100)
+  const end = p.target_date ? new Date(p.target_date + 'T23:59:59') : null
+  const start = p.start_date ? new Date(p.start_date + 'T00:00:00') : null
+  const daysLeft = end ? Math.ceil((end - now) / 86400000) : null
+  const timePct = start && end && end > start ? Math.max(0, Math.min(100, Math.round(((now - start) / (end - start)) * 100))) : null
+
+  const reasons = []
+  let key
+  if (p.status === 'Complete') key = 'complete'
+  else if (p.status === 'On hold') key = 'hold'
+  else if (p.status === 'Cancelled') key = 'cancelled'
+  else if (daysLeft != null && daysLeft < 0) { key = 'late'; reasons.push(`${-daysLeft} day${daysLeft === -1 ? '' : 's'} past target handover`) }
+  else {
+    if (overdue) reasons.push(`${overdue} overdue task${overdue === 1 ? '' : 's'}`)
+    if (timePct != null && timePct - stagePct > HEALTH_RULES.gapPts) reasons.push(`${timePct}% of time used, ${stagePct}% through stages`)
+    if (daysLeft != null && daysLeft <= HEALTH_RULES.soonDays && idx < STAGES.indexOf(HEALTH_RULES.lateStage)) reasons.push(`Handover in ${daysLeft} day${daysLeft === 1 ? '' : 's'}, still at ${p.stage}`)
+    key = reasons.length ? 'risk' : 'ok'
+  }
+  if (key === 'late' && overdue) reasons.push(`${overdue} overdue task${overdue === 1 ? '' : 's'}`)
+  return { key, reasons, tasksDone, tasksTotal: tasks.length, overdue, stageIdx: idx, stagePct, timePct, daysLeft }
+}
+
+export const HEALTH_META = {
+  ok:        { label: 'On track',  icon: 'ti-circle-check',    color: T => T.green },
+  risk:      { label: 'At risk',   icon: 'ti-alert-triangle',  color: T => T.orange },
+  late:      { label: 'Late',      icon: 'ti-alarm',           color: T => T.red },
+  hold:      { label: 'On hold',   icon: 'ti-player-pause',    color: T => T.orange },
+  complete:  { label: 'Complete',  icon: 'ti-flag-check',      color: T => T.green },
+  cancelled: { label: 'Cancelled', icon: 'ti-circle-x',        color: T => T.textMuted },
+}
+
+export const initials = name => (name || '').trim().split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('') || '?'
+
 // Re-checks the signed-in user's portal password before something is deleted
 export async function checkPassword(supabase, pw) {
   const { data: { user } } = await supabase.auth.getUser()
