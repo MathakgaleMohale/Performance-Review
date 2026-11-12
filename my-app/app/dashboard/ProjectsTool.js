@@ -277,6 +277,11 @@ export default function ProjectsTool({ T, cardStyle, selectStyle, userName, site
         <button onClick={() => openAdd()} disabled={!!loadError} style={{ ...S.btn(T.blue), opacity: loadError ? 0.5 : 1 }}><i className="ti ti-plus" />New project</button>
       </div>
 
+      {!loading && !loadError && projects.length > 0 && (
+        <PortfolioOverview projects={ownerFilter ? projects.filter(p => (p.owner || '').trim() === ownerFilter) : projects}
+          owner={ownerFilter} T={T} cardStyle={cardStyle} />
+      )}
+
       {loading ? (
         <div style={{ ...cardStyle, padding: '50px', textAlign: 'center', color: T.textSecondary, fontSize: '13px' }}>Loading projects…</div>
       ) : loadError ? (
@@ -487,6 +492,130 @@ function ProjectCard({ p, T, cardStyle, S, dimmed, onDragStart, onDragEnd, onOpe
           <i className="ti ti-checkbox" />{h.tasksDone}/{h.tasksTotal} tasks
           {h.overdue > 0 && <span style={{ color: T.red, fontWeight: 700 }}>· {h.overdue} overdue</span>}
         </div>
+      )}
+    </div>
+  )
+}
+
+// ── Portfolio overview (KPI tiles + stage distribution) ─────────────────────
+const OVERVIEW_KEY = 'sos-projects-overview-open'
+const MODE_KEY = 'sos-projects-overview-mode'
+const fmtNum = n => Number(n || 0).toLocaleString('en-ZA', { maximumFractionDigits: 1 })
+const fmtKw = kw => (kw >= 1000 ? `${fmtNum(kw / 1000)} MWp` : `${fmtNum(kw)} kWp`)
+
+function PortfolioOverview({ projects, owner, T, cardStyle }) {
+  const [open, setOpen] = useState(true)
+  const [mode, setMode] = useState('count') // count | kwp
+  const [hoverStage, setHoverStage] = useState(null)
+  useEffect(() => { try { if (localStorage.getItem(OVERVIEW_KEY) === '0') setOpen(false); if (localStorage.getItem(MODE_KEY) === 'kwp') setMode('kwp') } catch (e) { /* ignore */ } }, [])
+  const toggle = () => setOpen(o => { try { localStorage.setItem(OVERVIEW_KEY, o ? '0' : '1') } catch (e) { /* ignore */ } return !o })
+  const pickMode = m => { setMode(m); try { localStorage.setItem(MODE_KEY, m) } catch (e) { /* ignore */ } }
+
+  const k = useMemo(() => {
+    const now = new Date()
+    const ym = now.toISOString().slice(0, 7)
+    const live = projects.filter(p => p.status === 'Active' || p.status === 'On hold')
+    const active = projects.filter(p => p.status === 'Active')
+    const withH = live.map(p => ({ p, h: projectHealth(p, now) }))
+    const health = { ok: 0, risk: 0, late: 0 }
+    withH.forEach(({ h }) => { if (health[h.key] != null) health[h.key]++ })
+    const overdueProjects = withH.filter(x => x.h.overdue > 0)
+    const dueMonth = live.filter(p => (p.target_date || '').slice(0, 7) === ym).sort((a, b) => a.target_date.localeCompare(b.target_date))
+    const nextDue = dueMonth.find(p => p.target_date >= now.toISOString().slice(0, 10))
+    const byStage = STAGES.map(stage => {
+      const list = live.filter(p => p.stage === stage)
+      return { stage, count: list.length, kwp: list.reduce((a, p) => a + (Number(p.capacity_kwp) || 0), 0) }
+    })
+    return {
+      active: active.length, hold: live.length - active.length, complete: projects.filter(p => p.status === 'Complete').length,
+      kwp: live.reduce((a, p) => a + (Number(p.capacity_kwp) || 0), 0),
+      kwh: live.reduce((a, p) => a + (Number(p.battery_kwh) || 0), 0),
+      health, overdueTasks: overdueProjects.reduce((a, x) => a + x.h.overdue, 0), overdueProjects: overdueProjects.length,
+      dueMonth, nextDue, byStage, liveCount: live.length,
+      monthName: now.toLocaleDateString('en-ZA', { month: 'long' }),
+    }
+  }, [projects])
+
+  const label = { fontSize: '10px', fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '0.6px' }
+  const Tile = ({ icon, color, title, value, sub, children }) => (
+    <div style={{ ...cardStyle, padding: '12px 14px', minWidth: 0, borderTop: `3px solid ${color}` }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', ...label }}><i className={`ti ${icon}`} style={{ color, fontSize: '14px' }} />{title}</div>
+      <div style={{ fontSize: '24px', fontWeight: 800, color: T.textPrimary, marginTop: '6px', lineHeight: 1.1 }}>{value}</div>
+      {sub && <div style={{ fontSize: '11px', color: T.textSecondary, marginTop: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sub}</div>}
+      {children}
+    </div>
+  )
+
+  const atRisk = k.health.risk + k.health.late
+  const totalH = k.health.ok + k.health.risk + k.health.late
+  const metric = s => (mode === 'kwp' ? s.kwp : s.count)
+  const total = k.byStage.reduce((a, s) => a + metric(s), 0)
+
+  return (
+    <div style={{ marginBottom: '16px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: open ? '10px' : 0 }}>
+        <button onClick={toggle} aria-expanded={open} style={{ background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', ...label, fontSize: '11px', color: T.textSecondary }}>
+          <i className={`ti ${open ? 'ti-chevron-down' : 'ti-chevron-right'}`} />Portfolio overview{owner ? ` · ${owner}` : ''}
+        </button>
+        {!open && (
+          <span style={{ fontSize: '11px', color: T.textMuted }}>
+            {k.active} active · {fmtKw(k.kwp)} · <span style={{ color: atRisk ? T.orange : T.textMuted }}>{atRisk} at risk or late</span>
+          </span>
+        )}
+      </div>
+
+      {open && (
+        <>
+          <style>{`@media (max-width: 640px) { .proj-kpis { grid-template-columns: 1fr 1fr !important; } .proj-kpis > :last-child:nth-child(odd) { grid-column: 1 / -1; } }`}</style>
+          <div className="proj-kpis" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '10px' }}>
+            <Tile icon="ti-briefcase" color={T.blue} title="Active projects" value={k.active}
+              sub={[k.hold ? `${k.hold} on hold` : null, `${k.complete} complete`].filter(Boolean).join(' · ')} />
+            <Tile icon="ti-solar-panel" color={T.orange} title="Pipeline" value={fmtKw(k.kwp)}
+              sub={k.kwh ? `+ ${fmtNum(k.kwh)} kWh storage` : 'Active + on hold'} />
+            <Tile icon="ti-heartbeat" color={atRisk ? T.red : T.green} title="At risk / late" value={atRisk}
+              sub={totalH ? `${k.health.ok} on track · ${k.health.risk} at risk · ${k.health.late} late` : 'No active projects'}>
+              {totalH > 0 && (
+                <div style={{ display: 'flex', height: '5px', borderRadius: '3px', overflow: 'hidden', marginTop: '8px', background: T.bgMuted }}>
+                  {[['ok', T.green], ['risk', T.orange], ['late', T.red]].map(([key, c]) => k.health[key] ? <div key={key} style={{ width: `${(k.health[key] / totalH) * 100}%`, background: c }} /> : null)}
+                </div>
+              )}
+            </Tile>
+            <Tile icon="ti-alarm" color={k.overdueTasks ? T.red : T.green} title="Overdue tasks" value={k.overdueTasks}
+              sub={k.overdueTasks ? `Across ${k.overdueProjects} project${k.overdueProjects === 1 ? '' : 's'}` : 'Nothing overdue'} />
+            <Tile icon="ti-flag-check" color={T.green} title={`Handovers in ${k.monthName}`} value={k.dueMonth.length}
+              sub={k.nextDue ? `Next: ${k.nextDue.name} · ${fmtShort(k.nextDue.target_date)}` : k.dueMonth.length ? `${k.dueMonth.length === 1 ? 'Already' : 'All'} past target date` : 'None due this month'} />
+          </div>
+
+          <div style={{ ...cardStyle, padding: '12px 14px', marginTop: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '9px' }}>
+              <span style={label}>Projects by stage</span>
+              <span style={{ fontSize: '11px', color: T.textMuted }}>{k.liveCount} active + on hold</span>
+              <div style={{ marginLeft: 'auto', display: 'inline-flex', border: `1px solid ${T.border}`, borderRadius: '6px', overflow: 'hidden' }}>
+                {[['count', 'Count'], ['kwp', 'kWp']].map(([m, l]) => (
+                  <button key={m} onClick={() => pickMode(m)} style={{ padding: '4px 10px', border: 'none', fontSize: '11px', fontWeight: 700, cursor: 'pointer', background: mode === m ? T.blue : 'transparent', color: mode === m ? '#fff' : T.textSecondary }}>{l}</button>
+                ))}
+              </div>
+            </div>
+            {total > 0 ? (
+              <div style={{ display: 'flex', height: '14px', borderRadius: '7px', overflow: 'hidden', background: T.bgMuted, gap: '2px' }}>
+                {k.byStage.filter(s => metric(s) > 0).map(s => (
+                  <div key={s.stage} title={`${s.stage}: ${s.count} project${s.count === 1 ? '' : 's'} · ${fmtKw(s.kwp)}`}
+                    onMouseEnter={() => setHoverStage(s.stage)} onMouseLeave={() => setHoverStage(null)}
+                    style={{ width: `${(metric(s) / total) * 100}%`, background: STAGE_META[s.stage].color, opacity: hoverStage && hoverStage !== s.stage ? 0.35 : 1, transition: 'opacity .15s' }} />
+                ))}
+              </div>
+            ) : <div style={{ fontSize: '11px', color: T.textMuted }}>{mode === 'kwp' ? 'No kWp entered on active projects.' : 'No active projects.'}</div>}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 14px', marginTop: '9px' }}>
+              {k.byStage.map(s => (
+                <span key={s.stage} onMouseEnter={() => setHoverStage(s.stage)} onMouseLeave={() => setHoverStage(null)}
+                  style={{ fontSize: '11px', color: metric(s) ? T.textSecondary : T.textMuted, display: 'inline-flex', alignItems: 'center', gap: '5px', opacity: hoverStage && hoverStage !== s.stage ? 0.5 : 1 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: 2, background: STAGE_META[s.stage].color }} />
+                  {s.stage} <b style={{ color: T.textPrimary }}>{mode === 'kwp' ? fmtKw(s.kwp) : s.count}</b>
+                </span>
+              ))}
+            </div>
+          </div>
+        </>
       )}
     </div>
   )
