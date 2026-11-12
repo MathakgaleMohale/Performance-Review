@@ -182,6 +182,10 @@ export default function DashboardPage() {
   const [upOg, setUpOg] = useState(null)
   const [repType, setRepType] = useState('install')
   const [engTool, setEngTool] = useState(null)
+  const [mobileMore, setMobileMore] = useState(false) // phone "More" sheet
+  const [isPhone, setIsPhone] = useState(false)         // ≤ 640 px, kept in sync with the screen width
+  const [spPickerOpen, setSpPickerOpen] = useState(false) // Site Performance site list on phones
+  const [repShow, setRepShow] = useState(50)             // Reports: cards shown on phones
   const [repInvestor, setRepInvestor] = useState('')
   const [repDate, setRepDate] = useState('')
   const [upMsg, setUpMsg] = useState('')
@@ -460,6 +464,22 @@ export default function DashboardPage() {
       setTimeout(() => buildPerfCharts(filteredPerf), 100)
     }
   }, [activePage, chartReady, perfData, pfFilterInvestor, pfFilterDate, pfFilterBand, pfFilterDiscussion, theme])
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return
+    const mq = window.matchMedia('(max-width: 640px)')
+    const on = () => setIsPhone(mq.matches)
+    on()
+    mq.addEventListener ? mq.addEventListener('change', on) : mq.addListener(on)
+    return () => { mq.removeEventListener ? mq.removeEventListener('change', on) : mq.removeListener(on) }
+  }, [])
+  useEffect(() => { setRepShow(50) }, [repType, repInvestor, repDate])
+
+  // Phones: start each page/tool at the top and close the More sheet
+  useEffect(() => {
+    setMobileMore(false)
+    if (typeof window !== 'undefined' && window.matchMedia?.('(max-width: 640px)').matches) window.scrollTo(0, 0)
+  }, [activePage, engTool])
 
   function signOut() { supabase.auth.signOut().then(() => { window.location.href = '/login' }) }
 
@@ -1722,6 +1742,63 @@ export default function DashboardPage() {
           .main-area { padding: 12px !important; }
           .map-box { height: 380px; }
         }
+        /* ── Phones (≤ 640 px): bottom tab bar, compact top bar, page scrolling ── */
+        .mobile-tabbar, .mobile-sheet-wrap { display: none; }
+        @media (max-width: 640px) {
+          .app-sidebar { display: none !important; }
+          .layout-flex { display: block !important; height: auto !important; }
+          .main-area { overflow: visible !important; padding: 12px 12px calc(84px + env(safe-area-inset-bottom)) !important; }
+          .app-topbar { height: 56px !important; padding: 0 12px !important; }
+          .app-topbar img { height: 32px !important; }
+          .topbar-tagline, .topbar-chip, .topbar-user, .topbar-theme, .topbar-signout { display: none !important; }
+          .mobile-tabbar { display: flex; }
+          .mobile-sheet-wrap { display: block; }
+          .tool-grid { grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
+          .tool-card { aspect-ratio: auto !important; min-height: 128px; padding: 14px 10px !important; gap: 8px !important; }
+          /* wide tables scroll sideways instead of squashing (the Sites list and report documents have their own handling) */
+          .main-area table { display: block; overflow-x: auto; max-width: 100%; }
+          .main-area .sites-scroll table, .main-area .print-area table { display: table; overflow: visible; max-width: none; }
+          .main-area .print-area { overflow-x: auto; }
+          /* 16 px text in form fields stops iOS zooming in when a box is tapped */
+          .main-area input:not([type=checkbox]):not([type=radio]):not([type=range]), .main-area select, .main-area textarea { font-size: 16px !important; }
+          .main-area td input, .main-area td select, .main-area td textarea { font-size: inherit !important; }
+
+          /* Site Performance */
+          .sp-grid { grid-template-columns: 1fr !important; }
+          .sp-picker-toggle { display: flex !important; }
+          .sp-list-wrap { display: none; }
+          .sp-list-wrap.open { display: block; }
+          .sp-list { max-height: 260px !important; }
+          .sp-card { padding: 14px !important; }
+          .sp-card-head { align-items: flex-start !important; }
+          .sp-controls { flex-wrap: wrap; width: 100%; }
+          .sp-controls select { flex: 1 1 0; min-width: 0; }
+          .sp-stats { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px !important; }
+          .sp-stats > div { padding: 8px 8px !important; min-width: 0; }
+          .sp-stats > div > div:first-child { font-size: 9px !important; line-height: 1.25; }
+          .sp-stats > div > div:last-child { font-size: 13px !important; word-break: break-word; }
+          .sp-chart { height: 220px !important; }
+          .sp-export-label { display: none; }
+
+          /* Reports */
+          .rep-controls { padding: 10px 12px !important; gap: 8px !important; }
+          .rep-controls .rep-type { display: flex !important; width: 100%; }
+          .rep-controls .rep-type button { flex: 1; padding: 8px 6px !important; font-size: 12px !important; }
+          .rep-controls > select { flex: 1 1 100%; width: 100%; }
+          .rep-controls .rep-btn { flex: 1 1 0; margin-left: 0 !important; padding: 10px 8px !important; font-size: 12px !important; white-space: nowrap; }
+          .rep-doc { padding: 14px !important; border-radius: 10px !important; }
+          .rep-head { flex-wrap: wrap; gap: 10px; }
+          .rep-head > div:last-child { text-align: left !important; }
+          .rep-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 6px !important; margin-bottom: 14px !important; }
+          .rep-kpis > div { padding: 10px 4px !important; }
+          .rep-kpis > div > div:first-child { font-size: 14px !important; }
+          .rep-table { display: none !important; }
+        }
+        .sp-picker-toggle { display: none; }
+        @media print {
+          .rep-cards { display: none !important; }
+          .rep-table { display: table !important; }
+        }
         @media (max-width: 820px) {
           .app-sidebar { width: 60px !important; }
           .app-sidebar .nav-label { display: none !important; }
@@ -1748,7 +1825,7 @@ export default function DashboardPage() {
       <div style={{ position: 'relative', zIndex: 1 }}>
 
       {/* ── TOPBAR ─────────────────────────────────────────────────────────── */}
-      <div className="no-print" style={{
+      <div className="no-print app-topbar" style={{
         background: T.isDark ? 'rgba(37,51,72,0.85)' : 'rgba(255,255,255,0.85)',
         backdropFilter: 'blur(8px)',
         borderBottom: `2px solid ${T.blue}`,
@@ -1766,7 +1843,7 @@ export default function DashboardPage() {
           <img src="/sosimple-icon.png" alt="Sosimple" width="35" height="40" style={{ height: '40px', width: 'auto', display: 'block' }} />
           <div>
             <div style={{ fontSize: '20px', fontWeight: 800, color: T.textWhite, letterSpacing: '-0.5px' }}>Sosimple</div>
-            <div style={{ fontSize: '10px', color: T.green, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase' }}>Cheap energy. Clean business.</div>
+            <div className="topbar-tagline" style={{ fontSize: '10px', color: T.green, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase' }}>Cheap energy. Clean business.</div>
           </div>
         </div>
 
@@ -1776,7 +1853,7 @@ export default function DashboardPage() {
             { val: `${(totalCap/1000).toFixed(2)} MWp`, label: null, color: T.yellow, bg: 'rgba(245,208,0,0.1)', border: 'rgba(245,208,0,0.25)' },
             { val: `${totalBessMwh} MWh`, label: 'BESS', color: T.green, bg: 'rgba(125,194,66,0.1)', border: 'rgba(125,194,66,0.25)' },
           ].map((p, i) => (
-            <span key={i} style={{ background: p.bg, border: `1px solid ${p.border}`, borderRadius: '6px', padding: '4px 13px', fontSize: '11px', color: p.color, fontWeight: 600 }}>
+            <span key={i} className="topbar-chip" style={{ background: p.bg, border: `1px solid ${p.border}`, borderRadius: '6px', padding: '4px 13px', fontSize: '11px', color: p.color, fontWeight: 600 }}>
               {p.val}{p.label ? ` ${p.label}` : ''}
             </span>
           ))}
@@ -1787,14 +1864,14 @@ export default function DashboardPage() {
             <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: liveStatus === 'live' ? T.green : liveStatus === 'offline' ? T.red : T.textMuted }} />
             {liveStatus === 'live' ? (liveUpdatedAt ? `Live · ${liveUpdatedAt.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' })}` : 'Live') : liveStatus === 'offline' ? 'Offline' : 'Connecting'}
           </span>
-          <span style={{ fontSize: '12px', color: T.textSecondary, marginLeft: '4px' }}>
+          <span className="topbar-user" style={{ fontSize: '12px', color: T.textSecondary, marginLeft: '4px' }}>
             {user?.full_name || 'Employee'}
           </span>
-          <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+          <button className="topbar-theme" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
             style={{ background: T.bgMuted, border: `1px solid ${T.border}`, borderRadius: '8px', padding: '6px 12px', color: T.textSecondary, fontSize: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
             <i className={theme === 'light' ? 'ti ti-moon' : 'ti ti-sun'} />
           </button>
-          <button onClick={signOut} style={{ background: 'rgba(43,127,212,0.12)', border: `1px solid rgba(43,127,212,0.3)`, borderRadius: '8px', padding: '6px 14px', color: T.blue, fontSize: '12px', fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s' }}
+          <button className="topbar-signout" onClick={signOut} style={{ background: 'rgba(43,127,212,0.12)', border: `1px solid rgba(43,127,212,0.3)`, borderRadius: '8px', padding: '6px 14px', color: T.blue, fontSize: '12px', fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s' }}
             onMouseEnter={e => { e.target.style.background = T.blue; e.target.style.color = '#fff' }}
             onMouseLeave={e => { e.target.style.background = 'rgba(43,127,212,0.12)'; e.target.style.color = T.blue }}>
             Sign Out
@@ -2277,9 +2354,38 @@ export default function DashboardPage() {
                 {perfLoading ? (
                   <div style={{ textAlign: 'center', padding: '60px', color: T.textSecondary }}>Loading performance data...</div>
                 ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: '14px', alignItems: 'start' }}>
+                  <div className="sp-grid" style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: '14px', alignItems: 'start' }}>
 
                     <div style={{ ...cardStyle, padding: '14px' }}>
+                      {/* Phones: compact picker bar (current site, previous / next, open list) */}
+                      {(() => {
+                        const list = spSiteNames.filter(n => n.toLowerCase().includes(spSearch.toLowerCase()) && (!spInvestor || investorFor(n) === spInvestor))
+                        const i = list.indexOf(spSite)
+                        const pick = n => { setSpSite(n); setSpYear(''); setSpYearA(''); setSpYearB('') }
+                        const navBtn = (dir, icon, label) => {
+                          const target = i < 0 ? null : list[i + dir]
+                          return (
+                            <button onClick={() => target && pick(target)} disabled={!target} aria-label={label}
+                              style={{ flexShrink: 0, width: '40px', height: '40px', borderRadius: '8px', border: `1px solid ${T.border}`, background: T.bgInput, color: target ? T.textPrimary : T.textMuted, opacity: target ? 1 : 0.45, cursor: target ? 'pointer' : 'default', fontSize: '18px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <i className={`ti ${icon}`} />
+                            </button>
+                          )
+                        }
+                        return (
+                          <div className="sp-picker-toggle" style={{ alignItems: 'center', gap: '8px', marginBottom: spPickerOpen || !spSite ? '12px' : 0 }}>
+                            {navBtn(-1, 'ti-chevron-left', 'Previous site')}
+                            <button onClick={() => setSpPickerOpen(o => !o)} aria-expanded={spPickerOpen || !spSite}
+                              style={{ flex: 1, minWidth: 0, height: '40px', borderRadius: '8px', border: `1px solid ${T.blue}`, background: 'rgba(43,127,212,0.10)', color: T.textPrimary, fontSize: '14px', fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', padding: '0 12px' }}>
+                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{spSite || 'Select a site'}</span>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: T.textMuted, fontWeight: 600, flexShrink: 0 }}>
+                                {i >= 0 ? `${i + 1}/${list.length}` : `${list.length} sites`}<i className={`ti ${spPickerOpen || !spSite ? 'ti-chevron-up' : 'ti-chevron-down'}`} />
+                              </span>
+                            </button>
+                            {navBtn(1, 'ti-chevron-right', 'Next site')}
+                          </div>
+                        )
+                      })()}
+                      <div className={`sp-list-wrap${spPickerOpen || !spSite ? ' open' : ''}`}>
                       <div style={{ fontSize: '11px', fontWeight: 700, color: T.blue, marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Select Site</div>
                       <input type="text" placeholder="Search sites..." value={spSearch} onChange={e => setSpSearch(e.target.value)}
                         style={{ width: '100%', padding: '7px 10px', border: `1px solid ${T.border}`, borderRadius: '8px', fontSize: '12px', color: T.textPrimary, background: T.bgInput, outline: 'none', marginBottom: '8px' }} />
@@ -2288,17 +2394,21 @@ export default function DashboardPage() {
                         <option value="">All Investors</option>
                         {spInvestorList.map(inv => <option key={inv} value={inv}>{inv}</option>)}
                       </select>
-                      <div style={{ maxHeight: '460px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <div className="sp-list" style={{ maxHeight: '460px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                         {spSiteNames.filter(n => n.toLowerCase().includes(spSearch.toLowerCase()) && (!spInvestor || investorFor(n) === spInvestor)).map(n => (
-                          <div key={n} onClick={() => { setSpSite(n); setSpYear(''); setSpYearA(''); setSpYearB('') }}
+                          <div key={n} onClick={() => {
+                            setSpSite(n); setSpYear(''); setSpYearA(''); setSpYearB(''); setSpPickerOpen(false)
+                            if (isPhone) setTimeout(() => document.getElementById('sp-main')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60)
+                          }}
                             style={{ padding: '8px 10px', border: `1px solid ${spSite === n ? T.blue : T.border}`, borderRadius: '6px', fontSize: '12px', cursor: 'pointer', background: spSite === n ? 'rgba(43,127,212,0.15)' : T.bgInput, color: spSite === n ? T.textWhite : T.textSecondary, fontWeight: spSite === n ? 600 : 400, transition: 'all 0.1s', textAlign: 'center' }}>
                             {n}
                           </div>
                         ))}
                       </div>
+                      </div>
                     </div>
 
-                    <div>
+                    <div id="sp-main" style={{ scrollMarginTop: '68px', minWidth: 0 }}>
                       {!spSite ? (
                         <div style={{ ...cardStyle, padding: '60px', textAlign: 'center', color: T.textMuted }}>
                           <i className="ti ti-chart-line" style={{ fontSize: '40px', display: 'block', marginBottom: '12px', color: T.border }} />
@@ -2306,22 +2416,22 @@ export default function DashboardPage() {
                         </div>
                       ) : (
                         <>
-                          <div style={{ ...cardStyle, padding: '18px', marginBottom: '14px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '14px' }}>
+                          <div className="sp-card" style={{ ...cardStyle, padding: '18px', marginBottom: '14px' }}>
+                            <div className="sp-card-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '14px' }}>
                               <div style={{ ...cardTitleStyle, marginBottom: 0 }}>
                                 <i className="ti ti-chart-bar" style={{ color: T.blue }} />Expected vs Measured — {spSite}
                               </div>
-                              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                              <div className="sp-controls" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                                 <span style={{ fontSize: '11px', color: T.textMuted, fontWeight: 600 }}>Year</span>
                                 <select style={selectStyle} value={spYear || yrSel || ''} onChange={e => setSpYear(e.target.value)}>
                                   {spYears.map(y => <option key={y} value={y}>{y}</option>)}
                                 </select>
                                 <button onClick={() => exportSiteExcel(spSite)} style={{ padding: '7px 14px', background: 'transparent', color: T.green, border: `1px solid ${T.green}`, borderRadius: '8px', fontSize: '12px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                                  <i className="ti ti-file-spreadsheet" style={{ marginRight: '5px' }} />Export Excel
+                                  <i className="ti ti-file-spreadsheet" style={{ marginRight: '5px' }} /><span className="sp-export-label">Export </span>Excel
                                 </button>
                               </div>
                             </div>
-                            <div style={{ display: 'flex', gap: '10px', marginBottom: '14px', flexWrap: 'wrap' }}>
+                            <div className="sp-stats" style={{ display: 'flex', gap: '10px', marginBottom: '14px', flexWrap: 'wrap' }}>
                               <div style={miniStatStyle}>
                                 <div style={{ fontSize: '10px', color: T.textMuted, marginBottom: '2px' }}>Total Measured</div>
                                 <div style={{ fontSize: '18px', fontWeight: 700, color: T.textPrimary }}>{spTotMeas.toLocaleString()} kWh</div>
@@ -2337,15 +2447,15 @@ export default function DashboardPage() {
                                 </div>
                               </div>
                             </div>
-                            <div style={{ position: 'relative', height: '260px' }}><canvas id="spExpMeasChart" /></div>
+                            <div className="sp-chart" style={{ position: 'relative', height: '260px' }}><canvas id="spExpMeasChart" /></div>
                           </div>
 
-                          <div style={{ ...cardStyle, padding: '18px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '14px' }}>
+                          <div className="sp-card" style={{ ...cardStyle, padding: '18px' }}>
+                            <div className="sp-card-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '14px' }}>
                               <div style={{ ...cardTitleStyle, marginBottom: 0 }}>
                                 <i className="ti ti-arrows-diff" style={{ color: T.blue }} />Year to Year Comparison
                               </div>
-                              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                              <div className="sp-controls" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                                 <span style={{ fontSize: '11px', color: T.textMuted, fontWeight: 600 }}>Compare</span>
                                 <select style={selectStyle} value={spYearA || yrA || ''} onChange={e => setSpYearA(e.target.value)}>
                                   {spYears.map(y => <option key={y} value={y}>{y}</option>)}
@@ -2356,7 +2466,7 @@ export default function DashboardPage() {
                                 </select>
                               </div>
                             </div>
-                            <div style={{ display: 'flex', gap: '10px', marginBottom: '14px', flexWrap: 'wrap' }}>
+                            <div className="sp-stats" style={{ display: 'flex', gap: '10px', marginBottom: '14px', flexWrap: 'wrap' }}>
                               <div style={miniStatStyle}>
                                 <div style={{ fontSize: '10px', color: T.textMuted, marginBottom: '2px' }}>{yrA} Total (common months)</div>
                                 <div style={{ fontSize: '18px', fontWeight: 700, color: T.textPrimary }}>{totA.toLocaleString()} kWh</div>
@@ -2372,7 +2482,7 @@ export default function DashboardPage() {
                                 </div>
                               </div>
                             </div>
-                            <div style={{ position: 'relative', height: '260px' }}><canvas id="spYoYChart" /></div>
+                            <div className="sp-chart" style={{ position: 'relative', height: '260px' }}><canvas id="spYoYChart" /></div>
                           </div>
 
                           {(() => {
@@ -2384,12 +2494,12 @@ export default function DashboardPage() {
                             const selRec = seenMonths.get(selDate) || null
                             const hasAny = selRec && (selRec.comment || COMMENT_FIELDS.some(f => selRec[f.key] != null && selRec[f.key] !== ''))
                             return (
-                              <div style={{ ...cardStyle, padding: '18px', marginTop: '14px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '14px' }}>
+                              <div className="sp-card" style={{ ...cardStyle, padding: '18px', marginTop: '14px' }}>
+                                <div className="sp-card-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '14px' }}>
                                   <div style={{ ...cardTitleStyle, marginBottom: 0 }}>
                                     <i className="ti ti-message-2" style={{ color: T.blue }} />Technical Comments
                                   </div>
-                                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                  <div className="sp-controls" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                                     <span style={{ fontSize: '11px', color: T.textMuted, fontWeight: 600 }}>Date</span>
                                     <select style={selectStyle} value={selDate} onChange={e => setSpCommentDate(e.target.value)}>
                                       {cDates.length === 0 && <option value="">No data</option>}
@@ -2851,7 +2961,7 @@ export default function DashboardPage() {
               <div style={{ fontSize: '20px', fontWeight: 800, color: T.textWhite, marginBottom: '2px' }}>Engineering Tools</div>
               <div style={{ fontSize: '12px', color: T.textSecondary, marginBottom: '22px' }}>Pick a tool to get started</div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '18px', width: '100%' }}>
+              <div className="tool-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '18px', width: '100%' }}>
                 {[
                   { id: 'projects', icon: 'ti-briefcase', label: 'Projects', desc: 'Site visit to handover: notes, checklists, files & linked records per project', accent: T.blue },
                   { id: 'quote', icon: 'ti-calculator', label: 'Quote Tool', desc: 'Build and price a customer quote', accent: T.blue },
@@ -2862,7 +2972,7 @@ export default function DashboardPage() {
                   { id: 'templates', icon: 'ti-folders', label: 'Engineering Templates', desc: 'Commissioning, testing & O&M templates', accent: T.green },
                   { id: 'library', icon: 'ti-books', label: 'Document Library', desc: 'Datasheets, certificates, manuals, warranties & compliance docs', accent: T.blue },
                 ].map(tool => (
-                  <button key={tool.id} onClick={() => setEngTool(tool.id)}
+                  <button key={tool.id} className="tool-card" onClick={() => setEngTool(tool.id)}
                     style={{
                       aspectRatio: '1 / 1', background: T.bgPanel, border: `1px solid ${T.border}`, borderTop: `3px solid ${tool.accent}`,
                       borderRadius: '10px', padding: '22px', cursor: 'pointer', display: 'flex', flexDirection: 'column',
@@ -3134,7 +3244,7 @@ export default function DashboardPage() {
                 )
               })()}
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(380px,1fr))', gap: '14px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,380px),1fr))', gap: '14px' }}>
 
                 {/* Performance */}
                 <div style={{ ...cardStyle, padding: '18px' }}>
@@ -3236,8 +3346,8 @@ export default function DashboardPage() {
               <div style={{ fontSize: '20px', fontWeight: 800, color: T.textWhite, marginBottom: '2px' }}>Reports</div>
               <div style={{ fontSize: '12px', color: T.textSecondary, marginBottom: '18px' }}>Generate filtered reports — use Print / Save as PDF to export</div>
 
-              <div className="no-print" style={{ ...cardStyle, padding: '12px 16px', marginBottom: '16px', display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-                <div style={{ display: 'inline-flex', background: T.bgMuted, border: `1px solid ${T.border}`, borderRadius: '999px', padding: '3px' }}>
+              <div className="no-print rep-controls" style={{ ...cardStyle, padding: '12px 16px', marginBottom: '16px', display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <div className="rep-type" style={{ display: 'inline-flex', background: T.bgMuted, border: `1px solid ${T.border}`, borderRadius: '999px', padding: '3px' }}>
                   {[['install', 'Installation Overview'], ['perf', 'Site Performance']].map(([k, label]) => (
                     <button key={k} onClick={() => setRepType(k)}
                       style={{ padding: '7px 18px', borderRadius: '999px', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 700, background: repType === k ? T.blue : 'transparent', color: repType === k ? '#fff' : T.textSecondary, transition: 'all 0.15s' }}>
@@ -3258,10 +3368,10 @@ export default function DashboardPage() {
                     })}
                   </select>
                 )}
-                <button onClick={() => repType === 'install' ? exportInstallExcel() : exportPerfExcel()} style={{ marginLeft: 'auto', padding: '8px 16px', background: 'transparent', color: T.green, border: `1px solid ${T.green}`, borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>
+                <button className="rep-btn" onClick={() => repType === 'install' ? exportInstallExcel() : exportPerfExcel()} style={{ marginLeft: 'auto', padding: '8px 16px', background: 'transparent', color: T.green, border: `1px solid ${T.green}`, borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>
                   <i className="ti ti-file-spreadsheet" style={{ marginRight: '6px' }} />Export Excel
                 </button>
-                <button onClick={() => window.print()} style={{ padding: '8px 18px', background: T.blue, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>
+                <button className="rep-btn" onClick={() => window.print()} style={{ padding: '8px 18px', background: T.blue, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>
                   <i className="ti ti-printer" style={{ marginRight: '6px' }} />Print / Save PDF
                 </button>
               </div>
@@ -3272,7 +3382,7 @@ export default function DashboardPage() {
                 const fmtN = (n) => Number(n).toLocaleString()
 
                 const ReportHeader = ({ showPeriod }) => (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '3px solid #2B7FD4', paddingBottom: '18px', marginBottom: '22px' }}>
+                  <div className="rep-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '3px solid #2B7FD4', paddingBottom: '18px', marginBottom: '22px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                       <img src="/sosimple-icon.png" alt="Sosimple" width="44" height="50" style={{ height: '50px', width: 'auto', display: 'block' }} />
                       <div>
@@ -3320,11 +3430,11 @@ export default function DashboardPage() {
                   ]
 
                   return (
-                    <div className="print-area" style={{ background: '#fff', color: navy, border: `1px solid ${T.border}`, borderRadius: '12px', padding: '32px' }}>
+                    <div className="print-area rep-doc" style={{ background: '#fff', color: navy, border: `1px solid ${T.border}`, borderRadius: '12px', padding: '32px' }}>
                       <ReportHeader showPeriod={false} />
                       <div style={{ fontSize: '18px', fontWeight: 800, color: navy, marginBottom: '18px' }}>Installation Overview</div>
 
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: '12px', marginBottom: '24px' }}>
+                      <div className="rep-kpis" style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: '12px', marginBottom: '24px' }}>
                         {kpis.map(k => (
                           <div key={k.label} style={{ background: '#f7fafd', border: '1px solid #e3ecf6', borderRadius: '8px', padding: '14px 12px', textAlign: 'center' }}>
                             <div style={{ fontSize: '17px', fontWeight: 800, color: k.color, lineHeight: 1.1 }}>{k.val}</div>
@@ -3333,7 +3443,28 @@ export default function DashboardPage() {
                         ))}
                       </div>
 
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px', tableLayout: 'fixed' }}>
+                      {isPhone && <RepCards T={T} items={rSites} show={repShow} onMore={() => setRepShow(n => n + 50)} empty="No sites match the selected filter"
+                        total={<>Total ({rSites.length}) · <b>{fmtN(Math.round(totCap))} kWp</b>{totBess ? <> · <b>{fmtN(Math.round(totBess / 1000))} kWh</b></> : null}</>}
+                        render={s => (
+                          <>
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                              <div style={{ flex: 1, minWidth: 0, fontSize: '14px', fontWeight: 700, color: navy }}>{s.name}</div>
+                              <span style={{ fontSize: '10px', fontWeight: 700, color: s.status === 'active' ? '#3a9b3a' : '#d23b3b', border: `1px solid ${s.status === 'active' ? '#3a9b3a55' : '#d23b3b55'}`, borderRadius: '4px', padding: '1px 6px', textTransform: 'capitalize' }}>{s.status || 'active'}</span>
+                              <button onClick={() => exportSiteExcel(s.name)} aria-label={`Download ${s.name} Excel report`} style={{ background: 'transparent', border: '1px solid #cfe6bd', borderRadius: '6px', color: '#5FA82E', padding: '3px 7px', cursor: 'pointer', fontSize: '14px', lineHeight: 1 }}><i className="ti ti-file-spreadsheet" /></button>
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#5a7aaa', marginTop: '2px' }}>{[s.province, s.business_type, s.investment_party].filter(Boolean).join(' · ') || '—'}</div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: '6px', marginTop: '9px' }}>
+                              {[['kWp', s.capacity_kw != null ? fmtN(s.capacity_kw) : '—'], ['BESS kWh', s.battery_size_wh > 0 ? fmtN(s.battery_size_wh / 1000) : '—'], ['Contract', s.system_type || '—'], ['Age', fmtAge(s)]].map(([l, v]) => (
+                                <div key={l} style={{ background: '#f7fafd', border: '1px solid #e3ecf6', borderRadius: '6px', padding: '5px 6px', minWidth: 0 }}>
+                                  <div style={{ fontSize: '9px', color: grey }}>{l}</div>
+                                  <div style={{ fontSize: '12px', fontWeight: 700, color: navy, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v}</div>
+                                </div>
+                              ))}
+                            </div>
+                            {s.power_limit && <div style={{ fontSize: '11px', color: '#5a7aaa', marginTop: '7px' }}>Power limit: <b style={{ color: navy, fontWeight: 600 }}>{s.power_limit}</b></div>}
+                          </>
+                        )} />}
+                      <table className="rep-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px', tableLayout: 'fixed' }}>
                         <thead>
                           <tr style={{ background: '#2B7FD4' }}>
                             {cols.map(c => (
@@ -3421,11 +3552,11 @@ export default function DashboardPage() {
                 ]
 
                 return (
-                  <div className="print-area" style={{ background: '#fff', color: navy, border: `1px solid ${T.border}`, borderRadius: '12px', padding: '32px' }}>
+                  <div className="print-area rep-doc" style={{ background: '#fff', color: navy, border: `1px solid ${T.border}`, borderRadius: '12px', padding: '32px' }}>
                     <ReportHeader showPeriod={true} />
                     <div style={{ fontSize: '18px', fontWeight: 800, color: navy, marginBottom: '18px' }}>Site Performance Report</div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: '12px', marginBottom: '24px' }}>
+                    <div className="rep-kpis" style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: '12px', marginBottom: '24px' }}>
                       {kpis.map(k => (
                         <div key={k.label} style={{ background: '#f7fafd', border: '1px solid #e3ecf6', borderRadius: '8px', padding: '14px 12px', textAlign: 'center' }}>
                           <div style={{ fontSize: '17px', fontWeight: 800, color: k.color, lineHeight: 1.1 }}>{k.val}</div>
@@ -3434,7 +3565,52 @@ export default function DashboardPage() {
                       ))}
                     </div>
 
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9.5px', tableLayout: 'fixed' }}>
+                    {isPhone && <RepCards T={T} items={rows} show={repShow} onMore={() => setRepShow(n => n + 50)} empty="No records match the selected filters"
+                      total={<>{rows.length.toLocaleString()} rows · Measured <b>{fmtN(totMeas)} kWh</b> · <b style={{ color: delta == null ? navy : delta >= 0 ? '#3a9b3a' : '#d23b3b' }}>{delta != null ? `${delta > 0 ? '+' : ''}${delta.toFixed(1)}%` : '—'}</b> vs expected</>}
+                      render={p => {
+                        const d = (p.kwh_produced != null && p.expected_kwh) ? ((p.kwh_produced - p.expected_kwh) / p.expected_kwh) * 100 : null
+                        const dt = p.downtime_days
+                        const dtRed = dt != null && String(dt) !== '' && String(dt) !== '0' && !/^(none|n\/a|-+)$/i.test(String(dt))
+                        const perfC = p.performance_pct == null ? '#9ab0c8' : p.performance_pct >= 90 ? '#3a9b3a' : p.performance_pct >= 70 ? '#f0820a' : '#d23b3b'
+                        const notes = [['Availability', p.availability], ['Downtime', p.downtime_days], ['Cause of downtime', p.cause_of_downtime], ['Technical events', p.technical_events], ['Energy impact', p.energy_impact], ['Other comments', p.other_comments || p.comment]]
+                          .filter(([l, v]) => v != null && String(v).trim() !== '' && !(l === 'Downtime' && String(v).trim() === '0'))
+                        return (
+                          <>
+                            <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                              <div style={{ flex: 1, minWidth: 0, fontSize: '14px', fontWeight: 700, color: navy }}>{p.site_name}</div>
+                              <span style={{ fontSize: '11px', color: '#5a7aaa', whiteSpace: 'nowrap' }}>{fmtDate(p.month, p.year)}</span>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: '6px', marginTop: '8px' }}>
+                              {[['Measured', p.kwh_produced != null ? fmtN(p.kwh_produced) : '—', navy], ['Expected', p.expected_kwh != null ? fmtN(p.expected_kwh) : '—', '#33475f'],
+                                ['Δ %', d != null ? `${d > 0 ? '+' : ''}${d.toFixed(1)}%` : '—', d == null ? '#9ab0c8' : d >= 0 ? '#3a9b3a' : '#d23b3b'],
+                                ['Perf %', p.performance_pct != null ? `${p.performance_pct.toFixed(1)}%` : '—', perfC]].map(([l, v, c]) => (
+                                <div key={l} style={{ background: '#f7fafd', border: '1px solid #e3ecf6', borderRadius: '6px', padding: '5px 6px', minWidth: 0 }}>
+                                  <div style={{ fontSize: '9px', color: grey }}>{l}{l === 'Measured' || l === 'Expected' ? ' kWh' : ''}</div>
+                                  <div style={{ fontSize: '12px', fontWeight: 700, color: c, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v}</div>
+                                </div>
+                              ))}
+                            </div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px', alignItems: 'center' }}>
+                              {p.pf_band && <span style={{ fontSize: '10px', fontWeight: 700, color: perfC, border: `1px solid ${perfC}55`, borderRadius: '4px', padding: '1px 6px' }}>{p.pf_band}</span>}
+                              {dtRed && <span style={{ fontSize: '10px', fontWeight: 700, color: '#d23b3b', border: '1px solid #d23b3b55', borderRadius: '4px', padding: '1px 6px' }}>Downtime: {dt}</span>}
+                            </div>
+                            {notes.length > 0 && (
+                              <details style={{ marginTop: '8px' }}>
+                                <summary style={{ fontSize: '12px', fontWeight: 700, color: '#2B7FD4', cursor: 'pointer', padding: '4px 0' }}>Show comments ({notes.length})</summary>
+                                <div style={{ display: 'grid', gap: '8px', marginTop: '6px', paddingLeft: '2px' }}>
+                                  {notes.map(([l, v]) => (
+                                    <div key={l}>
+                                      <div style={{ fontSize: '9px', fontWeight: 700, color: l === 'Downtime' && dtRed ? '#d23b3b' : grey, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{l}</div>
+                                      <div style={{ fontSize: '12px', color: '#33475f', lineHeight: 1.5, whiteSpace: 'pre-line', wordBreak: 'break-word' }}>{String(v)}</div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </details>
+                            )}
+                          </>
+                        )
+                      }} />}
+                    <table className="rep-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9.5px', tableLayout: 'fixed' }}>
                       <thead>
                         <tr style={{ background: '#2B7FD4' }}>
                           {cols.map((c, i) => (
@@ -3496,7 +3672,92 @@ export default function DashboardPage() {
 
         </main>
       </div>
+
+      {/* ── PHONE: bottom tab bar + More sheet (hidden above 640 px) ─────────── */}
+      {(() => {
+        const moreItems = [
+          { id: 'siteperf',    icon: 'ti-chart-line',     label: 'Site Performance' },
+          { id: 'offtake',     icon: 'ti-shield-check',   label: 'Offtake Guarantees' },
+          { id: 'report',      icon: 'ti-file-analytics', label: 'Reports' },
+          { id: 'engineering', icon: 'ti-tools',          label: 'Engineering Tools' },
+          { id: 'upload',      icon: 'ti-upload',         label: 'Data Upload' },
+        ]
+        const onProjects = activePage === 'engineering' && engTool === 'projects'
+        const tabs = [
+          { key: 'overview', icon: 'ti-dashboard', label: 'Overview', active: activePage === 'overview', go: () => { setActivePage('overview'); setEngTool(null) } },
+          { key: 'sites', icon: 'ti-map-pin', label: 'Sites', active: activePage === 'sites', go: () => { setActivePage('sites'); setEngTool(null) } },
+          { key: 'performance', icon: 'ti-activity', label: 'Performance', active: activePage === 'performance', go: () => { setActivePage('performance'); setEngTool(null) } },
+          { key: 'projects', icon: 'ti-briefcase', label: 'Projects', active: onProjects, go: () => { setActivePage('engineering'); setEngTool('projects') } },
+          { key: 'more', icon: 'ti-dots', label: 'More', active: mobileMore || (moreItems.some(m => m.id === activePage) && !onProjects), go: () => setMobileMore(o => !o) },
+        ]
+        return (
+          <>
+            <nav className="no-print mobile-tabbar" aria-label="Main" style={{
+              position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 900,
+              background: T.isDark ? 'rgba(30,42,60,0.97)' : 'rgba(255,255,255,0.97)', backdropFilter: 'blur(8px)',
+              borderTop: `1px solid ${T.border}`, boxShadow: '0 -4px 16px rgba(10,20,35,0.08)',
+              paddingBottom: 'env(safe-area-inset-bottom)',
+            }}>
+              {tabs.map(t => (
+                <button key={t.key} onClick={t.go} aria-current={t.active ? 'page' : undefined}
+                  style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', padding: '8px 2px 7px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', cursor: 'pointer', color: t.active ? T.blue : T.textMuted, fontSize: '10px', fontWeight: t.active ? 700 : 500, borderTop: `2px solid ${t.active ? T.blue : 'transparent'}` }}>
+                  <i className={`ti ${t.icon}`} style={{ fontSize: '21px' }} />
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>{t.label}</span>
+                </button>
+              ))}
+            </nav>
+
+            {mobileMore && (
+              <div className="no-print mobile-sheet-wrap" onClick={e => { if (e.target === e.currentTarget) setMobileMore(false) }}
+                style={{ position: 'fixed', inset: 0, zIndex: 890, background: 'rgba(10,20,35,0.45)' }}>
+                <div className="mobile-sheet" role="dialog" aria-label="More pages" style={{
+                  position: 'absolute', left: 0, right: 0, bottom: 0, background: T.bgPanel, borderRadius: '16px 16px 0 0',
+                  padding: '10px 14px calc(76px + env(safe-area-inset-bottom))', boxShadow: '0 -8px 30px rgba(10,20,35,0.25)',
+                }}>
+                  <div style={{ width: '40px', height: '4px', borderRadius: '2px', background: T.border, margin: '0 auto 12px' }} />
+                  {moreItems.map(m => (
+                    <button key={m.id} onClick={() => { setActivePage(m.id); setEngTool(null); setMobileMore(false) }}
+                      style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '13px 10px', background: activePage === m.id ? 'rgba(43,127,212,0.12)' : 'transparent', border: 'none', borderRadius: '10px', cursor: 'pointer', color: activePage === m.id ? T.blue : T.textPrimary, fontSize: '15px', fontWeight: activePage === m.id ? 700 : 500, textAlign: 'left' }}>
+                      <i className={`ti ${m.icon}`} style={{ fontSize: '20px', color: activePage === m.id ? T.blue : T.textMuted }} />{m.label}
+                    </button>
+                  ))}
+                  <div style={{ borderTop: `1px solid ${T.border}`, marginTop: '8px', paddingTop: '12px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '13px', color: T.textSecondary, flex: '1 1 auto', display: 'inline-flex', alignItems: 'center', gap: '6px' }}><i className="ti ti-user-circle" />{user?.full_name || 'Employee'}</span>
+                    <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} style={{ background: T.bgMuted, border: `1px solid ${T.border}`, borderRadius: '8px', padding: '9px 12px', color: T.textSecondary, fontSize: '13px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      <i className={theme === 'light' ? 'ti ti-moon' : 'ti ti-sun'} />{theme === 'light' ? 'Dark' : 'Light'}
+                    </button>
+                    <button onClick={signOut} style={{ background: 'rgba(43,127,212,0.12)', border: '1px solid rgba(43,127,212,0.3)', borderRadius: '8px', padding: '9px 14px', color: T.blue, fontSize: '13px', fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      <i className="ti ti-logout" />Sign out
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
+        )
+      })()}
       </div>
     </>
+  )
+}
+
+// ── Reports on phones: one card per row instead of the wide printable table ──
+function RepCards({ items, show, onMore, render, total, empty }) {
+  if (!items.length) return <div className="rep-cards" style={{ padding: '24px', textAlign: 'center', color: '#9ab0c8', fontSize: '12px' }}>{empty}</div>
+  return (
+    <div className="rep-cards no-print">
+      {total && <div style={{ fontSize: '11px', color: '#5a7aaa', background: '#eef4fb', borderLeft: '3px solid #2B7FD4', borderRadius: '6px', padding: '8px 10px', marginBottom: '10px', lineHeight: 1.6 }}>{total}</div>}
+      {items.slice(0, show).map((it, i) => (
+        <div key={it.id || i} style={{ border: '1px solid #e3ecf6', borderRadius: '10px', padding: '11px 12px', marginBottom: '8px', background: '#fff' }}>
+          {render(it)}
+        </div>
+      ))}
+      {items.length > show && (
+        <button onClick={onMore} style={{ width: '100%', padding: '11px', border: '1px solid #2B7FD4', borderRadius: '8px', background: '#fff', color: '#2B7FD4', fontSize: '13px', fontWeight: 700, cursor: 'pointer', marginTop: '4px' }}>
+          Show more ({Math.min(50, items.length - show)} of {(items.length - show).toLocaleString()} remaining)
+        </button>
+      )}
+      <div style={{ fontSize: '10px', color: '#9ab0c8', textAlign: 'center', marginTop: '10px' }}>Print / Save PDF still produces the full table layout.</div>
+    </div>
   )
 }
