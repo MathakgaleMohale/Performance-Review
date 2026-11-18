@@ -28,6 +28,65 @@ export const STARTER_TASKS = {
   Handover: ['Certificate of Compliance (CoC) issued', 'O&M manual & warranties handed over', 'Client training', 'Handover certificate signed', 'Site added to performance portfolio'],
 }
 
+// ── Project templates (Phase 4 step 1, agreed with Mathakgale 2026-11-17) ──
+// A template = project type + starter checklist per stage. All 8 stages always apply.
+// Templates are stored in the project_templates table (editable from "Manage templates").
+// The list below seeds that table (supabase/project_templates.sql) and is the fallback
+// if the table has not been created yet.
+const BOQ_TASKS = ['Draft BOQ', 'Supplier quotes received', 'BOQ / costing approved']
+export const DEFAULT_TEMPLATES = [
+  {
+    name: 'C&I rooftop', sort: 1,
+    description: 'Commercial and industrial rooftop PV, grid-tied.',
+    tasks: {
+      'Site Visit': ['Meet client & confirm scope and energy goals', 'Roof structural assessment (engineer report)', 'Roof type, age & waterproofing condition', 'Shading assessment', 'Locate main LV board, metering & inverter position', 'Obtain 12 months electricity bills / load profile', 'Confirm supply size & notified maximum demand (NMD)', 'Take site photos / drone survey'],
+      Design: ['PV layout incl. roof walkways & access', 'Structural sign-off of roof loading', 'Single line diagram (SLD)', 'Cable sizing', 'Energy yield simulation', 'Protection, earthing & lightning protection design', 'SSEG / grid connection application submitted', 'Design pack issued for approval', 'Client design sign-off'],
+      BOQ: BOQ_TASKS,
+      Procurement: ['Purchase orders issued', 'Delivery dates confirmed', 'Crane / lifting plan & equipment booked', 'Equipment delivered & checked on site'],
+      Installation: ['Site handover from client, safety file & permits', 'Working-at-height plan & fall protection in place', 'Mounting structure / rails installed', 'PV modules installed', 'Inverters, combiners & DBs installed', 'DC & AC cabling and cable trays complete', 'Earthing & lightning protection', 'Roof penetrations sealed & waterproofing checked'],
+      'Quality Control': ['QC checklist completed', 'Insulation resistance & polarity tests (string Voc / Isc)', 'Protection & anti-islanding settings verified', 'Commissioning test sheets', 'Snag list closed out'],
+      'As-Built': ['As-built SLD', 'As-built PV layout', 'Equipment serial numbers recorded', 'Monitoring set up & verified'],
+      Handover: ['Certificate of Compliance (CoC) issued', 'SSEG approval / utility sign-off received', 'O&M manual & warranties handed over', 'Client training', 'Handover certificate signed', 'Site added to performance portfolio'],
+    },
+  },
+  {
+    name: 'Ground-mount', sort: 2,
+    description: 'Ground-mounted arrays and carports.',
+    tasks: {
+      'Site Visit': ['Meet client & confirm scope', 'Confirm land, servitudes & site access', 'Topographic survey', 'Geotechnical investigation / pile pull-out tests', 'Flood, drainage & vegetation assessment', 'Point of connection & cable route', 'Obtain 12 months electricity bills / load profile', 'Take site photos / drone survey'],
+      Design: ['Array layout, row spacing & tilt', 'Foundation / piling design', 'Single line diagram (SLD)', 'Cable sizing & trench routing', 'Energy yield simulation', 'Earthing & lightning protection design', 'Fencing, security & access road design', 'Environmental / land-use authorisation checked', 'SSEG / grid connection application submitted', 'Design pack issued for approval', 'Client design sign-off'],
+      BOQ: BOQ_TASKS,
+      Procurement: ['Purchase orders issued', 'Delivery dates confirmed', 'Piling rig & plant hire booked', 'Secure laydown area arranged', 'Equipment delivered & checked on site'],
+      Installation: ['Site handover from client, safety file & permits', 'Site clearing & levelling', 'Fencing & site security', 'Piling / foundations', 'Mounting structure installed', 'PV modules installed', 'Inverters / skids / transformer installed', 'Trenching, DC & AC cabling', 'Earthing & lightning protection', 'Backfill & reinstatement'],
+      'Quality Control': ['QC checklist completed', 'Pile pull-out / torque test results recorded', 'Insulation resistance & polarity tests', 'Protection settings verified', 'Commissioning test sheets', 'Snag list closed out'],
+      'As-Built': ['As-built SLD', 'As-built array layout & cable routes', 'Equipment serial numbers recorded', 'Monitoring & security systems set up & verified'],
+      Handover: ['Certificate of Compliance (CoC) issued', 'SSEG approval / utility sign-off received', 'O&M manual & warranties handed over', 'Vegetation control & module cleaning plan agreed', 'Client training', 'Handover certificate signed', 'Site added to performance portfolio'],
+    },
+  },
+  {
+    name: 'Hybrid / BESS', sort: 3,
+    description: 'PV with batteries, or battery-only projects.',
+    tasks: {
+      'Site Visit': ['Meet client & confirm backup / self-consumption goals', 'List essential loads & required backup time', 'Obtain 12 months electricity bills / load profile', 'Roof / ground structure assessment', 'Shading assessment', 'Battery & inverter room location (ventilation, fire, clearances)', 'Locate main DB & meter', 'Take site photos'],
+      Design: ['PV layout', 'Battery sizing & autonomy calculation', 'SLD incl. essential / non-essential split & changeover', 'Cable sizing incl. battery DC cables', 'Energy yield & battery simulation', 'Battery room fire safety & ventilation design', 'Protection, earthing & lightning protection design', 'SSEG / grid connection application submitted', 'Design pack issued for approval', 'Client design sign-off'],
+      BOQ: BOQ_TASKS,
+      Procurement: ['Purchase orders issued', 'Delivery dates confirmed', 'Battery transport (dangerous goods) arranged', 'Equipment delivered & checked (battery damage / SoC)'],
+      Installation: ['Site handover from client & safety file', 'Mounting structure installed', 'PV modules installed', 'Inverters & batteries installed', 'Essential loads DB split / changeover', 'DC, battery & AC cabling complete', 'Earthing & lightning protection', 'Fire detection, signage & emergency shutdown at battery room'],
+      'Quality Control': ['QC checklist completed', 'Insulation resistance & polarity tests', 'Battery BMS communication & firmware checked', 'Backup test with grid off (islanding)', 'Charge / discharge settings verified (SoC limits, TOU)', 'Commissioning test sheets', 'Snag list closed out'],
+      'As-Built': ['As-built SLD', 'As-built layout', 'Equipment serial numbers recorded', 'Monitoring set up & verified (incl. battery)'],
+      Handover: ['Certificate of Compliance (CoC) issued', 'SSEG approval / utility sign-off received', 'O&M manual & warranties handed over (battery warranty registered)', 'Client training incl. backup operation & emergency shutdown', 'Handover certificate signed', 'Site added to performance portfolio'],
+    },
+  },
+  { name: 'General', sort: 9, description: 'The standard checklist, for projects that fit no other type.', tasks: STARTER_TASKS },
+]
+
+export const templateTaskCount = t => STAGES.reduce((n, s) => n + ((t?.tasks || {})[s] || []).length, 0)
+// Rows for project_tasks from a template (stages in order, blank titles skipped)
+export const templateTaskRows = (t, projectId, createdBy) => STAGES.flatMap(s =>
+  ((t?.tasks || {})[s] || []).map(x => String(x || '').trim()).filter(Boolean)
+    .map((title, i) => ({ project_id: projectId, stage: s, title, sort: i, created_by: createdBy || null })))
+export const templatesMissing = err => /project_templates|relation|does not exist|schema cache/i.test(err?.message || '')
+
 export const fmtDate = d => (d ? new Date(d.length === 10 ? d + 'T00:00:00' : d).toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' }) : '')
 export const fmtShort = d => (d ? new Date(d.length === 10 ? d + 'T00:00:00' : d).toLocaleDateString('en-ZA', { day: '2-digit', month: 'short' }) : '')
 export const fmtSize = b => (b == null ? '' : b < 1024 * 1024 ? `${Math.max(1, Math.round(b / 1024))} KB` : `${(b / 1024 / 1024).toFixed(1)} MB`)

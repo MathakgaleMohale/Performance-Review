@@ -10,6 +10,7 @@ import BoqTool from './BoqTool'
 import TemplatesTool from './TemplatesTool'
 import DocumentLibrary from './DocumentLibrary'
 import ProjectsTool from './ProjectsTool'
+import DesignPackHost from './DesignPackHost'
 
 // Parses semicolon-delimited CSV with quoted multiline fields
 function parseCSV(text) {
@@ -3005,14 +3006,7 @@ export default function DashboardPage() {
               </div>
 
               {engTool === 'design' ? (
-                <div style={{ ...cardStyle, padding: 0, overflow: 'hidden', height: 'calc(100vh - 150px)' }}>
-                  <iframe
-                    src="/design-pack-generator.html"
-                    title="Design Pack Generator"
-                    style={{ width: '100%', height: '100%', border: 'none', display: 'block', background: '#fff' }}
-                    allow="clipboard-write"
-                  />
-                </div>
+                <DesignPackHost T={T} cardStyle={cardStyle} selectStyle={selectStyle} userName={user?.full_name || user?.email || ''} height="calc(100vh - 210px)" />
               ) : engTool === 'cable' ? (
                 <CableSizingTool T={T} cardStyle={cardStyle} selectStyle={selectStyle} />
               ) : engTool === 'templates' ? (

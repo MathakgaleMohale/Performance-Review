@@ -25,6 +25,7 @@ export default function ProjectPage({ project: p, T, cardStyle, selectStyle, use
   const [stages, setStages] = useState({}) // stage -> row
   const [tasks, setTasks] = useState([])
   const [files, setFiles] = useState([])
+  const [packDrafts, setPackDrafts] = useState(null) // saved design packs of this project (null = design_packs.sql not run)
   const [links, setLinks] = useState([])
   const [reports, setReports] = useState(null) // null = Templates not set up
   const [docs, setDocs] = useState(null)       // null = Document Library not set up
@@ -39,7 +40,7 @@ export default function ProjectPage({ project: p, T, cardStyle, selectStyle, use
   const [items, setItems] = useState([])          // BOQs & cable schedules (without data)
   const [itemsReady, setItemsReady] = useState(true)
   const [openItem, setOpenItem] = useState(null)
-  const [archive, setArchive] = useState(null) // { zip, pdf, save, busy, progress, result, error }
+  const [archive, setArchive] = useState(null) // { zip, pdf, save, stages, title, titleEdited, busy, progress, result, error }
   const [embed, setEmbed] = useState(null) // { kind: 'design' | 'templates' | 'library', openReportId?, stage }
   const [confirmItem, setConfirmItem] = useState(null)
   const NOTES_KEY = 'sos-project-notes-open'
@@ -57,7 +58,7 @@ export default function ProjectPage({ project: p, T, cardStyle, selectStyle, use
   }
 
   async function load() {
-    const [st, tk, fl, lk, rp, dc, it] = await Promise.all([
+    const [st, tk, fl, lk, rp, dc, it, dp] = await Promise.all([
       supabase.from('project_stages').select('*').eq('project_id', p.id),
       supabase.from('project_tasks').select('*').eq('project_id', p.id).order('sort').order('created_at'),
       supabase.from('project_files').select('*').eq('project_id', p.id).order('created_at', { ascending: false }),
@@ -65,6 +66,7 @@ export default function ProjectPage({ project: p, T, cardStyle, selectStyle, use
       supabase.from('template_reports').select('id, title, site_name, template_name, status, report_date, updated_at').order('updated_at', { ascending: false }),
       supabase.from('engineering_documents').select('id, title, doc_type, brand, category, file_path, file_url, file_name').order('title'),
       supabase.from('project_items').select('id, project_id, stage, kind, title, created_by, updated_by, created_at, updated_at').eq('project_id', p.id).order('created_at'),
+      supabase.from('design_packs').select('id, title, doc_no, revision, updated_at, updated_by, design_pack_issues(count)').eq('project_id', p.id).order('updated_at', { ascending: false }),
     ])
     const err = st.error || tk.error || fl.error || lk.error
     if (err) { setError(err.message); setLoading(false); return }
@@ -76,6 +78,7 @@ export default function ProjectPage({ project: p, T, cardStyle, selectStyle, use
     setDocs(dc.error ? null : dc.data || [])
     setItemsReady(!it.error)
     setItems(it.error ? [] : it.data || [])
+    setPackDrafts(dp.error ? null : dp.data || [])
     setLoading(false)
     const imgs = (fl.data || []).filter(isImage).map(f => f.file_path)
     if (imgs.length) {
@@ -199,6 +202,16 @@ export default function ProjectPage({ project: p, T, cardStyle, selectStyle, use
     if (download) { const a = document.createElement('a'); a.href = data.signedUrl; document.body.appendChild(a); a.click(); a.remove() }
     else if (win) win.location.href = data.signedUrl; else window.location.href = data.signedUrl
   }
+  // Photo caption, used in the archive as "Photo n – caption" ('Design pack' / 'Project archive' are system labels)
+  const SYSTEM_CAPTIONS = ['Design pack', 'Project archive']
+  async function saveCaption(f, value) {
+    const caption = value.trim() || null
+    if ((f.caption || null) === caption) return
+    setFiles(l => l.map(x => (x.id === f.id ? { ...x, caption } : x)))
+    const { error: e } = await supabase.from('project_files').update({ caption }).eq('id', f.id)
+    if (e) { setFiles(l => l.map(x => (x.id === f.id ? { ...x, caption: f.caption } : x))); setToast(`Could not save the caption: ${e.message}`) }
+    else setToast(caption ? 'Caption saved' : 'Caption removed')
+  }
   async function removeFile(f) {
     const { error: e } = await supabase.from('project_files').delete().eq('id', f.id)
     if (!e) await supabase.storage.from(FILES).remove([f.file_path])
@@ -255,26 +268,47 @@ export default function ProjectPage({ project: p, T, cardStyle, selectStyle, use
 
   // ── compiled archive (ZIP + merged PDF) ──
   const saveBlobAs = (blob, name) => { const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000) }
+  // Stage presets: all 8 · Site Visit up to the project's current stage · only the stage on screen
+  const archivePresets = () => {
+    const cur = Math.max(0, STAGES.indexOf(p.stage))
+    return {
+      all: { label: 'All stages', stages: STAGES },
+      upto: { label: `Up to current (${p.stage})`, stages: STAGES.slice(0, cur + 1) },
+      this: { label: `This stage (${stage})`, stages: [stage] },
+    }
+  }
+  const defaultTitle = list => (list.length === 1 ? `${list[0]} archive` : 'Project archive')
+  const openArchive = (preset = 'all') => {
+    const list = archivePresets()[preset].stages
+    setArchive({ zip: true, pdf: true, save: false, stages: list, title: defaultTitle(list), titleEdited: false, busy: false, progress: '', result: null, error: '' })
+  }
+  const setArchiveStages = list => setArchive(a => {
+    const ordered = STAGES.filter(s => list.includes(s))
+    return { ...a, stages: ordered, title: a.titleEdited ? a.title : defaultTitle(ordered), result: null, error: '' }
+  })
+
   async function buildArchive() {
     const opt = archive
     if (!opt.zip && !opt.pdf) { setArchive(a => ({ ...a, error: 'Choose the ZIP, the PDF or both.' })); return }
+    if (!opt.stages.length) { setArchive(a => ({ ...a, error: 'Choose at least one stage.' })); return }
+    const saveStage = opt.stages.length === 1 ? opt.stages[0] : 'Handover'
     await flushNotes()
     setArchive(a => ({ ...a, busy: true, error: '', result: null, progress: 'Starting…' }))
     try {
       const { buildProjectArchive } = await import('./projectArchive')
-      const res = await buildProjectArchive(p, { zip: opt.zip, pdf: opt.pdf, userName, onProgress: m => setArchive(a => (a ? { ...a, progress: m } : a)) })
+      const res = await buildProjectArchive(p, { zip: opt.zip, pdf: opt.pdf, userName, plan: { stages: opt.stages, title: opt.title }, onProgress: m => setArchive(a => (a ? { ...a, progress: m } : a)) })
       if (opt.zip && !res.zipBlob) throw new Error(res.problems.join('; ') || 'The ZIP could not be built')
       if (opt.pdf && !res.pdfBlob) throw new Error(res.problems.join('; ') || 'The PDF could not be built')
       if (res.zipBlob) saveBlobAs(res.zipBlob, res.zipName)
       if (res.pdfBlob) setTimeout(() => saveBlobAs(res.pdfBlob, res.pdfName), 600)
       if (opt.save) {
-        setArchive(a => ({ ...a, progress: 'Saving a copy to the project (Handover → Files)…' }))
+        setArchive(a => ({ ...a, progress: `Saving a copy to the project (${saveStage} → Files)…` }))
         for (const [blob, name, type] of [[res.zipBlob, res.zipName, 'application/zip'], [res.pdfBlob, res.pdfName, 'application/pdf']]) {
           if (!blob) continue
-          const path = `${p.id}/Handover/${Date.now()}-${safeName(name)}`
+          const path = `${p.id}/${saveStage}/${Date.now()}-${safeName(name)}`
           const { error: upErr } = await supabase.storage.from(FILES).upload(path, blob, { upsert: false, contentType: type })
           if (upErr) { res.problems.push(`Saving ${name} to the project: ${upErr.message}`); continue }
-          await supabase.from('project_files').insert([{ project_id: p.id, stage: 'Handover', file_path: path, file_name: name, file_size: blob.size, file_type: type, caption: 'Project archive', uploaded_by: userName || null }])
+          await supabase.from('project_files').insert([{ project_id: p.id, stage: saveStage, file_path: path, file_name: name, file_size: blob.size, file_type: type, caption: 'Project archive', uploaded_by: userName || null }])
         }
         load()
       }
@@ -318,7 +352,8 @@ export default function ProjectPage({ project: p, T, cardStyle, selectStyle, use
   if (loading) return <div style={{ ...cardStyle, padding: '50px', textAlign: 'center', color: T.textSecondary, fontSize: '13px' }}>Loading project…</div>
 
   if (embed?.kind === 'design') {
-    return <DesignPackView project={p} T={T} cardStyle={cardStyle} selectStyle={selectStyle} onBack={closeEmbed} onCompiled={saveDesignPack} />
+    return <DesignPackView project={p} T={T} cardStyle={cardStyle} selectStyle={selectStyle} userName={userName} onBack={closeEmbed} onCompiled={saveDesignPack}
+      packId={embed.packId} startNew={embed.startNew} />
   }
   if (embed?.kind === 'templates') {
     return (
@@ -366,6 +401,7 @@ export default function ProjectPage({ project: p, T, cardStyle, selectStyle, use
             {p.site_name && <span><i className="ti ti-map-pin" /> {p.site_name}</span>}
             {p.location && <span><i className="ti ti-map" /> {p.location}</span>}
             {(p.capacity_kwp || p.battery_kwh) && <span><i className="ti ti-bolt" /> {[p.capacity_kwp ? `${Number(p.capacity_kwp).toLocaleString()} kWp` : null, p.battery_kwh ? `${Number(p.battery_kwh).toLocaleString()} kWh BESS` : null].filter(Boolean).join(' + ')}</span>}
+            {p.project_type && <span><i className="ti ti-template" /> {p.project_type}</span>}
             {p.system_type && <span><i className="ti ti-file-certificate" /> {p.system_type}</span>}
             {p.owner && <span><i className="ti ti-user" /> {p.owner}</span>}
             {(p.start_date || p.target_date) && <span><i className="ti ti-calendar" /> {fmtDate(p.start_date) || '—'} → {fmtDate(p.target_date) || 'no target'}</span>}
@@ -373,7 +409,7 @@ export default function ProjectPage({ project: p, T, cardStyle, selectStyle, use
           {p.description && <div style={{ fontSize: '12px', color: T.textMuted, marginTop: '6px' }}>{p.description}</div>}
         </div>
         <div style={{ display: 'flex', gap: '6px' }}>
-          <button onClick={() => setArchive({ zip: true, pdf: true, save: false, busy: false, progress: '', result: null, error: '' })} style={S.btn(T.blue)} title="Compile everything in this project into a ZIP and a merged PDF"><i className="ti ti-file-zip" />Download archive</button>
+          <button onClick={() => openArchive('all')} style={S.btn(T.blue)} title="Compile this project, or chosen stages, into a ZIP and a merged PDF"><i className="ti ti-file-zip" />Download archive</button>
           <button onClick={onEdit} style={S.ghost}><i className="ti ti-pencil" />Edit details</button>
           <button onClick={onDelete} style={S.iconBtn(T.red)} title="Delete project"><i className="ti ti-trash" /></button>
         </div>
@@ -414,7 +450,8 @@ export default function ProjectPage({ project: p, T, cardStyle, selectStyle, use
           {STAGE_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
         {stages[stage]?.completed_at && stageStatus(stage) === 'Done' && <span style={{ fontSize: '11px', color: T.textMuted }}>Completed {fmtDate(stages[stage].completed_at)}</span>}
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: '6px' }}>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+          <button onClick={() => openArchive('this')} style={S.ghost} title={`Download an archive of ${stage} only`}><i className="ti ti-download" />Download stage</button>
           {!isCurrent && <button onClick={async () => { await onMoveStage(stage); load() }} style={S.ghost}><i className="ti ti-target-arrow" />Make current stage</button>}
           {isCurrent && p.status !== 'Complete' && (
             <button onClick={completeAndAdvance} style={S.btn(T.green)}>
@@ -472,7 +509,9 @@ export default function ProjectPage({ project: p, T, cardStyle, selectStyle, use
         {/* Engineering work: BOQs & cable schedules */}
         <WorkItemsCard items={items} stage={stage} ready={itemsReady} T={T} cardStyle={cardStyle} S={S}
           onOpen={async i => { await flushNotes(); setOpenItem(i) }} onCreate={createItem} onDuplicate={duplicateItem} onDelete={i => setConfirmItem(i)}
-          designPacks={files.filter(f => f.caption === 'Design pack')} onDesignPack={() => openEmbed({ kind: 'design' })} onOpenFile={openFile} />
+          designPacks={files.filter(f => f.caption === 'Design pack')} onOpenFile={openFile} onDeleteFile={f => setConfirmFile(f)}
+          packDrafts={packDrafts} onNewPack={() => openEmbed({ kind: 'design', startNew: true })} onOpenPack={id => openEmbed({ kind: 'design', packId: id })}
+          onAllPacks={() => openEmbed({ kind: 'design' })} />
 
         {/* Files & photos */}
         <div style={{ ...cardStyle, padding: '16px', minWidth: 0 }}
@@ -505,6 +544,13 @@ export default function ProjectPage({ project: p, T, cardStyle, selectStyle, use
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div onClick={() => openFile(f)} style={{ fontSize: '12px', fontWeight: 600, color: T.textPrimary, cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.file_name}</div>
                       <div style={{ fontSize: '10px', color: T.textMuted }}>{[fmtSize(f.file_size), fmtShort(f.created_at), f.uploaded_by].filter(Boolean).join(' · ')}</div>
+                      {isImage(f) && !SYSTEM_CAPTIONS.includes(f.caption) && (
+                        <input key={`${f.id}:${f.caption || ''}`} defaultValue={f.caption || ''} maxLength={120}
+                          placeholder="Add a caption for the archive, e.g. Main DB and ATS" aria-label={`Caption for ${f.file_name}`}
+                          onBlur={e => saveCaption(f, e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') { e.currentTarget.value = f.caption || ''; e.currentTarget.blur() } }}
+                          style={{ ...S.inp, marginTop: '4px', padding: '4px 8px', fontSize: '11px' }} />
+                      )}
                     </div>
                     <button onClick={() => openFile(f, true)} style={S.iconBtn(T.green)} title="Download"><i className="ti ti-download" /></button>
                     <button onClick={() => setConfirmFile(f)} style={S.iconBtn(T.red)} title="Delete"><i className="ti ti-trash" /></button>
@@ -625,13 +671,44 @@ export default function ProjectPage({ project: p, T, cardStyle, selectStyle, use
 
       {archive && (
         <div style={S.overlay} onClick={e => { if (e.target === e.currentTarget && !archive.busy) setArchive(null) }}>
-          <div style={{ ...cardStyle, width: '100%', maxWidth: '520px', padding: '22px' }}>
+          <div style={{ ...cardStyle, width: '100%', maxWidth: '560px', maxHeight: '92vh', overflowY: 'auto', padding: '22px' }}>
             <div style={{ fontSize: '16px', fontWeight: 800, color: T.textPrimary, marginBottom: '6px' }}><i className="ti ti-file-zip" style={{ color: T.blue }} /> Download project archive</div>
-            <div style={{ fontSize: '12px', color: T.textSecondary, marginBottom: '14px' }}>Compiles everything in <b>{p.name}</b>, across all 8 stages: notes, checklists, BOQs, cable schedules, design packs, checklist reports, library documents and uploaded files.</div>
+            <div style={{ fontSize: '12px', color: T.textSecondary, marginBottom: '12px' }}>
+              Compiles <b>{p.name}</b>{archive.stages.length === STAGES.length ? ', all 8 stages' : archive.stages.length === 1 ? `, ${archive.stages[0]} only` : `, ${archive.stages.length} of 8 stages`}: notes, checklists, BOQs, cable schedules, design packs, checklist reports, library documents and uploaded files.
+            </div>
+
+            {/* Stages */}
+            <div style={S.labelStyle}>Stages to include</div>
+            <div role="group" aria-label="Stage presets" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+              {Object.entries(archivePresets()).map(([k, pr]) => {
+                const on = pr.stages.length === archive.stages.length && pr.stages.every(s => archive.stages.includes(s))
+                return <button key={k} type="button" disabled={archive.busy} onClick={() => setArchiveStages(pr.stages)} aria-pressed={on} style={{ ...S.chip(on), padding: '5px 11px', fontSize: '11px' }}>{pr.label}</button>
+              })}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '4px 10px', marginBottom: '12px' }}>
+              {STAGES.map((s, i) => (
+                <label key={s} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: archive.stages.includes(s) ? T.textPrimary : T.textMuted, cursor: archive.busy ? 'default' : 'pointer', padding: '3px 0' }}>
+                  <input type="checkbox" checked={archive.stages.includes(s)} disabled={archive.busy} aria-label={`Include ${s}`}
+                    onChange={e => setArchiveStages(e.target.checked ? [...archive.stages, s] : archive.stages.filter(x => x !== s))} style={{ accentColor: STAGE_META[s].color }} />
+                  <span style={{ fontSize: '10px', fontWeight: 800, color: T.textMuted }}>{String(i + 1).padStart(2, '0')}</span>{s}
+                </label>
+              ))}
+            </div>
+
+            {/* Cover title */}
+            <div style={S.labelStyle}>Cover title</div>
+            <input value={archive.title} disabled={archive.busy} onChange={e => setArchive(a => ({ ...a, title: e.target.value, titleEdited: true, result: null }))}
+              placeholder="Project archive" aria-label="Cover title" maxLength={60} style={{ ...S.inp, marginBottom: '6px' }} />
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '12px' }}>
+              {['Project archive', 'Design submission', 'Handover pack', 'Close-out report'].map(t => (
+                <button key={t} type="button" disabled={archive.busy} onClick={() => setArchive(a => ({ ...a, title: t, titleEdited: true, result: null }))}
+                  style={{ background: 'transparent', border: `1px dashed ${T.border}`, borderRadius: '999px', padding: '2px 9px', fontSize: '10px', color: T.textSecondary, cursor: 'pointer' }}>{t}</button>
+              ))}
+            </div>
             {[
-              ['zip', 'ZIP archive', 'A cover/summary PDF and checklist Excel, plus a folder per stage (01 Site Visit … 08 Handover) with every file in its original format: Word, Excel, PDF, photos, CAD.'],
+              ['zip', 'ZIP archive', 'A cover/summary PDF and checklist Excel, plus a folder per included stage (e.g. 01 Site Visit) with every file in its original format: Word, Excel, PDF, photos, CAD.'],
               ['pdf', 'Merged PDF', 'One PDF: cover, contents, stage summary, then each stage\'s checklist, notes, reports, BOQ quotes, cable schedules, design packs, PDFs and photos. Files that can\'t be shown in a PDF are listed at the end.'],
-              ['save', 'Also save a copy in this project', 'Stores the archive under Handover → Files & photos, so it stays with the project.'],
+              ['save', 'Also save a copy in this project', `Stores the archive under ${archive.stages.length === 1 ? archive.stages[0] : 'Handover'} → Files & photos, so it stays with the project.`],
             ].map(([k, label, desc]) => (
               <label key={k} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', padding: '9px 0', borderTop: `1px solid ${T.border}`, cursor: archive.busy ? 'default' : 'pointer' }}>
                 <input type="checkbox" checked={!!archive[k]} disabled={archive.busy} onChange={e => setArchive(a => ({ ...a, [k]: e.target.checked }))} style={{ marginTop: '2px', accentColor: T.blue }} />
@@ -684,7 +761,7 @@ export default function ProjectPage({ project: p, T, cardStyle, selectStyle, use
         <div style={S.overlay} onClick={e => { if (e.target === e.currentTarget) setConfirmFile(null) }}>
           <div style={{ ...cardStyle, width: '100%', maxWidth: '400px', padding: '22px' }}>
             <div style={{ fontSize: '15px', fontWeight: 800, color: T.textPrimary, marginBottom: '8px' }}>Delete file?</div>
-            <div style={{ fontSize: '12px', color: T.textSecondary, marginBottom: '16px' }}><b>{confirmFile.file_name}</b> will be permanently deleted from this project.</div>
+            <div style={{ fontSize: '12px', color: T.textSecondary, marginBottom: '16px' }}><b>{confirmFile.file_name}</b> will be permanently deleted from this project.{confirmFile.caption === 'Design pack' ? ' The copy kept under the design pack\'s Issued PDFs is not affected.' : ''}</div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
               <button onClick={() => setConfirmFile(null)} style={S.ghost}>Cancel</button>
               <button onClick={() => removeFile(confirmFile)} style={S.btn(T.red)}><i className="ti ti-trash" />Delete</button>

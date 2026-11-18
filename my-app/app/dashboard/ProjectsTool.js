@@ -4,9 +4,13 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import ProjectPage from './ProjectPage'
 import {
-  STAGES, STAGE_META, PROJECT_STATUSES, STARTER_TASKS, fmtDate, fmtShort, todayISO,
+  STAGES, STAGE_META, PROJECT_STATUSES, fmtDate, fmtShort, todayISO,
   setupMessage, uiStyles, checkPassword, projectHealth, HEALTH_META, initials,
+  DEFAULT_TEMPLATES, templateTaskRows, templateTaskCount, templatesMissing,
 } from './projectConfig'
+import ProjectTemplates from './ProjectTemplates'
+import ProjectWorkload from './ProjectWorkload'
+import ProjectReminders from './ProjectReminders'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Projects workspace (Engineering Tools)
@@ -18,7 +22,7 @@ import {
 
 const VIEW_KEY = 'sos-projects-view'
 const ZOOM_KEY = 'sos-projects-timeline-zoom'
-const VIEWS = [['board', 'ti-layout-kanban', 'Board'], ['list', 'ti-list-details', 'List'], ['timeline', 'ti-timeline', 'Timeline']]
+const VIEWS = [['board', 'ti-layout-kanban', 'Board'], ['list', 'ti-list-details', 'List'], ['timeline', 'ti-timeline', 'Timeline'], ['workload', 'ti-users', 'Workload']]
 
 // true when the screen is at most `max` px wide (phone layout = 640, same as page.js)
 function useNarrow(max = 640) {
@@ -60,7 +64,7 @@ const RESPONSIVE_CSS = `
 `
 const FILTER_KEY = 'sos-projects-filters'
 
-const DEFAULT_FILTERS = { status: 'open', owner: '', stage: '', health: '', due: '', overdue: false, sort: 'target' }
+const DEFAULT_FILTERS = { status: 'open', owner: '', type: '', stage: '', health: '', due: '', overdue: false, sort: 'target' }
 
 const HEALTH_FILTERS = [['', 'Any health'], ['riskOrLate', 'At risk or late'], ['ok', 'On track'], ['risk', 'At risk'], ['late', 'Late']]
 const DUE_FILTERS = [['', 'Any handover date'], ['month', 'Handover this month'], ['30', 'Handover in next 30 days'], ['past', 'Past target date'], ['none', 'No target date']]
@@ -86,7 +90,7 @@ function sortProjects(list, sort) {
 }
 
 const blankForm = () => ({
-  name: '', client: '', site_name: '', location: '', capacity_kwp: '', battery_kwh: '', system_type: '',
+  name: '', client: '', site_name: '', location: '', capacity_kwp: '', battery_kwh: '', system_type: '', project_type: '',
   owner: '', stage: 'Site Visit', status: 'Active', start_date: todayISO(), target_date: '', description: '',
 })
 
@@ -101,7 +105,10 @@ export default function ProjectsTool({ T, cardStyle, selectStyle, userName, site
   const setFilter = (k, v) => setFilters(f => ({ ...f, [k]: v }))
   const ownerFilter = filters.owner
   const [openId, setOpenId] = useState(null)
-  const [form, setForm] = useState(null) // { mode: 'add'|'edit', id, data, starter, saving, error }
+  const [form, setForm] = useState(null) // { mode: 'add'|'edit', id, data, template, saving, error }
+  const [templates, setTemplates] = useState(DEFAULT_TEMPLATES) // project_templates rows (built-in list until the table exists)
+  const [templatesReady, setTemplatesReady] = useState(false)
+  const [showTemplates, setShowTemplates] = useState(false)
   const [delProject, setDelProject] = useState(null)
   const [delPw, setDelPw] = useState('')
   const [delErr, setDelErr] = useState('')
@@ -134,18 +141,33 @@ export default function ProjectsTool({ T, cardStyle, selectStyle, userName, site
 
   async function load() {
     setLoadError('')
-    const { data, error } = await supabase.from('projects').select('*, project_tasks(done, due_date)').order('target_date', { ascending: true, nullsFirst: false })
+    const { data, error } = await supabase.from('projects').select('*, project_tasks(id, title, stage, assignee, done, due_date)').order('target_date', { ascending: true, nullsFirst: false })
     if (error) { setLoadError(setupMessage(error)); setProjects([]) } else setProjects(data || [])
     setLoading(false)
   }
   useEffect(() => { load() }, [])
 
+  async function loadTemplates() {
+    const { data, error } = await supabase.from('project_templates').select('*').order('sort').order('name')
+    if (error) { setTemplatesReady(false); setTemplates(DEFAULT_TEMPLATES); if (!templatesMissing(error)) console.warn('project_templates:', error.message); return }
+    setTemplatesReady(true); setTemplates(data || [])
+  }
+  useEffect(() => { loadTemplates() }, [])
+  const activeTemplates = templates.filter(t => t.active !== false)
+  const projectTypes = useMemo(() => [...new Set([...templates.map(t => t.name), ...projects.map(p => p.project_type).filter(Boolean)])], [templates, projects])
+
   const siteNames = useMemo(() => [...new Set((sites || []).map(s => s?.name?.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b)), [sites])
   const owners = useMemo(() => [...new Set(projects.map(p => (p.owner || '').trim()).filter(Boolean))].sort(), [projects])
+  // Everyone named as an owner or task assignee (for the reminders "For …" picker)
+  const people = useMemo(() => {
+    const m = new Map()
+    for (const p of projects) for (const n of [p.owner, ...(p.project_tasks || []).map(t => t.assignee)]) { const v = (n || '').trim(); if (v && !m.has(v.toLowerCase())) m.set(v.toLowerCase(), v) }
+    return [...m.values()].sort((a, b) => a.localeCompare(b))
+  }, [projects])
 
   const filtered = useMemo(() => {
     const words = search.trim().toLowerCase().split(/\s+/).filter(Boolean)
-    const { status, owner, stage, health, due, overdue, sort } = filters
+    const { status, owner, type, stage, health, due, overdue, sort } = filters
     const now = new Date()
     const today = now.toISOString().slice(0, 10)
     const ym = today.slice(0, 7)
@@ -153,9 +175,10 @@ export default function ProjectsTool({ T, cardStyle, selectStyle, userName, site
     const list = projects.filter(p => {
       if (!(status === 'all' || (status === 'open' ? ['Active', 'On hold'].includes(p.status) : p.status === status))) return false
       if (owner && (p.owner || '').trim() !== owner) return false
+      if (type && (type === '__none' ? p.project_type : p.project_type !== type)) return false
       if (stage && p.stage !== stage) return false
       if (words.length) {
-        const hay = [p.name, p.client, p.site_name, p.location, p.owner, p.system_type, p.description, p.stage].filter(Boolean).join(' ').toLowerCase()
+        const hay = [p.name, p.client, p.site_name, p.location, p.owner, p.system_type, p.project_type, p.description, p.stage].filter(Boolean).join(' ').toLowerCase()
         if (!words.every(w => hay.includes(w))) return false
       }
       if (health || overdue) {
@@ -177,6 +200,7 @@ export default function ProjectsTool({ T, cardStyle, selectStyle, userName, site
   const activeChips = [
     filters.status !== DEFAULT_FILTERS.status && { k: 'status', label: filters.status === 'all' ? 'All statuses' : filters.status },
     filters.owner && { k: 'owner', label: `Owner: ${filters.owner}` },
+    filters.type && { k: 'type', label: filters.type === '__none' ? 'No project type' : `Type: ${filters.type}` },
     filters.stage && { k: 'stage', label: `Stage: ${filters.stage}` },
     filters.health && { k: 'health', label: HEALTH_FILTERS.find(x => x[0] === filters.health)?.[1] },
     filters.due && { k: 'due', label: DUE_FILTERS.find(x => x[0] === filters.due)?.[1] },
@@ -194,9 +218,10 @@ export default function ProjectsTool({ T, cardStyle, selectStyle, userName, site
   }
 
   // ── create / edit ──
-  const openAdd = (stage = 'Site Visit') => setForm({ mode: 'add', data: { ...blankForm(), stage }, starter: true, saving: false, error: '' })
+  // template: a template name, or '__none' for an empty checklist ('' = not chosen yet)
+  const openAdd = (stage = 'Site Visit') => { loadTemplates(); setForm({ mode: 'add', data: { ...blankForm(), stage }, template: '', showPreview: false, saving: false, error: '' }) }
   const openEdit = p => setForm({
-    mode: 'edit', id: p.id, starter: false, saving: false, error: '',
+    mode: 'edit', id: p.id, template: '', saving: false, error: '',
     data: Object.fromEntries(Object.keys(blankForm()).map(k => [k, p[k] == null ? '' : String(p[k])])),
   })
   const setF = (k, v) => setForm(f => ({ ...f, data: { ...f.data, [k]: v } }))
@@ -205,6 +230,8 @@ export default function ProjectsTool({ T, cardStyle, selectStyle, userName, site
     const f = form
     const d = f.data
     if (!d.name.trim()) { setForm(x => ({ ...x, error: 'Please give the project a name.' })); return }
+    if (f.mode === 'add' && !f.template) { setForm(x => ({ ...x, error: 'Please choose a project type (or "No starter checklist").' })); return }
+    const tpl = f.mode === 'add' && f.template !== '__none' ? templates.find(t => t.name === f.template) : null
     if (d.start_date && d.target_date && d.target_date < d.start_date) { setForm(x => ({ ...x, error: 'The target handover date is before the start date.' })); return }
     setForm(x => ({ ...x, saving: true, error: '' }))
     const num = v => (v === '' || v == null ? null : Number(v))
@@ -213,17 +240,24 @@ export default function ProjectsTool({ T, cardStyle, selectStyle, userName, site
       capacity_kwp: num(d.capacity_kwp), battery_kwh: num(d.battery_kwh), system_type: d.system_type || null, owner: d.owner.trim() || null,
       stage: d.stage, status: d.status, start_date: d.start_date || null, target_date: d.target_date || null,
       description: d.description.trim() || null, updated_by: userName || null,
+      project_type: f.mode === 'add' ? (tpl ? tpl.name : null) : (d.project_type || null),
+    }
+    // If project_templates.sql has not been run yet, the project_type column is missing: save without it
+    const withType = async run => {
+      const res = await run(row)
+      if (res.error && /project_type/i.test(res.error.message || '')) { const { project_type, ...rest } = row; return run(rest) }
+      return res
     }
     try {
       if (f.mode === 'add') {
-        const { data, error } = await supabase.from('projects').insert([{ ...row, created_by: userName || null }]).select().single()
+        const { data, error } = await withType(r => supabase.from('projects').insert([{ ...r, created_by: userName || null }]).select().single())
         if (error) throw error
         const idx = STAGES.indexOf(row.stage)
         const stageRows = STAGES.map((s, i) => ({ project_id: data.id, stage: s, status: i < idx ? 'Done' : i === idx ? 'In progress' : 'Not started', updated_by: userName || null }))
         const { error: sErr } = await supabase.from('project_stages').insert(stageRows)
         if (sErr) throw sErr
-        if (f.starter) {
-          const tasks = STAGES.flatMap(s => (STARTER_TASKS[s] || []).map((title, i) => ({ project_id: data.id, stage: s, title, sort: i, created_by: userName || null })))
+        const tasks = tpl ? templateTaskRows(tpl, data.id, userName) : []
+        if (tasks.length) {
           const { error: tErr } = await supabase.from('project_tasks').insert(tasks)
           if (tErr) throw tErr
         }
@@ -232,7 +266,7 @@ export default function ProjectsTool({ T, cardStyle, selectStyle, userName, site
         await load()
         setOpenId(data.id)
       } else {
-        const { error } = await supabase.from('projects').update(row).eq('id', f.id)
+        const { error } = await withType(r => supabase.from('projects').update(r).eq('id', f.id))
         if (error) throw error
         setForm(null)
         setToast('Project details saved')
@@ -252,6 +286,17 @@ export default function ProjectsTool({ T, cardStyle, selectStyle, userName, site
     const idx = STAGES.indexOf(stage)
     await supabase.from('project_stages').update({ status: 'In progress' }).eq('project_id', p.id).eq('stage', stage).eq('status', 'Not started')
     if (idx > STAGES.indexOf(p.stage)) setToast(`${p.name} moved to ${stage}`)
+  }
+
+  // ── tick a checklist task off (Workload view) ──
+  async function toggleTask(t, done, proj) {
+    const pid = proj?.id || t.project?.id || t.project_id
+    const patch = { done, done_at: done ? new Date().toISOString() : null }
+    const apply = d => setProjects(list => list.map(p => (p.id !== pid ? p : { ...p, project_tasks: (p.project_tasks || []).map(x => (x.id === t.id ? { ...x, done: d } : x)) })))
+    apply(done)
+    const { error } = await supabase.from('project_tasks').update(patch).eq('id', t.id)
+    if (error) { apply(!done); setToast(`Could not update the task: ${error.message}`) }
+    else setToast(done ? 'Task marked done' : 'Task re-opened')
   }
 
   // ── delete (password confirm) ──
@@ -284,6 +329,62 @@ export default function ProjectsTool({ T, cardStyle, selectStyle, userName, site
                 <div style={S.labelStyle}>Project name</div>
                 <input autoFocus value={form.data.name} onChange={e => setF('name', e.target.value)} placeholder="e.g. Checkers Silverlakes 150 kWp" style={S.inp} />
               </div>
+              {form.mode === 'add' ? (() => {
+                const tpl = templates.find(t => t.name === form.template)
+                return (
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <div style={{ ...S.labelStyle, display: 'flex', alignItems: 'center' }}>
+                      Project type &amp; starter checklist
+                      <button type="button" onClick={() => setShowTemplates(true)} style={{ marginLeft: 'auto', background: 'transparent', border: 'none', color: T.blue, cursor: 'pointer', fontSize: '11px', fontWeight: 700, textTransform: 'none', letterSpacing: 0 }}><i className="ti ti-settings" /> Manage templates</button>
+                    </div>
+                    <div role="radiogroup" aria-label="Project type" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '8px' }}>
+                      {[...activeTemplates, { name: '__none' }].map(t => {
+                        const on = form.template === t.name
+                        const none = t.name === '__none'
+                        return (
+                          <button key={t.name} type="button" role="radio" aria-checked={on} onClick={() => setForm(x => ({ ...x, template: t.name, error: '' }))} title={t.description || ''}
+                            style={{ textAlign: 'left', padding: '9px 11px', borderRadius: '8px', cursor: 'pointer', border: `1.5px solid ${on ? T.blue : T.border}`, background: on ? `${T.blue}12` : T.bgPanel, color: T.textPrimary }}>
+                            <div style={{ fontSize: '12px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <i className={`ti ${on ? 'ti-circle-check-filled' : 'ti-circle'}`} style={{ color: on ? T.blue : T.textMuted }} />{none ? 'No starter checklist' : t.name}
+                            </div>
+                            <div style={{ fontSize: '10px', color: T.textMuted, marginTop: '3px' }}>{none ? 'Start with empty stages' : `${templateTaskCount(t)} tasks`}</div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                    {tpl && (
+                      <div style={{ marginTop: '8px', fontSize: '11px', color: T.textSecondary }}>
+                        {tpl.description ? <>{tpl.description} </> : null}
+                        <button type="button" onClick={() => setForm(x => ({ ...x, showPreview: !x.showPreview }))} style={{ background: 'transparent', border: 'none', color: T.blue, cursor: 'pointer', fontSize: '11px', fontWeight: 700, padding: 0 }}>
+                          {form.showPreview ? 'Hide checklist' : 'Preview checklist'}
+                        </button>
+                        {form.showPreview && (
+                          <div style={{ marginTop: '6px', maxHeight: '190px', overflowY: 'auto', border: `1px solid ${T.border}`, borderRadius: '8px', padding: '8px 10px', background: T.bgMuted }}>
+                            {STAGES.map(st => {
+                              const list = (tpl.tasks || {})[st] || []
+                              return (
+                                <div key={st} style={{ marginBottom: '6px' }}>
+                                  <div style={{ fontWeight: 800, color: STAGE_META[st].color }}>{st} <span style={{ color: T.textMuted, fontWeight: 600 }}>· {list.length}</span></div>
+                                  {list.map((x, i) => <div key={i} style={{ paddingLeft: '10px', color: T.textSecondary }}>– {x}</div>)}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <div style={{ fontSize: '10px', color: T.textMuted, marginTop: '6px' }}>All 8 stages apply to every project. You can edit the checklist on the project afterwards.</div>
+                  </div>
+                )
+              })() : (
+                <div>
+                  <div style={S.labelStyle}>Project type</div>
+                  <select value={form.data.project_type} onChange={e => setF('project_type', e.target.value)} style={{ ...selectStyle, width: '100%' }}>
+                    <option value="">—</option>
+                    {projectTypes.map(n => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                </div>
+              )}
               <div><div style={S.labelStyle}>Client</div><input value={form.data.client} onChange={e => setF('client', e.target.value)} style={S.inp} /></div>
               <div>
                 <div style={S.labelStyle}>Site (portfolio name)</div>
@@ -322,12 +423,6 @@ export default function ProjectsTool({ T, cardStyle, selectStyle, userName, site
                 <div style={S.labelStyle}>Short description</div>
                 <textarea rows={2} value={form.data.description} onChange={e => setF('description', e.target.value)} style={{ ...S.inp, resize: 'vertical', fontFamily: 'inherit' }} />
               </div>
-              {form.mode === 'add' && (
-                <label style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: T.textSecondary, cursor: 'pointer' }}>
-                  <input type="checkbox" checked={form.starter} onChange={e => setForm(x => ({ ...x, starter: e.target.checked }))} />
-                  Add the starter checklist for every stage (site visit, design, BOQ … handover). You can edit it afterwards.
-                </label>
-              )}
             </div>
             {form.error && <div style={{ marginTop: '12px', fontSize: '12px', color: T.red }}>{form.error}</div>}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '18px' }}>
@@ -338,6 +433,12 @@ export default function ProjectsTool({ T, cardStyle, selectStyle, userName, site
             </div>
           </div>
         </div>
+      )}
+
+      {showTemplates && (
+        <ProjectTemplates T={T} cardStyle={cardStyle} selectStyle={selectStyle} S={S} userName={userName} narrow={narrow}
+          templates={templates} tableReady={templatesReady} onClose={() => setShowTemplates(false)}
+          onSaved={msg => { setToast(msg); loadTemplates() }} />
       )}
 
       {delProject && (
@@ -400,6 +501,8 @@ export default function ProjectsTool({ T, cardStyle, selectStyle, userName, site
         <button className="proj-filter-toggle" onClick={() => setFiltersOpen(o => !o)} aria-expanded={filtersOpen} style={S.chip(filtersOpen || activeChips.some(c => c.k !== 'search'))}>
           <i className="ti ti-filter" />Filters{activeChips.filter(c => c.k !== 'search').length ? ` (${activeChips.filter(c => c.k !== 'search').length})` : ''}
         </button>
+        {!loadError && <ProjectReminders projects={projects} userName={userName} people={people} T={T} cardStyle={cardStyle} S={S} narrow={narrow} onOpen={id => setOpenId(id)} onToggleTask={toggleTask} />}
+        <button onClick={() => setShowTemplates(true)} title="Project types and their starter checklists" aria-label="Project templates" style={S.ghost}><i className="ti ti-template" />{!narrow && 'Templates'}</button>
         <button onClick={() => openAdd()} aria-label="New project" disabled={!!loadError} style={{ ...S.btn(T.blue), opacity: loadError ? 0.5 : 1 }}><i className="ti ti-plus" />New project</button>
 
         {/* Filter row */}
@@ -413,6 +516,11 @@ export default function ProjectsTool({ T, cardStyle, selectStyle, userName, site
           <select value={filters.owner} onChange={e => setFilter('owner', e.target.value)} aria-label="Owner" style={selectStyle}>
             <option value="">All owners</option>
             {owners.map(o => <option key={o} value={o}>{o}</option>)}
+          </select>
+          <select value={filters.type} onChange={e => setFilter('type', e.target.value)} aria-label="Project type" style={selectStyle}>
+            <option value="">All types</option>
+            {projectTypes.map(n => <option key={n} value={n}>{n}</option>)}
+            <option value="__none">No type</option>
           </select>
           <select value={filters.stage} onChange={e => setFilter('stage', e.target.value)} aria-label="Stage" style={selectStyle}>
             <option value="">All stages</option>
@@ -504,6 +612,8 @@ export default function ProjectsTool({ T, cardStyle, selectStyle, userName, site
         </>
       ) : view === 'list' ? (
         <ProjectList projects={filtered} T={T} cardStyle={cardStyle} S={S} narrow={narrow} sort={filters.sort} onSort={v => setFilter('sort', v)} onOpen={id => setOpenId(id)} />
+      ) : view === 'workload' ? (
+        <ProjectWorkload projects={filtered} T={T} cardStyle={cardStyle} S={S} narrow={narrow} onOpen={id => setOpenId(id)} onToggleTask={toggleTask} />
       ) : (
         <Timeline projects={filtered} T={T} cardStyle={cardStyle} narrow={narrow} onOpen={id => setOpenId(id)} />
       )}
@@ -810,8 +920,9 @@ function ProjectCard({ p, T, cardStyle, S, dimmed, draggable = true, onDragStart
       </div>
 
       {/* Size chips */}
-      {(p.capacity_kwp || p.battery_kwh || p.system_type) && (
+      {(p.capacity_kwp || p.battery_kwh || p.system_type || p.project_type) && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginTop: '8px' }}>
+          {p.project_type ? <span style={S.badge(T.textPrimary)} title="Project type"><i className="ti ti-template" />{p.project_type}</span> : null}
           {p.capacity_kwp ? <span style={S.badge(T.blue)}><i className="ti ti-solar-panel" />{Number(p.capacity_kwp).toLocaleString()} kWp</span> : null}
           {p.battery_kwh ? <span style={S.badge(T.green)}><i className="ti ti-battery-charging" />{Number(p.battery_kwh).toLocaleString()} kWh</span> : null}
           {p.system_type ? <span style={S.badge(T.textSecondary)}>{p.system_type}</span> : null}

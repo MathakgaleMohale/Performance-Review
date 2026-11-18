@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { supabase } from '@/lib/supabase'
 import { fmtShort } from './projectConfig'
+import DesignPackHost from './DesignPackHost'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Engineering work saved inside a project (table project_items):
@@ -53,7 +54,7 @@ export const bumpTitle = (title, items) => {
 }
 
 // ── List card shown on each stage ──
-export function WorkItemsCard({ items, stage, ready, T, cardStyle, S, onOpen, onCreate, onDuplicate, onDelete, designPacks = [], onDesignPack, onOpenFile }) {
+export function WorkItemsCard({ items, stage, ready, T, cardStyle, S, onOpen, onCreate, onDuplicate, onDelete, designPacks = [], onOpenFile, onDeleteFile, packDrafts = null, onNewPack, onOpenPack, onAllPacks }) {
   const list = items.filter(i => i.stage === stage)
   const others = items.filter(i => i.stage !== stage)
   const row = i => {
@@ -79,7 +80,7 @@ export function WorkItemsCard({ items, stage, ready, T, cardStyle, S, onOpen, on
         <div style={{ marginLeft: 'auto', display: 'flex', gap: '5px' }}>
           <button disabled={!ready} onClick={() => onCreate('boq')} style={{ ...S.iconBtn(T.blue), opacity: ready ? 1 : 0.5 }} title="New BOQ / costing"><i className="ti ti-plus" />BOQ</button>
           <button disabled={!ready} onClick={() => onCreate('cable')} style={{ ...S.iconBtn(T.blue), opacity: ready ? 1 : 0.5 }} title="New cable schedule"><i className="ti ti-plus" />Cable schedule</button>
-          {onDesignPack && <button onClick={onDesignPack} style={S.iconBtn(T.blue)} title="Open the Design Pack Generator for this project"><i className="ti ti-layout-grid" />Design pack</button>}
+          {onNewPack && <button onClick={onNewPack} style={S.iconBtn(T.blue)} title="Start a new design pack for this project"><i className="ti ti-plus" />Design pack</button>}
         </div>
       </div>
       {!ready ? (
@@ -94,9 +95,31 @@ export function WorkItemsCard({ items, stage, ready, T, cardStyle, S, onOpen, on
               {others.map(row)}
             </>
           )}
+          {/* Saved design pack drafts (design_packs) */}
+          <div style={{ display: 'flex', alignItems: 'center', marginTop: '12px' }}>
+            <div style={{ ...S.labelStyle, marginBottom: 0 }}>Design packs</div>
+            {onAllPacks && packDrafts && packDrafts.length > 0 && <button onClick={onAllPacks} style={{ marginLeft: 'auto', background: 'transparent', border: 'none', color: T.blue, fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}>All design packs</button>}
+          </div>
+          {packDrafts === null ? (
+            <div style={{ fontSize: '11px', color: T.textMuted, padding: '6px 0' }}>Saving design packs needs supabase/design_packs.sql to be run once. You can still use <b>+ Design pack</b> and download the PDF.</div>
+          ) : packDrafts.length === 0 ? (
+            <div style={{ fontSize: '11px', color: T.textMuted, padding: '6px 0' }}>No design packs yet. Use <b>+ Design pack</b> to start one; Save draft keeps it here.</div>
+          ) : packDrafts.map(d => {
+            const issued = d.design_pack_issues?.[0]?.count || 0
+            return (
+              <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 0', borderBottom: `1px solid ${T.border}` }}>
+                <i className="ti ti-layout-grid" style={{ color: T.green, fontSize: '18px' }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div onClick={() => onOpenPack(d.id)} style={{ fontSize: '12px', fontWeight: 700, color: T.textPrimary, cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.title}</div>
+                  <div style={{ fontSize: '10px', color: T.textMuted }}>{['Design pack draft', d.revision && `Rev ${d.revision}`, `${issued} issued`, `updated ${fmtShort(d.updated_at)}`, d.updated_by].filter(Boolean).join(' · ')}</div>
+                </div>
+                <button onClick={() => onOpenPack(d.id)} style={S.iconBtn(T.blue)} title="Continue this design pack"><i className="ti ti-pencil" /></button>
+              </div>
+            )
+          })}
           {designPacks.length > 0 && (
             <>
-              <div style={{ ...S.labelStyle, marginTop: '12px' }}>Design packs</div>
+              <div style={{ ...S.labelStyle, marginTop: '12px' }}>Issued design pack PDFs</div>
               {designPacks.map(f => (
                 <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 0', borderBottom: `1px solid ${T.border}` }}>
                   <i className="ti ti-file-type-pdf" style={{ color: '#D93A3A', fontSize: '18px' }} />
@@ -106,6 +129,7 @@ export function WorkItemsCard({ items, stage, ready, T, cardStyle, S, onOpen, on
                   </div>
                   <button onClick={() => onOpenFile(f)} style={S.iconBtn(T.blue)} title="Open"><i className="ti ti-eye" /></button>
                   <button onClick={() => onOpenFile(f, true)} style={S.iconBtn(T.green)} title="Download"><i className="ti ti-download" /></button>
+                  {onDeleteFile && <button onClick={() => onDeleteFile(f)} style={S.iconBtn(T.red)} title="Delete this PDF from the project"><i className="ti ti-trash" /></button>}
                 </div>
               ))}
             </>
@@ -212,38 +236,19 @@ export function EmbedBar({ project, icon, color, title, note, T, cardStyle, sele
 
 // ── Design Pack Generator opened from a project ──
 // Pre-fills the project information and saves the compiled PDF into the project (stage Design).
-export function DesignPackView({ project, T, cardStyle, selectStyle, onBack, onCompiled }) {
-  const frame = useRef(null)
-  const [status, setStatus] = useState('The compiled PDF downloads as usual and is saved to this project (Design stage).')
-  useEffect(() => {
-    function onMsg(e) {
-      if (e.origin !== window.location.origin || e.source !== frame.current?.contentWindow) return
-      const m = e.data || {}
-      if (m.type === 'sos-design-pack:ready') {
-        const kwp = project.capacity_kwp ? `${Number(project.capacity_kwp).toLocaleString()} kWp` : ''
-        frame.current.contentWindow.postMessage({
-          type: 'sos-design-pack:prefill',
-          project: {
-            name: project.name, location: project.location || project.site_name || '', sizeDc: kwp,
-            description: [kwp, project.battery_kwh ? `${Number(project.battery_kwh).toLocaleString()} kWh BESS` : '', project.system_type].filter(Boolean).join(' · '),
-          },
-        }, window.location.origin)
-      } else if (m.type === 'sos-design-pack:compiled' && m.blob) {
-        setStatus('Saving the design pack to the project…')
-        Promise.resolve(onCompiled(m.filename, m.blob))
-          .then(ok => setStatus(ok ? `Saved "${m.filename}" to the project (Design stage).` : 'The PDF downloaded, but saving it to the project failed. Upload it under Files & photos.'))
-      }
-    }
-    window.addEventListener('message', onMsg)
-    return () => window.removeEventListener('message', onMsg)
-  }, [project, onCompiled])
+export function DesignPackView({ project, T, cardStyle, selectStyle, userName, onBack, onCompiled, packId = null, startNew = false }) {
+  const kwp = project.capacity_kwp ? `${Number(project.capacity_kwp).toLocaleString('en-US')} kWp` : ''
+  const prefill = {
+    name: project.name, location: project.location || project.site_name || '', sizeDc: kwp,
+    description: [kwp, project.battery_kwh ? `${Number(project.battery_kwh).toLocaleString('en-US')} kWh BESS` : '', project.system_type].filter(Boolean).join(' · '),
+  }
   return (
     <div>
-      <EmbedBar project={project} icon="ti-layout-grid" color={T.green} title="Design Pack Generator" note={status} T={T} cardStyle={cardStyle} selectStyle={selectStyle} onBack={onBack} />
-      <div style={{ ...cardStyle, padding: 0, overflow: 'hidden', height: 'calc(100vh - 170px)', minHeight: '520px' }}>
-        <iframe ref={frame} src="/design-pack-generator.html?from=project" title="Design Pack Generator"
-          style={{ width: '100%', height: '100%', border: 'none', display: 'block', background: '#fff' }} allow="clipboard-write" />
-      </div>
+      <EmbedBar project={project} icon="ti-layout-grid" color={T.green} title="Design Pack Generator"
+        note="Save draft keeps the pack in this project. Each compiled PDF is kept as an issued revision and saved to the Design stage files."
+        T={T} cardStyle={cardStyle} selectStyle={selectStyle} onBack={onBack} />
+      <DesignPackHost project={project} prefill={prefill} T={T} cardStyle={cardStyle} selectStyle={selectStyle} userName={userName}
+        onCompiled={onCompiled} height="calc(100vh - 250px)" initialPackId={packId} startNew={startNew} />
     </div>
   )
 }
